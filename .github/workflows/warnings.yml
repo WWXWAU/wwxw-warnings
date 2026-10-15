@@ -26,4 +26,12 @@ jobs:
           git config user.name "wwxw-relay"
           git config user.email "relay@users.noreply.github.com"
           git add -A data
-          if git diff --cached --quiet; then echo "No change"; else git commit -m "Warnings update $(date -u +%H:%MZ)" && git push; fi
+          if git diff --cached --quiet; then echo "No change"; exit 0; fi
+          git commit -m "Warnings update $(date -u +%H:%MZ)"
+          # if the repository changed while this ran (e.g. a file was edited), catch up first, then save
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin main && git push && exit 0
+            sleep 5
+          done
+          exit 1
+
