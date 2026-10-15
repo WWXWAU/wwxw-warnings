@@ -6,20 +6,17 @@
    "id": "IDW21033",
    "product": "IDW21033",
    "type": "Severe Thunderstorm Warning",
-   "status": "current",
-   "headline": "Severe Thunderstorm Warning for South Interior forecast district",
-   "sent": "2026-10-15T08:23:26+00:00",
-   "expires": "2026-10-15T13:23:23+00:00",
-   "hazards": [
-    "damaging winds",
-    "large hail"
-   ],
+   "status": "cancelled",
+   "headline": "Cancellation of Severe Thunderstorm Warning for South Interior forecast district",
+   "sent": "2026-10-15T11:18:34+00:00",
+   "expires": "2026-10-15T16:18:27+00:00",
+   "hazards": [],
    "districts": [
     "South Interior"
    ],
    "towns": [],
    "townsPlaced": [],
-   "description": "Severe thunderstorms are likely to produce damaging winds and large hailstones in the warning area over the next several hours.",
+   "description": "This warning is now cancelled.",
    "areaSource": "districts",
    "area": {
     "type": "Polygon",
@@ -52,9 +49,8 @@
      ]
     ]
    },
-   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
-   "image": "img/IDW21041.png"
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml"
   }
  ],
- "updated": "2026-10-15T08:37:20+00:00"
+ "updated": "2026-10-15T11:38:45+00:00"
 }
