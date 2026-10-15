@@ -247,7 +247,7 @@ def main():
                       'Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.',
               'warnings': warnings}
     # write (and so commit) only when the warnings themselves change, not just the check time
-    if json.dumps(prev.get('warnings'), sort_keys=True) != json.dumps(warnings, sort_keys=True):
+    if not os.path.exists(out_path) or json.dumps(prev.get('warnings'), sort_keys=True) != json.dumps(warnings, sort_keys=True):
         result['updated'] = now.isoformat(timespec='seconds')
         json.dump(result, open(out_path, 'w'), indent=1)
         log('Updated:', len(warnings), 'warning(s):', ', '.join(w['type'] + ' [' + w['status'] + ', ' + w['areaSource'] + ']' for w in warnings) or 'none')
