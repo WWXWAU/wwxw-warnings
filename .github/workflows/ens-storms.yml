@@ -19,11 +19,11 @@ concurrency:
 
 jobs:
   ens:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install
@@ -31,7 +31,11 @@ jobs:
           pip install numpy eccodes
           python -c "import eccodes" || (sudo apt-get update && sudo apt-get install -y libeccodes-dev && pip install --force-reinstall eccodes)
       - name: Work out the chance of storms
-        run: python ens_storms.py
+        run: |
+          SCRIPT=$(git ls-files | grep -m1 'ens_storms.py$' || true)
+          if [ -z "$SCRIPT" ]; then echo "::error::ens_storms.py is not in the repo - upload it to the top level"; exit 1; fi
+          echo "Using $SCRIPT"
+          python "$SCRIPT"
       - name: Save
         run: |
           git config user.name "wwxw-bot"
