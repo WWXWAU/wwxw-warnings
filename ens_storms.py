@@ -16,7 +16,10 @@ import concurrent.futures as cf
 import datetime as dt
 import json
 import os
+import random
 import sys
+import time
+import urllib.error
 import urllib.request
 
 import numpy as np
@@ -35,15 +38,27 @@ BOX = (-10.0, -38.0, 110.0, 132.0)       # north, south, west, east: area kept f
 AWST = dt.timedelta(hours=8)
 
 
-def get(url, rng=None, tries=3):
+WORKERS = 6                              # downloads at once (the mirror says "Slow Down" above about 10)
+MIN_MEMBERS = 30                         # at least this many complete members, or no file is written
+
+
+def get(url, rng=None, tries=6):
+    """Download (part of) a file. Busy replies (429/5xx, e.g. "503 Slow Down") wait and retry with back-off."""
     last = None
-    for _ in range(tries):
+    for k in range(tries):
         try:
             hdr = {'Range': 'bytes=%d-%d' % rng} if rng else {}
             with urllib.request.urlopen(urllib.request.Request(url, headers=hdr), timeout=90) as r:
                 return r.read()
+        except urllib.error.HTTPError as e:
+            last = e
+            if e.code == 404:
+                raise
+            wait = e.headers.get('Retry-After') if e.headers else None
+            time.sleep(float(wait) if wait and wait.isdigit() else min(30, 2 ** (k + 1)) + random.random())
         except Exception as e:  # noqa: BLE001
             last = e
+            time.sleep(1 + k + random.random())
     raise last
 
 
@@ -126,18 +141,37 @@ def main():
 
     fields, grid = {}, {}
 
+    others = [m for m in MIRRORS if m != mirror]
+
     def fetch(job):
         s, p, n, off, ln = job
-        buf = get(file_base(mirror, run) + '%dh-enfo-ef.grib2' % s, (off, off + ln - 1))
-        a, la, lo = decode(buf)
-        return job, a, la, lo
+        for m in [mirror] + others:      # the same file has the same index on both servers
+            try:
+                buf = get(file_base(m, run) + '%dh-enfo-ef.grib2' % s, (off, off + ln - 1))
+                a, la, lo = decode(buf)
+                return job, a, la, lo
+            except Exception as e:  # noqa: BLE001
+                err = e
+        print('  could not fetch %s step %d member %d: %s' % (p, s, n, err))
+        return job, None, None, None
 
-    with cf.ThreadPoolExecutor(max_workers=16) as ex:
+    failed = 0
+    with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
         for job, a, la, lo in ex.map(fetch, jobs):
+            if a is None:
+                failed += 1
+                continue
             fields[(job[0], job[1], job[2])] = a
             grid['lat'], grid['lng'] = la, lo
+    if failed:
+        print('%d of %d fields could not be fetched' % (failed, len(jobs)))
 
-    members = sorted({k[2] for k in fields})
+    # keep only members with every field (a member with a gap would undercount its storms)
+    every = [(s, p) for s in STEPS for p in PARAMS]
+    members = sorted(n for n in {k[2] for k in fields} if all((s, p, n) in fields for s, p in every))
+    if len(members) < MIN_MEMBERS:
+        print('Only %d complete members (need %d): keeping the previous file.' % (len(members), MIN_MEMBERS))
+        return 1
     lat, lng = grid['lat'], grid['lng']
     storm = {}                                  # period date -> {member: bool grid}
     windows = {}                                # period date -> number of 6-hour windows covered
