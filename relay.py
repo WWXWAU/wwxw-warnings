@@ -175,6 +175,20 @@ def named_districts(areas, desc, shapes):
     return [n for n in shapes if re.search(r'\b' + re.escape(n) + r'\b', txt)]
 
 
+def tidy_area(g, dists, shapes, wa):
+    """Clean an area traced from BoM's warning image: close small notches (about 12 km), drop thin slivers
+    (about 5 km), then trim to the districts the warning names (and the coast), so edges that follow a
+    district boundary run exactly along it."""
+    g = g.buffer(0.11, 16).buffer(-0.11, 16)          # close notches and gaps
+    g = g.buffer(-0.045, 16).buffer(0.045, 16)        # remove slivers and specks
+    if dists:
+        g = g.intersection(unary_union([shapes[n] for n in dists]).buffer(0))
+    g = g.intersection(wa) if g.intersects(wa) else g
+    if g.geom_type == 'MultiPolygon':                 # leave out crumbs the trim may cut off
+        g = unary_union([p for p in g.geoms if p.area >= 0.02])
+    return g
+
+
 def warning_area(w, places, shapes, wa, img=None):
     if w['polys']:                                            # BoM's own polygon (cyclones)
         return unary_union(w['polys']), 'bom', []
@@ -183,7 +197,7 @@ def warning_area(w, places, shapes, wa, img=None):
             g, cal = yellow_area(img, json.load(open(os.path.join(DATA, 'districts.json')))['wa'])
             log('  image calibration fit', round(cal.get('fit', 0), 3))
             if g is not None and not g.is_empty:
-                return g.intersection(wa.buffer(0.05)) if g.intersects(wa) else g, 'image', []
+                return tidy_area(g, named_districts(w['areas'], w['description'], shapes), shapes, wa), 'image', []
         except Exception as e:
             log('  image area failed:', e)
     towns = towns_in(w['description'])
