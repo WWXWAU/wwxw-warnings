@@ -1,6 +1,235 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-10-20T17:40:06+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for South Interior forecast district",
+   "sent": "2026-10-21T04:46:43+00:00",
+   "expires": "2026-10-21T09:46:38+00:00",
+   "hazards": [
+    "heavy rainfall"
+   ],
+   "districts": [
+    "South Interior"
+   ],
+   "towns": [
+    "Warburton"
+   ],
+   "townsPlaced": [
+    "Warburton"
+   ],
+   "description": "Severe thunderstorms are likely to produce heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Warburton.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       124.191,
+       -25.261
+      ],
+      [
+       124.191,
+       -25.073
+      ],
+      [
+       124.233,
+       -25.011
+      ],
+      [
+       124.301,
+       -24.981
+      ],
+      [
+       124.715,
+       -24.981
+      ],
+      [
+       125.287,
+       -25.122
+      ],
+      [
+       125.696,
+       -25.263
+      ],
+      [
+       126.231,
+       -25.56
+      ],
+      [
+       126.418,
+       -25.681
+      ],
+      [
+       126.791,
+       -26.016
+      ],
+      [
+       126.821,
+       -26.073
+      ],
+      [
+       126.823,
+       -26.22
+      ],
+      [
+       126.846,
+       -26.277
+      ],
+      [
+       126.909,
+       -26.316
+      ],
+      [
+       127.052,
+       -26.318
+      ],
+      [
+       127.079,
+       -26.331
+      ],
+      [
+       127.207,
+       -26.503
+      ],
+      [
+       127.331,
+       -26.616
+      ],
+      [
+       127.401,
+       -26.741
+      ],
+      [
+       127.484,
+       -26.822
+      ],
+      [
+       127.565,
+       -26.937
+      ],
+      [
+       127.766,
+       -27.118
+      ],
+      [
+       127.871,
+       -27.259
+      ],
+      [
+       127.972,
+       -27.462
+      ],
+      [
+       128.073,
+       -27.755
+      ],
+      [
+       128.106,
+       -27.919
+      ],
+      [
+       128.176,
+       -28.094
+      ],
+      [
+       128.179,
+       -28.178
+      ],
+      [
+       128.203,
+       -28.238
+      ],
+      [
+       128.203,
+       -29.047
+      ],
+      [
+       128.125,
+       -29.28
+      ],
+      [
+       128.074,
+       -29.371
+      ],
+      [
+       127.946,
+       -29.478
+      ],
+      [
+       127.688,
+       -29.548
+      ],
+      [
+       127.245,
+       -29.549
+      ],
+      [
+       127.133,
+       -29.525
+      ],
+      [
+       127.05,
+       -29.499
+      ],
+      [
+       126.869,
+       -29.388
+      ],
+      [
+       126.593,
+       -29.147
+      ],
+      [
+       126.532,
+       -29.071
+      ],
+      [
+       126.419,
+       -28.972
+      ],
+      [
+       126.352,
+       -28.834
+      ],
+      [
+       126.261,
+       -28.701
+      ],
+      [
+       126.066,
+       -28.354
+      ],
+      [
+       125.953,
+       -28.201
+      ],
+      [
+       125.375,
+       -27.29
+      ],
+      [
+       124.98,
+       -26.703
+      ],
+      [
+       124.315,
+       -25.533
+      ],
+      [
+       124.191,
+       -25.261
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png"
+  }
+ ],
+ "updated": "2026-10-21T04:52:54+00:00"
 }
