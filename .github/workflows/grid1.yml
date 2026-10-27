@@ -1,0 +1,51 @@
+name: 1-degree model grid
+
+# ECMWF HRES + AIFS (ECMWF open data) and GFS (NOAA), 1-degree grid over WA, 7 days, 4 times a day.
+# Each run uses the newest complete run of each model; the result goes to the grid1-data branch
+# (replaced each time, so the repository doesn't grow), where the outlook reads it.
+on:
+  schedule:
+    - cron: '35 2 * * *'
+    - cron: '35 8 * * *'
+    - cron: '35 14 * * *'
+    - cron: '35 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: grid1
+  cancel-in-progress: false
+
+jobs:
+  grid1:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        run: |
+          pip install numpy eccodes
+          python -c "import eccodes" || (sudo apt-get update && sudo apt-get install -y libeccodes-dev && pip install --force-reinstall eccodes)
+      - name: Download the models
+        run: python grid1/fetch_models.py
+      - name: Work out the indices
+        run: node grid1/indices.js data/grid1
+      - name: Publish to the grid1-data branch
+        run: |
+          mkdir -p /tmp/pub && cp data/grid1/outlook_1deg.json.gz /tmp/pub/
+          python -c "import json,glob;print(json.dumps({'made':__import__('datetime').datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'),'runs':{json.load(open(f))['model']:json.load(open(f))['run'] for f in glob.glob('data/grid1/raw_*.json')}}))" > /tmp/pub/status.json
+          cat /tmp/pub/status.json
+          cd /tmp/pub
+          git init -q -b grid1-data
+          git config user.name "wwxw-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A && git commit -q -m "1-degree model grid"
+          git push -q --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" grid1-data
