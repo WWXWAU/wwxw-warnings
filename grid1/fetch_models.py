@@ -241,7 +241,8 @@ def ecmwf_point(kind, f, prev, step, prev_step, i, j):
         lv[p] = (T, dew(e), g('u%d' % p), g('v%d' % p), rh)
     tp_now = g('tp')
     tp_prev = float(prev['tp'][i, j]) if prev is not None and 'tp' in prev else math.nan
-    rate = 0.0 if prev is None else max(0.0, (tp_now - tp_prev) * 1000.0 / max(1, step - prev_step))
+    to_mm = 1000.0 if kind == 'ECMWF' else 1.0   # HRES tp is in metres; AIFS tp is already in mm (kg m-2)
+    rate = 0.0 if prev is None else max(0.0, (tp_now - tp_prev) * to_mm / max(1, step - prev_step))
     psfc = g('sp') / 100.0
     t700 = lv[700][0]
     return {
