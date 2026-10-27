@@ -33,7 +33,9 @@ PLEVELS = [1000, 925, 850, 700, 500, 300, 250, 200]  # same as Code.gs
 STEPS = list(range(0, 49, 3)) + list(range(54, 169, 6))
 STEPS_6H = list(range(0, 169, 6))
 AWST = dt.timedelta(hours=8)
-WORKERS = 8
+WORKERS = 8          # GFS (NOAA's bucket copes)
+EC_WORKERS = 4       # ECMWF's bucket answers "503 Slow Down" when pushed
+EC_GAP = 4000000     # join ECMWF pieces less than 4 MB apart into one request (fewer requests)
 
 ECMWF_MIRRORS = ['https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com', 'https://data.ecmwf.int/forecasts']
 GFS_ROOT = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com'
@@ -43,8 +45,8 @@ def log(*a):
     print(*a, flush=True)
 
 
-def get(url, rng=None, tries=6):
-    """Download (part of) a file; busy replies (429/5xx) wait and retry."""
+def get(url, rng=None, tries=8):
+    """Download (part of) a file; busy replies (429/503 "Slow Down", 5xx) wait and retry with back-off."""
     last = None
     for k in range(tries):
         try:
@@ -55,7 +57,8 @@ def get(url, rng=None, tries=6):
             last = e
             if e.code == 404:
                 raise
-            time.sleep(min(30, 2 ** (k + 1)) + random.random())
+            wait = e.headers.get('Retry-After') if e.headers else None
+            time.sleep(float(wait) if wait and wait.isdigit() else min(60, 3 * 2 ** k) + 3 * random.random())
         except Exception as e:  # noqa: BLE001
             last = e
             time.sleep(1 + k + random.random())
@@ -102,11 +105,20 @@ def merge_ranges(items, gap=0):
     return out
 
 
-def fetch_fields(url, items):
-    """Download the wanted messages of one file and decode them -> {name: array}."""
+def fetch_fields(url, items, gap=0, alt_urls=()):
+    """Download the wanted messages of one file and decode them -> {name: array}.
+    A piece that still fails after the retries is tried on the other mirror, then skipped (the rest carries on)."""
     res = {}
-    for start, end, group in merge_ranges(items):
-        buf = get(url, (start, end))
+    for start, end, group in merge_ranges(items, gap):
+        buf = None
+        for u in (url,) + tuple(alt_urls):
+            try:
+                buf = get(u, (start, end))
+                break
+            except Exception as e:  # noqa: BLE001
+                log('  %s bytes %d-%d: %s' % (u.rsplit('/', 1)[-1], start, end, e))
+        if buf is None:
+            continue
         for name, off, ln in group:
             try:
                 res[name] = sample(buf[off - start: off - start + ln])
@@ -180,8 +192,14 @@ def fetch_ecmwf(kind):
     log('%s: run %s from %s' % (kind, run.strftime('%Y-%m-%d %Hz'), mirror))
     want, sfc = ec_wanted(kind)
 
+    others = ['%s/%s' % (m, ec_paths(kind, run)) for m in ECMWF_MIRRORS if m != mirror]
+
     def one(step):
-        idx = ec_index(base, step)
+        try:
+            idx = ec_index(base, step)
+        except Exception as e:  # noqa: BLE001
+            log('  step %d index: %s' % (step, e))
+            return step, {}
         items = []
         for o in idx:
             p, lt = o.get('param'), o.get('levtype')
@@ -189,12 +207,21 @@ def fetch_ecmwf(kind):
                 items.append(('%s%s' % (p, o['levelist']), int(o['_offset']), int(o['_length'])))
             elif lt == 'sfc' and p in sfc:
                 items.append((p, int(o['_offset']), int(o['_length'])))
-        return step, fetch_fields(base.replace('{s}', str(step)) + '.grib2', items)
+        return step, fetch_fields(base.replace('{s}', str(step)) + '.grib2', items, EC_GAP,
+                                  [o.replace('{s}', str(step)) + '.grib2' for o in others])
 
     fields = {}
-    with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
+    with cf.ThreadPoolExecutor(max_workers=EC_WORKERS) as ex:
         for step, f in ex.map(one, steps):
             fields[step] = f
+    again = [s for s in steps if len(fields.get(s) or {}) < 10]
+    if again:   # a second, slower pass for steps that came back empty or short
+        log('%s: retrying %d step(s) one at a time: %s' % (kind, len(again), again))
+        for s in again:
+            time.sleep(5)
+            st, f = one(s)
+            if len(f) > len(fields.get(s) or {}):
+                fields[s] = f
     return build_rows(kind, run, steps, fields, ecmwf_point)
 
 
@@ -249,7 +276,11 @@ def fetch_gfs():
 
     def one(step):
         url = gfs_url(run, step)
-        lines = get(url + '.idx').decode().splitlines()
+        try:
+            lines = get(url + '.idx').decode().splitlines()
+        except Exception as e:  # noqa: BLE001
+            log('  GFS step %d index: %s' % (step, e))
+            return step, {}
         items, acc = [], None
         for n, line in enumerate(lines):
             parts = line.split(':')
