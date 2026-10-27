@@ -5,12 +5,14 @@ Builds the same raw rows the outlook's model sheets hold (rawHeaders_ in Code.gs
   ECMWF  HRES (IFS 0.25) - ECMWF open data, CC BY 4.0
   AIFS   AIFS single     - ECMWF open data, CC BY 4.0
   GFS    GFS 0.25        - NOAA, public domain (AWS open data bucket)
+  GEFS   GEFS mean 0.5   - NOAA, public domain (AWS open data bucket)
+  ECENS  ECMWF ensemble mean - from Open-Meteo (ECMWF only publishes the mean for a few fields)
 Only the pieces of each file that are needed are downloaded (byte ranges from the index files).
 Steps: 3-hourly to 48 h, then 6-hourly to 168 h (AIFS is 6-hourly throughout).
 Times are written in AWST ('yyyy-MM-dd HH:mm'), like Open-Meteo's.
 
 Output: data/grid1/raw_<MODEL>.json  ({model, run, rows, missing}), then indices.js turns them into the
-outlook data file. Run:  python grid1/fetch_models.py [ECMWF AIFS GFS]
+outlook data file. Run:  python grid1/fetch_models.py [GFS GEFS ECENS AIFS ECMWF]
 """
 import concurrent.futures as cf
 import datetime as dt
@@ -39,6 +41,8 @@ EC_GAP = 4000000     # join ECMWF pieces less than 4 MB apart into one request (
 
 ECMWF_MIRRORS = ['https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com', 'https://data.ecmwf.int/forecasts']
 GFS_ROOT = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com'
+GEFS_ROOT = 'https://noaa-gefs-pds.s3.amazonaws.com'
+OPEN_METEO_ENS = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 
 
 def log(*a):
@@ -167,9 +171,9 @@ def find_run(kind, steps):
         if run not in cands:
             cands.append(run)
     for run in cands:
-        if kind == 'GFS':
+        if kind in ('GFS', 'GEFS'):
             try:
-                get(gfs_url(run, steps[-1]) + '.idx')
+                get(noaa_url(kind, run, steps[-1]) + '.idx')
                 return run, None
             except Exception:  # noqa: BLE001
                 continue
@@ -255,8 +259,10 @@ def ecmwf_point(kind, f, prev, step, prev_step, i, j):
 
 
 # ---------------------------------------------------------------- GFS (NOAA open data on AWS)
-def gfs_url(run, step):
+def noaa_url(kind, run, step):
     ymd, hh = run.strftime('%Y%m%d'), run.strftime('%H')
+    if kind == 'GEFS':   # GEFS ensemble mean (31 members), 0.5 degree
+        return '%s/gefs.%s/%s/atmos/pgrb2ap5/geavg.t%sz.pgrb2a.0p50.f%03d' % (GEFS_ROOT, ymd, hh, hh, step)
     return '%s/gfs.%s/%s/atmos/gfs.t%sz.pgrb2.0p25.f%03d' % (GFS_ROOT, ymd, hh, hh, step)
 
 
@@ -266,21 +272,26 @@ GFS_SFC = {('CAPE', 'surface'): 'cape', ('CIN', 'surface'): 'cin', ('LFTX', 'sur
            ('UGRD', '10 m above ground'): 'u10', ('VGRD', '10 m above ground'): 'v10',
            ('HPBL', 'surface'): 'blh', ('HGT', '0C isotherm'): 'fzl', ('VVEL', '700 mb'): 'w700',
            ('HGT', '500 mb'): 'gh500', ('PWAT', 'entire atmosphere (considered as a single layer)'): 'pwat'}
+# GEFS's smaller file: CAPE/CIN may only be for the lowest 180 hPa, and 2 m humidity instead of dewpoint
+GEFS_SFC = dict(GFS_SFC)
+GEFS_SFC.update({('CAPE', '180-0 mb above ground'): 'cape', ('CIN', '180-0 mb above ground'): 'cin',
+                 ('RH', '2 m above ground'): 'rh2'})
 
 
-def fetch_gfs():
-    run, _ = find_run('GFS', STEPS)
+def fetch_gfs(kind='GFS'):
+    run, _ = find_run(kind, STEPS)
     if not run:
-        log('GFS: no complete run found.')
+        log('%s: no complete run found.' % kind)
         return None
-    log('GFS: run %s' % run.strftime('%Y-%m-%d %Hz'))
+    log('%s: run %s' % (kind, run.strftime('%Y-%m-%d %Hz')))
+    sfc_map = GEFS_SFC if kind == 'GEFS' else GFS_SFC
 
     def one(step):
-        url = gfs_url(run, step)
+        url = noaa_url(kind, run, step)
         try:
             lines = get(url + '.idx').decode().splitlines()
         except Exception as e:  # noqa: BLE001
-            log('  GFS step %d index: %s' % (step, e))
+            log('  %s step %d index: %s' % (kind, step, e))
             return step, {}
         items, acc = [], None
         for n, line in enumerate(lines):
@@ -295,8 +306,8 @@ def fetch_gfs():
             m = re.match(r'(\d+) mb$', lev)
             if m and int(m.group(1)) in PLEVELS and var in ('TMP', 'RH', 'UGRD', 'VGRD'):
                 name = '%s%s' % (var, m.group(1))
-            if (var, lev) in GFS_SFC and not (var == 'APCP' and 'acc' not in fc):
-                name = GFS_SFC[(var, lev)]
+            if (var, lev) in sfc_map and not (var == 'APCP' and 'acc' not in fc):
+                name = sfc_map[(var, lev)]
                 if name == 'apcp':
                     r = re.search(r'(\d+)-(\d+) hour acc', fc)
                     if not r or acc:
@@ -312,7 +323,7 @@ def fetch_gfs():
     with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
         for step, f in ex.map(one, STEPS):
             fields[step] = f
-    return build_rows('GFS', run, STEPS, fields, gfs_point)
+    return build_rows(kind, run, STEPS, fields, gfs_point)
 
 
 def gfs_point(kind, f, prev, step, prev_step, i, j):
@@ -337,10 +348,109 @@ def gfs_point(kind, f, prev, step, prev_step, i, j):
     return {
         'lv': lv, 'cape': g('cape'), 'cin': g('cin'), 'li': g('li'),
         'gust': g('gust') * 3.6, 'precip': max(0.0, rate), 'psfc': g('sp') / 100.0,
-        't2': g('t2') - 273.15, 'td2': g('td2') - 273.15, 'u10': g('u10'), 'v10': g('v10'),
+        't2': g('t2') - 273.15, 'td2': td2_of(g('t2') - 273.15, g('td2') - 273.15, g('rh2')), 'u10': g('u10'), 'v10': g('v10'),
         'blh': g('blh'), 'fzl': g('fzl'), 'w700': omega_to_w(g('w700'), 700, lv[700][0]),
         'gh500': g('gh500'), 'tcwv': g('pwat'),
     }
+
+
+def td2_of(t2, td2, rh2):
+    """2 m dewpoint: the model's own, or from 2 m humidity (GEFS)."""
+    if td2 == td2:
+        return td2
+    if rh2 == rh2 and t2 == t2:
+        return dew(rh2 / 100.0 * sat_vap(t2))
+    return math.nan
+
+
+# ---------------------------------------------------------------- ECENS: ECMWF ensemble mean, via Open-Meteo
+# ECMWF publishes the ensemble mean for only a few fields, and averaging the 51 members ourselves would mean
+# ~50 GB of downloads a run. Open-Meteo already averages them, and with the other four models off Open-Meteo
+# its free allowance has room for this one at 1 degree. Same variables and rows as Code.gs (fetchModelData).
+ECENS_IDS = ['ecmwf_ifs025_ensemble_mean', 'ecmwf_ifs_ensemble_mean_seamless']
+ECENS_VARS = ([('temperature_%dhPa' % p) for p in PLEVELS] + [('dew_point_%dhPa' % p) for p in PLEVELS]
+              + [('wind_speed_%dhPa' % p) for p in PLEVELS] + [('wind_direction_%dhPa' % p) for p in PLEVELS]
+              + ['relative_humidity_850hPa', 'relative_humidity_700hPa', 'relative_humidity_500hPa', 'relative_humidity_300hPa',
+                 'cape', 'wind_gusts_10m', 'precipitation', 'surface_pressure', 'temperature_2m', 'dew_point_2m',
+                 'wind_speed_10m', 'wind_direction_10m', 'freezing_level_height', 'geopotential_height_500hPa',
+                 'vertical_velocity_700hPa', 'relative_humidity_1000hPa', 'relative_humidity_925hPa', 'convective_inhibition'])
+
+
+def om_get(url):
+    last = None
+    for k in range(6):
+        try:
+            with urllib.request.urlopen(url, timeout=180) as r:
+                return json.loads(r.read().decode())
+        except urllib.error.HTTPError as e:
+            last = e
+            body = ''
+            try:
+                body = e.read().decode()[:200]
+            except Exception:  # noqa: BLE001
+                pass
+            if e.code == 400:
+                raise RuntimeError('Open-Meteo refused the request: ' + body)
+            time.sleep(min(90, 10 * 2 ** k))   # 429 (too many) or 5xx: wait and retry
+        except Exception as e:  # noqa: BLE001
+            last = e
+            time.sleep(5 + 5 * k)
+    raise last
+
+
+def near(arr, t):
+    """Value at hour t, or the nearest within 2 hours (3/6-hourly ensemble output), as Code.gs safeGetNear."""
+    if not arr:
+        return ''
+    for o in (0, 1, -1, 2, -2):
+        if 0 <= t + o < len(arr) and arr[t + o] is not None:
+            return arr[t + o]
+    return ''
+
+
+def fetch_ecens():
+    pts = [(la, lo) for la in LATS for lo in LNGS]
+    rows, used, done = [], None, 0
+    for b in range(0, len(pts), 100):
+        batch = pts[b:b + 100]
+        data = None
+        for mid in ([used] if used else ECENS_IDS):
+            url = (OPEN_METEO_ENS + '?latitude=' + ','.join('%g' % p[0] for p in batch) + '&longitude=' + ','.join('%g' % p[1] for p in batch)
+                   + '&hourly=' + ','.join(ECENS_VARS) + '&forecast_days=8&timezone=Australia%2FPerth&wind_speed_unit=kmh&models=' + mid)
+            try:
+                d = om_get(url)
+            except Exception as e:  # noqa: BLE001
+                log('ECENS (%s): %s' % (mid, e))
+                continue
+            d = d if isinstance(d, list) else [d]
+            if any((x.get('hourly') or {}).get('temperature_850hPa') for x in d):
+                data, used = d, mid
+                break
+        if not data:
+            log('ECENS: points %d-%d not fetched.' % (b, b + len(batch) - 1))
+            continue
+        for (la, lo), d in zip(batch, data):
+            h = d.get('hourly') or {}
+            times = h.get('time') or []
+            t = 2   # 02:00 AWST = 18 UTC, so the times line up with the other models (3-hourly to 48 h, then 6-hourly)
+            while t < len(times):
+                g = lambda k: near(h.get(k), t)  # noqa: E731
+                row = [la, lo, str(times[t]).replace('T', ' ')]
+                for k in ('temperature', 'dew_point', 'wind_speed', 'wind_direction'):
+                    row += [g('%s_%dhPa' % (k, p)) for p in PLEVELS]
+                row += [g('cape'), g('convective_inhibition'), '', g('wind_gusts_10m'), g('precipitation'), g('surface_pressure'),
+                        g('relative_humidity_850hPa'), g('relative_humidity_700hPa'), g('relative_humidity_500hPa'), g('relative_humidity_300hPa'),
+                        g('temperature_2m'), g('dew_point_2m'), g('wind_speed_10m'), g('wind_direction_10m'),
+                        '', g('freezing_level_height'), g('vertical_velocity_700hPa'), g('geopotential_height_500hPa'),
+                        '', '', '', g('relative_humidity_1000hPa'), g('relative_humidity_925hPa'), '']
+                rows.append(row)
+                t += 3 if t < 48 else 6
+        done += len(batch)
+        time.sleep(3)
+    log('ECENS: %d rows for %d of %d points (Open-Meteo model %s)' % (len(rows), done, len(pts), used))
+    if not rows:
+        return None
+    return {'model': 'ECENS', 'run': 'Open-Meteo ' + dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%d %H:%MZ'), 'rows': rows, 'missing': []}
 
 
 # ---------------------------------------------------------------- shared
@@ -408,13 +518,13 @@ def build_rows(kind, run, steps, fields, point_fn):
 
 
 def main():
-    which = [a for a in sys.argv[1:] if not a.startswith('-')] or ['ECMWF', 'AIFS', 'GFS']
+    which = [a for a in sys.argv[1:] if not a.startswith('-')] or ['GFS', 'GEFS', 'ECENS', 'AIFS', 'ECMWF']
     os.makedirs(OUT_DIR, exist_ok=True)
     ok = 0
     for kind in which:
         t0 = time.time()
         try:
-            res = fetch_gfs() if kind == 'GFS' else fetch_ecmwf(kind)
+            res = (fetch_gfs(kind) if kind in ('GFS', 'GEFS') else fetch_ecens() if kind == 'ECENS' else fetch_ecmwf(kind))
         except Exception as e:  # noqa: BLE001
             log('%s failed: %s' % (kind, e))
             res = None
