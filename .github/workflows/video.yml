@@ -1,0 +1,71 @@
+# Weather story video, started by the video maker page (VideoMaker.gs in the rainfall project).
+# The page sends a request id and where to fetch the station values; the MP4 goes to the "wwxw-videos" release
+# as <id>.mp4, where the page finds it. You can also run it here by hand with an id + data URL from the page.
+name: video
+run-name: video ${{ inputs.id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      id:
+        description: 'Request id (from the page)'
+        required: true
+      data_url:
+        description: 'Where to fetch the station values (from the page)'
+        required: true
+      caption:
+        description: 'Big caption (blank = picked from the numbers)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: video
+  cancel-in-progress: false
+
+jobs:
+  video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install
+        run: |
+          pip install numpy scipy pillow
+          command -v ffmpeg || (sudo apt-get update -q && sudo apt-get install -yq ffmpeg)
+
+      - name: Fetch the station values
+        env:
+          DATA_URL: ${{ inputs.data_url }}
+        run: |
+          curl -sSL --fail --retry 3 -o data.json "$DATA_URL"
+          python3 -c "import json; d=json.load(open('data.json')); assert 'points' in d, d; print(d['kind'], '-', d['title'], '-', len(d['points']), 'stations')"
+
+      - name: Make the video
+        env:
+          ID: ${{ inputs.id }}
+          CAPTION: ${{ inputs.caption }}
+        run: |
+          case "$ID" in *[!A-Za-z0-9_-]*) echo "bad id"; exit 1 ;; esac
+          python3 wxvideo/wxvideo.py data.json "$ID.mp4" --caption "$CAPTION" --logo wxvideo/logo-dark.png
+
+      - name: Publish to the wwxw-videos release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ID: ${{ inputs.id }}
+        run: |
+          gh release view wwxw-videos >/dev/null 2>&1 || gh release create wwxw-videos --title "Weather videos" \
+            --notes "Made by the video workflow from the West WX Watchers video maker page."
+          gh release upload wwxw-videos "$ID.mp4" --clobber
+          # keep the newest 30
+          gh api "repos/${{ github.repository }}/releases/tags/wwxw-videos" --jq '.assets[] | "\(.created_at) \(.id)"' \
+            | sort -r | tail -n +31 | while read -r _ aid; do gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$aid"; done
+          echo "### Video ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "[$ID.mp4](https://github.com/${{ github.repository }}/releases/download/wwxw-videos/$ID.mp4)" >> "$GITHUB_STEP_SUMMARY"
