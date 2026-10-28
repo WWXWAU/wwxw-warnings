@@ -1,6 +1,287 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-10-21T16:57:19+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for Gascoyne, Goldfields and South Interior forecast districts",
+   "sent": "2026-10-28T09:42:29+00:00",
+   "expires": "2026-10-28T14:42:23+00:00",
+   "hazards": [
+    "damaging winds"
+   ],
+   "districts": [
+    "Gascoyne",
+    "Goldfields",
+    "South Interior"
+   ],
+   "towns": [
+    "Leinster"
+   ],
+   "townsPlaced": [
+    "Leinster"
+   ],
+   "description": "Severe thunderstorms are likely to produce damaging winds in the warning area over the next several hours. Locations which may be affected include Leinster.",
+   "areaSource": "image",
+   "area": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        119.39,
+        -29.078
+       ],
+       [
+        119.397,
+        -28.655
+       ],
+       [
+        119.51,
+        -28.532
+       ],
+       [
+        119.697,
+        -28.368
+       ],
+       [
+        119.837,
+        -28.279
+       ],
+       [
+        120.017,
+        -28.107
+       ],
+       [
+        120.017,
+        -29.521
+       ],
+       [
+        119.957,
+        -29.541
+       ],
+       [
+        119.733,
+        -29.541
+       ],
+       [
+        119.577,
+        -29.494
+       ],
+       [
+        119.461,
+        -29.387
+       ],
+       [
+        119.413,
+        -29.242
+       ],
+       [
+        119.412,
+        -29.136
+       ],
+       [
+        119.39,
+        -29.078
+       ]
+      ]
+     ],
+     [
+      [
+       [
+        120.027,
+        -28.098
+       ],
+       [
+        120.208,
+        -27.894
+       ],
+       [
+        120.257,
+        -27.811
+       ],
+       [
+        120.329,
+        -27.745
+       ],
+       [
+        120.425,
+        -27.599
+       ],
+       [
+        120.617,
+        -27.364
+       ],
+       [
+        120.808,
+        -27.193
+       ],
+       [
+        120.905,
+        -27.13
+       ],
+       [
+        121.094,
+        -27.046
+       ],
+       [
+        121.25,
+        -27.01
+       ],
+       [
+        121.374,
+        -26.925
+       ],
+       [
+        123.113,
+        -28.11
+       ],
+       [
+        122.928,
+        -28.25
+       ],
+       [
+        122.865,
+        -28.269
+       ],
+       [
+        122.755,
+        -28.339
+       ],
+       [
+        122.443,
+        -28.434
+       ],
+       [
+        122.346,
+        -28.487
+       ],
+       [
+        122.029,
+        -28.594
+       ],
+       [
+        121.883,
+        -28.619
+       ],
+       [
+        121.764,
+        -28.658
+       ],
+       [
+        121.681,
+        -28.664
+       ],
+       [
+        120.994,
+        -28.921
+       ],
+       [
+        120.134,
+        -29.475
+       ],
+       [
+        120.018,
+        -29.521
+       ],
+       [
+        120.017,
+        -28.107
+       ],
+       [
+        120.027,
+        -28.098
+       ]
+      ]
+     ],
+     [
+      [
+       [
+        121.389,
+        -26.917
+       ],
+       [
+        121.71,
+        -26.829
+       ],
+       [
+        122.284,
+        -26.829
+       ],
+       [
+        122.353,
+        -26.85
+       ],
+       [
+        122.6,
+        -26.851
+       ],
+       [
+        122.917,
+        -26.917
+       ],
+       [
+        123.021,
+        -26.963
+       ],
+       [
+        123.099,
+        -27.028
+       ],
+       [
+        123.283,
+        -27.132
+       ],
+       [
+        123.376,
+        -27.236
+       ],
+       [
+        123.401,
+        -27.281
+       ],
+       [
+        123.432,
+        -27.437
+       ],
+       [
+        123.474,
+        -27.521
+       ],
+       [
+        123.472,
+        -27.664
+       ],
+       [
+        123.447,
+        -27.727
+       ],
+       [
+        123.28,
+        -27.961
+       ],
+       [
+        123.113,
+        -28.11
+       ],
+       [
+        121.374,
+        -26.925
+       ],
+       [
+        121.389,
+        -26.917
+       ]
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png"
+  }
+ ],
+ "updated": "2026-10-28T10:22:16+00:00"
 }
