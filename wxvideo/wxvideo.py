@@ -8,7 +8,7 @@ data.json (VideoMaker.gs in the rainfall project):
   {"kind": "rain"|"tmax"|"tmin"|"temp"|"gust", "title": "...", "sub": "...", "src": "BoM, DPIRD",
    "days": 1, "points": [[name, lat, lng, value], ...]}
 """
-import argparse, csv, json, math, os, subprocess, sys, tempfile
+import argparse, csv, json, math, os, re, subprocess, sys, tempfile
 from datetime import date, datetime
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
@@ -55,15 +55,15 @@ def fmt_mm(v): return f"{v:.0f} mm" if v >= 10 else f"{v:.1f} mm"
 def fmt_t(v): return f"{v:.1f}°"
 def fmt_g(v): return f"{v:.0f} km/h"
 
-TEMP = dict(stops=TEMP_STOPS, legend=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45], unit='°C', fmt=fmt_t, sig=0.6, cover=(0.9, 2.0), floor=None)
+TEMP = dict(stops=TEMP_STOPS, legend=[0, 5, 10, 15, 20, 25, 30, 35, 40, 45], unit='°C', fmt=fmt_t, sig=0.5, cover=(2.5, 4.0), floor=None, near=3)
 KINDS = {
     'rain': dict(stops=RAIN_STOPS, legend=[1, 5, 10, 15, 25, 40, 60, 100, 150], unit='mm', fmt=fmt_mm, sig=0.22, cover=(0.22, 0.62),
                  floor=0.5, order=-1, word='gauge'),
     'tmax': dict(TEMP, order=-1, word='station'),
     'temp': dict(TEMP, order=-1, word='station'),
     'tmin': dict(TEMP, order=1, word='station'),
-    'gust': dict(stops=GUST_STOPS, legend=[20, 40, 60, 70, 80, 90, 110, 130], unit='km/h', fmt=fmt_g, sig=0.4, cover=(0.5, 1.2),
-                 floor=15, order=-1, word='station'),
+    'gust': dict(stops=GUST_STOPS, legend=[20, 40, 60, 70, 80, 90, 110, 130], unit='km/h', fmt=fmt_g, sig=0.5, cover=(2.0, 3.5),
+                 floor=15, order=-1, word='station', smooth=True, near=15),
 }
 K = KINDS['rain']   # set in main
 
@@ -109,6 +109,14 @@ def badge_for(kind, pts):
         c = n(lambda v: v >= thr)
         if c: return pl(c, w) + f' gusting {thr}+ km/h'
     return pl(len(pts), w)
+
+TOWNS = []
+def label_name(g):
+    """Station name for a label; DFES portable stations get the nearest town instead of their code."""
+    if re.search(r'PORTABLE|DFES|\bBTS[A-Z]\b', g['name'], re.I) and TOWNS:
+        t = min(TOWNS, key=lambda t: (t['lat'] - g['lat']) ** 2 + (t['lng'] - g['lng']) ** 2)
+        return 'Near ' + t['n'] + ' (DFES portable)'
+    return nice_name(g['name']).title()
 
 def nice_name(n):
     n = n.replace('_', ' ').strip()
@@ -162,7 +170,10 @@ def build_base(gauges, states):
     valid = np.isfinite(d)
     idx = np.where(valid, idx, 0)
     sig = K['sig']
-    w = np.where(valid, np.exp(-(d ** 2) / (2 * sig ** 2)) / (d + 0.03), 0.0)
+    if K['floor'] is None or K.get('smooth'):   # temperature and wind: smooth surface, no bullseyes round each station
+        w = np.where(valid, 1.0 / (d ** 2 + sig ** 2) ** 1.5, 0.0)
+    else:                                       # rain: local, so showers stay where they fell
+        w = np.where(valid, np.exp(-(d ** 2) / (2 * sig ** 2)) / (d + 0.03), 0.0)
     val = (w * gmm[idx]).sum(1) / np.maximum(w.sum(1), 1e-9)
     dmin = np.where(valid[:, 0], d[:, 0], 9)
     c_in, c_out = K['cover']
@@ -205,10 +216,11 @@ def pick_regions(gauges, towns, n=3):
         top = ranked[0]['v']
         ranked = [g for g in ranked if g['v'] >= max(2, 0.2 * top)]
     else:
-        ranked = ranked[:max(12, len(ranked) // 6)]
+        lim = K.get('near', 3)   # only places close to the extreme: within 3° (temps) or 15 km/h (gusts)
+        ranked = [g for g in ranked if score(g) >= score(ranked[0]) - lim][:40]
     regions, used = [], []
     for g in ranked:
-        if any(dist(g, u) < 2.6 for u in used): continue
+        if any(dist(g, u) < (2.6 if K['floor'] is not None and not K.get('smooth') else 4.0) for u in used): continue
         used.append(g)
         members = sorted([x for x in gauges if dist(x, g) < 2.2], key=lambda x: -score(x))
         labels = []
@@ -275,7 +287,7 @@ def draw_label(img, proj, g, pop):
     x, y = proj(g['lat'], g['lng'])
     s = 0.6 + 0.4 * ease(pop)
     fv, fn = font(700, int(52 * s)), font(500, int(24 * s))
-    name, val = nice_name(g['name']).title(), K['fmt'](g['v'])
+    name, val = label_name(g), K['fmt'](g['v'])
     wv = dr.textlength(val, font=fv); wn = dr.textlength(name, font=fn)
     w, h = max(wv, wn) + 36 * s, 96 * s
     bx, by = x - w / 2, y - 26 * s - h
@@ -356,6 +368,7 @@ def main():
     TITLE, period, SRC = doc['title'], doc['sub'], doc.get('src', 'BoM, DPIRD, DWER')
     states = json.load(open(os.path.join(HERE, 'aus_states.json')))
     towns = json.load(open(os.path.join(HERE, 'towns.json')))
+    TOWNS[:] = towns
     top = sorted(gauges, key=lambda g: -score(g))
     cap = (a.caption or '').strip() or caption_for(kind, gauges, int(doc.get('days', 1)))
     badge = badge_for(kind, gauges)
@@ -398,7 +411,7 @@ def main():
                     dx = -40 * (1 - p)
                     dr.text((48 + dx, y), txt, font=fv, fill=(255, 225, 70))
                     tw = dr.textlength(txt, font=fv)
-                    dr.text((72 + tw + dx, y + 36), nice_name(g['name']).title(), font=font(500, 32), fill=TEXT)
+                    dr.text((72 + tw + dx, y + 36), label_name(g), font=font(500, 32), fill=TEXT)
                     y += 98
                 if t > 1.8:
                     text_box(dr, (48, y + 14), badge, font(600, 32), ON_ACCENT, ACCENT, pad=(20, 8))
