@@ -17,6 +17,14 @@ on:
         description: 'Big caption (blank = picked from the numbers)'
         required: false
         default: ''
+      regions:
+        description: 'Zoom-in stops, 0-5'
+        required: false
+        default: '3'
+      top:
+        description: 'How many in the top list, 3-10'
+        required: false
+        default: '3'
 
 permissions:
   contents: write
@@ -52,9 +60,12 @@ jobs:
         env:
           ID: ${{ inputs.id }}
           CAPTION: ${{ inputs.caption }}
+          REGIONS: ${{ inputs.regions }}
+          TOP: ${{ inputs.top }}
         run: |
           case "$ID" in *[!A-Za-z0-9_-]*) echo "bad id"; exit 1 ;; esac
-          python3 wxvideo/wxvideo.py data.json "$ID.mp4" --caption "$CAPTION" --logo wxvideo/logo-dark.png
+          case "$REGIONS$TOP" in *[!0-9]*) echo "bad regions/top"; exit 1 ;; esac
+          python3 wxvideo/wxvideo.py data.json "$ID.mp4" --caption "$CAPTION" --regions "${REGIONS:-3}" --top "${TOP:-3}" --logo wxvideo/logo.png
 
       - name: Publish to the wwxw-videos release
         env:
