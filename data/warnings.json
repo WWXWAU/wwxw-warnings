@@ -1,6 +1,148 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-10-28T16:29:53+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for North Interior and South Interior forecast districts",
+   "sent": "2026-10-29T04:55:42+00:00",
+   "expires": "2026-10-29T09:55:41+00:00",
+   "hazards": [
+    "damaging winds",
+    "heavy rainfall",
+    "large hail"
+   ],
+   "districts": [
+    "North Interior",
+    "South Interior"
+   ],
+   "towns": [
+    "Giles"
+   ],
+   "townsPlaced": [],
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Giles.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       127.468,
+       -24.338
+      ],
+      [
+       127.466,
+       -24.259
+      ],
+      [
+       127.512,
+       -24.069
+      ],
+      [
+       127.515,
+       -23.99
+      ],
+      [
+       127.637,
+       -23.654
+      ],
+      [
+       127.853,
+       -23.303
+      ],
+      [
+       128.013,
+       -23.154
+      ],
+      [
+       128.072,
+       -23.127
+      ],
+      [
+       128.249,
+       -23.104
+      ],
+      [
+       128.593,
+       -23.172
+      ],
+      [
+       128.801,
+       -23.252
+      ],
+      [
+       128.812,
+       -23.281
+      ],
+      [
+       128.812,
+       -25.022
+      ],
+      [
+       128.79,
+       -25.102
+      ],
+      [
+       128.812,
+       -25.179
+      ],
+      [
+       128.812,
+       -26.004
+      ],
+      [
+       128.796,
+       -26.038
+      ],
+      [
+       128.76,
+       -26.048
+      ],
+      [
+       128.595,
+       -26.009
+      ],
+      [
+       128.353,
+       -25.878
+      ],
+      [
+       128.163,
+       -25.723
+      ],
+      [
+       127.828,
+       -25.34
+      ],
+      [
+       127.685,
+       -25.059
+      ],
+      [
+       127.563,
+       -24.751
+      ],
+      [
+       127.514,
+       -24.593
+      ],
+      [
+       127.487,
+       -24.384
+      ],
+      [
+       127.468,
+       -24.338
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png"
+  }
+ ],
+ "updated": "2026-10-29T05:18:42+00:00"
 }
