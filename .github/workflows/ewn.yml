@@ -1,0 +1,40 @@
+name: EWN reference map
+
+# Fetches Early Warning Network's daily significant weather map (9am-1pm AWST) for the outlook's
+# reference check. The image itself is NOT committed (EWN: all rights reserved): it is kept only as a
+# private run attachment for 30 days. Only a small state file (image hash, time) is committed.
+on:
+  schedule:
+    - cron: '*/15 1-4 * * *'     # 9:00-12:45 pm AWST
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ewn
+  cancel-in-progress: false
+
+jobs:
+  ewn:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - name: Fetch the map
+        id: f
+        run: python3 ewn/fetch.py
+      - name: Keep the image (private, 30 days)
+        if: steps.f.outputs.new == '1'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ewn-${{ steps.f.outputs.stamp }}
+          path: ewn-tmp/
+          retention-days: 30
+      - name: Save the state
+        if: steps.f.outputs.new == '1'
+        run: |
+          git config user.name "wwxw-bot"; git config user.email "wwxw-bot@users.noreply.github.com"
+          git add data/ewn/state.json
+          git commit -m "EWN map seen ${{ steps.f.outputs.stamp }}" || exit 0
+          for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin HEAD:main && break; sleep 5; done
