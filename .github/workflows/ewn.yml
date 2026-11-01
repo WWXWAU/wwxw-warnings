@@ -1,8 +1,8 @@
 name: EWN reference map
 
 # Fetches Early Warning Network's daily significant weather map (9am-1pm AWST) for the outlook's
-# reference check. The image itself is NOT committed (EWN: all rights reserved): it is kept only as a
-# private run attachment for 30 days. Only a small state file (image hash, time) is committed.
+# reference check. The image itself is never published (EWN: all rights reserved). While the reader is
+# being built, an encrypted copy (last 8) goes to the ewn-dev branch; only the developer can open it.
 on:
   schedule:
     - cron: '*/15 1-4 * * *'     # 9:00-12:45 pm AWST
@@ -24,13 +24,23 @@ jobs:
       - name: Fetch the map
         id: f
         run: python3 ewn/fetch.py
-      - name: Keep the image (private, 30 days)
+      - name: Development copy (encrypted; only the developer's private key can open it)
         if: steps.f.outputs.new == '1'
-        uses: actions/upload-artifact@v4
-        with:
-          name: ewn-${{ steps.f.outputs.stamp }}
-          path: ewn-tmp/
-          retention-days: 30
+        run: |
+          set -e
+          f=$(ls ewn-tmp/*.png | head -1)
+          openssl rand -out k.bin 32
+          openssl enc -aes-256-cbc -pbkdf2 -salt -in "$f" -out img.enc -pass file:k.bin
+          openssl pkeyutl -encrypt -pubin -inkey ewn/dev-pub.pem -in k.bin -out k.enc
+          mkdir -p /tmp/dev && cp img.enc k.enc /tmp/dev/ && echo "$(basename $f)" > /tmp/dev/name.txt
+          rm -f k.bin
+          git fetch -q origin ewn-dev || true
+          git config user.name "wwxw-bot"; git config user.email "wwxw-bot@users.noreply.github.com"
+          git worktree add -q /tmp/wt origin/ewn-dev 2>/dev/null || (git worktree add -q --detach /tmp/wt && cd /tmp/wt && git checkout -q --orphan ewn-dev && git rm -rqf . || true)
+          cd /tmp/wt; n=$(cat /tmp/dev/name.txt); mkdir -p dev
+          cp /tmp/dev/img.enc "dev/${n%.png}.enc"; cp /tmp/dev/k.enc "dev/${n%.png}.key"
+          ls dev/*.enc | sort | head -n -8 | while read x; do git rm -q "$x" "${x%.enc}.key"; done
+          git add dev; git commit -q -m "dev copy $n"; git push -q origin HEAD:ewn-dev
       - name: Save the state
         if: steps.f.outputs.new == '1'
         run: |
