@@ -1,12 +1,18 @@
 name: EWN reference map
 
 # Fetches Early Warning Network's daily significant weather map (9am-1pm AWST) for the outlook's
-# reference check. The image itself is never published (EWN: all rights reserved). While the reader is
-# being built, an encrypted copy (last 8) goes to the ewn-dev branch; only the developer can open it.
+# reference check: the WA storm and severe areas go to data/ewn/<date>.json, with our own drawing of
+# what was traced. EWN's picture itself is never published (all rights reserved). While the reader is
+# being tested, an encrypted copy (last 8) goes to the ewn-dev branch; only the developer can open it.
 on:
   schedule:
     - cron: '*/15 1-4 * * *'     # 9:00-12:45 pm AWST
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Read the map again even if it has not changed'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -21,9 +27,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
-      - name: Fetch the map
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: pip install numpy scipy scikit-image pillow
+      - name: Fetch and read the map
         id: f
-        run: python3 ewn/fetch.py
+        run: |
+          mkdir -p data/ewn
+          FORCE=${{ inputs.force && '1' || '0' }} python3 ewn/fetch.py
       - name: Development copy (encrypted; only the developer's private key can open it)
         if: steps.f.outputs.new == '1'
         run: |
@@ -45,6 +58,6 @@ jobs:
         if: steps.f.outputs.new == '1'
         run: |
           git config user.name "wwxw-bot"; git config user.email "wwxw-bot@users.noreply.github.com"
-          git add data/ewn/state.json
+          git add -A data/ewn
           git commit -m "EWN map seen ${{ steps.f.outputs.stamp }}" || exit 0
           for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin HEAD:main && break; sleep 5; done
