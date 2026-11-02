@@ -43,12 +43,15 @@ def classify(rgb):
     red = (R > 140) & (R - G > 85) & (B - G < 40) & ~pink           # non-severe thunderstorms
     windy = (R > 150) & (G > 150) & (B < 120) & (abs(R - G) < 45) & (R + G - 2 * B > 120)   # severe winds (yellow-green)
     rain = (B > 150) & (G > 140) & (R < 120)                        # heavy rainfall (cyan)
-    return {'red': red, 'pink': pink, 'wind': windy, 'rain': rain}
+    # Solid (not see-through) colour = the outlines and the arrows pointing at the areas. Leaving it out keeps
+    # the arrows from joining the areas; the 2-pixel outline gap is closed again in clean().
+    solid = ((R > 230) & (G < 85) & (B < 85)) | ((R > 235) & (B > 185) & (G < 140))
+    return {'red': red & ~solid, 'pink': pink & ~solid, 'wind': windy, 'rain': rain}
 
 
 def clean(mask):
     m = ndimage.binary_opening(mask, structure=np.ones((5, 5)))     # drops arrow shafts and outline-only lines
-    m = ndimage.binary_closing(m, structure=np.ones((7, 7)))        # fills label text and gaps
+    m = ndimage.binary_closing(m, structure=np.ones((7, 7)))        # fills label text, outline gaps
     m = ndimage.binary_fill_holes(m)
     lab, n = ndimage.label(m)
     if n:
