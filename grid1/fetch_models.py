@@ -54,7 +54,7 @@ OPEN_METEO_ENS = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 # A model that runs out of time keeps the steps it already has; one with too few steps is left out.
 START = time.time()
 JOB_BUDGET = 95 * 60                                   # stop downloading anything after this
-MODEL_BUDGET = {'AIFS': 25 * 60, 'ECMWF': 35 * 60}     # per model (the others take a few minutes)
+MODEL_BUDGET = {'AIFS': 30 * 60, 'ECMWF': 45 * 60}     # per model (the others take a few minutes); AIFS + HRES fit in the 95 min job
 MIN_STEP_SHARE = 0.75                                  # need at least 3/4 of the steps to use a model
 DEADLINE = START + JOB_BUDGET
 
