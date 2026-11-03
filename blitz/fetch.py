@@ -11,7 +11,8 @@ Only counts per grid point are saved (this repository is public, and Blitzortung
 for every whole-degree point from 12-36S, 111-130E that had any (75 km = the 1-degree squares, 100 km = the 2-degree ones).
 mcg <= 180 = detecting stations on more than one side of the strike (a better fix).
 
-Usage: python blitz/fetch.py [YYYY-MM-DD]   (default: yesterday's period, i.e. the day that ended at 9am today)
+Usage: python blitz/fetch.py [YYYY-MM-DD[..YYYY-MM-DD]]   (default: yesterday's period, i.e. the day that ended at 9am today;
+       a range backfills several days in one run)
 """
 import base64, datetime as dt, gzip, json, math, os, re, sys, time, urllib.request, urllib.error
 
@@ -68,11 +69,22 @@ def parse(raw):
 
 
 def main():
-    if len(sys.argv) > 1:
-        period = dt.date.fromisoformat(sys.argv[1])
+    arg = sys.argv[1] if len(sys.argv) > 1 else ''
+    if arg:
+        a, _, b = arg.partition('..')
+        d0, d1 = dt.date.fromisoformat(a), dt.date.fromisoformat(b or a)
     else:
         now_awst = dt.datetime.utcnow() + AWST
-        period = (now_awst - dt.timedelta(hours=9)).date() - dt.timedelta(days=1)
+        d0 = d1 = (now_awst - dt.timedelta(hours=9)).date() - dt.timedelta(days=1)
+    ok = 0
+    while d0 <= d1:
+        ok += one_day(d0)
+        d0 += dt.timedelta(days=1)
+    if not ok:
+        sys.exit('No files found: has the folder layout changed?')
+
+
+def one_day(period):
     start = dt.datetime.combine(period, dt.time(9)) - AWST          # UTC
     end = start + dt.timedelta(days=1)
     print('Period %s: %s to %s UTC' % (period, start, end), flush=True)
@@ -119,6 +131,9 @@ def main():
                     c[2] += 1; c[3] += q
             if c[2]:
                 pts['%d,%d' % (la0, lo0)] = c
+    if not files:
+        print('%s: no files (not in the archive?)' % period)
+        return 0
     os.makedirs(OUT, exist_ok=True)
     out = {'period': period.isoformat(), 'source': 'Blitzortung.org (Oceania, participant data)', 'made': dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'),
            'hours': hours, 'files': files, 'total': len(strikes), 'cols': ['n75', 'n75_mcg180', 'n100', 'n100_mcg180'], 'pts': pts}
@@ -126,8 +141,7 @@ def main():
         json.dump(out, fh, separators=(',', ':'))
     good = len([s for s in strikes if (s[4] or 360) <= 180])
     print('%s: %d hour folders, %d files, %d WA-area strikes (%d with mcg <= 180), %d grid points with any.' % (period, hours, files, len(strikes), good, len(pts)))
-    if not files:
-        sys.exit('No files found: has the folder layout changed?')
+    return 1 if files else 0
 
 
 if __name__ == '__main__':

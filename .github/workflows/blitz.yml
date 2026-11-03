@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       date:
-        description: 'Period date (YYYY-MM-DD, the day the 9am-9am day starts). Blank = yesterday'
+        description: 'Period date (YYYY-MM-DD, the day the 9am-9am day starts), or a range YYYY-MM-DD..YYYY-MM-DD. Blank = yesterday'
         type: string
         default: ''
 
@@ -23,7 +23,7 @@ concurrency:
 jobs:
   blitz:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
