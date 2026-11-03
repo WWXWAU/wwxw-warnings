@@ -1,0 +1,42 @@
+name: Blitzortung lightning (test)
+
+# Each morning: yesterday's 9am-9am AWST Oceania strikes from Blitzortung's participant data, counted per
+# whole-degree grid point over WA (75 km and 100 km), to compare with Xweather in the outlook's lightning check.
+# Needs the BLITZ_USER and BLITZ_PASS secrets. Only the counts are saved, never the strikes.
+on:
+  schedule:
+    - cron: '40 1 * * *'      # 9:40 am AWST
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Period date (YYYY-MM-DD, the day the 9am-9am day starts). Blank = yesterday'
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: blitz
+  cancel-in-progress: false
+
+jobs:
+  blitz:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Fetch and count
+        env:
+          BLITZ_USER: ${{ secrets.BLITZ_USER }}
+          BLITZ_PASS: ${{ secrets.BLITZ_PASS }}
+        run: python3 blitz/fetch.py ${{ inputs.date }}
+      - name: Save
+        run: |
+          git config user.name "wwxw-bot"; git config user.email "wwxw-bot@users.noreply.github.com"
+          git add -A data/blitz
+          git commit -q -m "Blitzortung counts" || exit 0
+          for i in 1 2 3; do git pull --rebase -q origin main && git push -q origin HEAD:main && break; sleep 5; done
