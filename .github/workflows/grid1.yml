@@ -41,6 +41,7 @@ jobs:
       - name: Publish to the grid1-data branch
         run: |
           mkdir -p /tmp/pub && cp data/grid1/outlook_1deg.json.gz /tmp/pub/
+          cp data/grid1/cape_check.json /tmp/pub/ 2>/dev/null || true   # derived AIFS CAPE vs HRES (fetch_models.py)
           python -c "import json,glob;print(json.dumps({'made':__import__('datetime').datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'),'runs':{json.load(open(f))['model']:json.load(open(f))['run'] for f in glob.glob('data/grid1/raw_*.json')}}))" > /tmp/pub/status.json
           cat /tmp/pub/status.json
           cd /tmp/pub

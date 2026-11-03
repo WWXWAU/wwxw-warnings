@@ -32,6 +32,12 @@ OUT_DIR = 'data/grid1'
 LATS = [float(x) for x in range(-14, -36, -1)]      # 22 rows, -14 to -35
 LNGS = [float(x) for x in range(113, 130)]           # 17 columns, 113 to 129
 PLEVELS = [1000, 925, 850, 700, 500, 300, 250, 200]  # same as Code.gs
+CAPE_LEVELS = [600, 400, 150, 100]                   # extra ECMWF/AIFS levels, only for the CAPE we work out ourselves
+# AIFS has no CAPE of its own. We lift a parcel through its temperature/humidity profile instead (derived_cape).
+# 'check': worked out for AIFS and HRES and compared with HRES's own CAPE (data/grid1/cape_check.json), not used yet.
+# 'on':    AIFS rows get the derived CAPE (times CAPE_SCALE, set from the check).
+AIFS_CAPE = os.environ.get('AIFS_CAPE', 'check')
+CAPE_SCALE = float(os.environ.get('CAPE_SCALE', '1.0'))
 STEPS = list(range(0, 49, 3)) + list(range(54, 169, 6))
 STEPS_6H = list(range(0, 169, 6))
 AWST = dt.timedelta(hours=8)
@@ -165,6 +171,7 @@ def ec_paths(kind, run):
 def ec_wanted(kind):
     pl = ['t', 'u', 'v'] + (['r'] if kind == 'ECMWF' else ['q'])
     want = {(p, lv) for p in pl for lv in PLEVELS}
+    want |= {(p, lv) for p in ('t', 'r' if kind == 'ECMWF' else 'q') for lv in CAPE_LEVELS}
     want |= {('w', 700), ('gh', 500)}
     sfc = ['2t', '2d', '10u', '10v', 'sp', 'tp'] + (['mucape', '10fg', 'tcwv'] if kind == 'ECMWF' else ['tcw'])
     return want, set(sfc)
@@ -268,14 +275,32 @@ def ecmwf_point(kind, f, prev, step, prev_step, i, j):
             e = q * p / (0.622 + 0.378 * q) if q == q else math.nan
             rh = 100.0 * e / sat_vap(T) if e == e else math.nan
         lv[p] = (T, dew(e), g('u%d' % p), g('v%d' % p), rh)
+    prof = []                                   # (p, T °C, Td °C), surface upwards, for the derived CAPE
+    for p in sorted(PLEVELS + CAPE_LEVELS, reverse=True):
+        T = g('t%d' % p) - 273.15
+        if kind == 'ECMWF':
+            rh = g('r%d' % p)
+            e = rh / 100.0 * sat_vap(T) if rh == rh else math.nan
+        else:
+            q = g('q%d' % p)
+            e = q * p / (0.622 + 0.378 * q) if q == q else math.nan
+        prof.append((p, T, dew(e)))
     tp_now = g('tp')
     tp_prev = float(prev['tp'][i, j]) if prev is not None and 'tp' in prev else math.nan
     to_mm = 1000.0 if kind == 'ECMWF' else 1.0   # HRES tp is in metres; AIFS tp is already in mm (kg m-2)
     rate = 0.0 if prev is None else max(0.0, (tp_now - tp_prev) * to_mm / max(1, step - prev_step))
     psfc = g('sp') / 100.0
     t700 = lv[700][0]
+    dcape = derived_cape(psfc, g('2t') - 273.15, g('2d') - 273.15, prof)
+    cape = g('mucape')
+    if kind == 'ECMWF':
+        CAPE_PAIRS.append((cape, dcape))
+    else:
+        CAPE_AIFS.append(dcape)
+        if AIFS_CAPE == 'on' and dcape == dcape:
+            cape = dcape * CAPE_SCALE
     return {
-        'lv': lv, 'cape': g('mucape'), 'cin': math.nan, 'li': math.nan,
+        'lv': lv, 'cape': cape, 'cin': math.nan, 'li': math.nan,
         'gust': g('10fg') * 3.6, 'precip': rate, 'psfc': psfc,
         't2': g('2t') - 273.15, 'td2': g('2d') - 273.15, 'u10': g('10u'), 'v10': g('10v'),
         'blh': math.nan, 'fzl': math.nan, 'w700': omega_to_w(g('w700'), 700, t700),
@@ -490,6 +515,109 @@ def dew(e):
     return 243.5 * lg / (17.67 - lg)
 
 
+# ---------------------------------------------------------------- CAPE from a profile (for AIFS)
+CAPE_PAIRS = []      # (HRES's own MUCAPE, derived from HRES's profile), to check and scale the derived CAPE
+CAPE_AIFS = []       # derived CAPE for AIFS
+RD, CP, LV, EPS = 287.04, 1005.7, 2.501e6, 0.622
+
+
+def _mix(e, p):
+    return EPS * e / max(p - e, 1e-3)
+
+
+def _tv(tk, r):
+    return tk * (1 + r / EPS) / (1 + r)
+
+
+def _env_at(prof, p):
+    """Environment (T °C, Td °C) at pressure p, linear in ln p between profile levels."""
+    for (p1, t1, d1), (p2, t2, d2) in zip(prof, prof[1:]):
+        if p2 <= p <= p1:
+            f = math.log(p1 / p) / math.log(p1 / p2) if p1 != p2 else 0
+            return t1 + f * (t2 - t1), d1 + f * (d2 - d1)
+    return math.nan, math.nan
+
+
+def _moist_step(tk, p, dp):
+    """Pseudo-adiabatic ascent from p to p - dp (hPa), RK2."""
+    def rate(t, pp):
+        es = sat_vap(t - 273.15)
+        rs = _mix(es, pp)
+        return (RD * t + LV * rs) / (pp * (CP + LV * LV * rs * EPS / (RD * t * t)))
+    k1 = rate(tk, p)
+    k2 = rate(tk - 0.5 * dp * k1, p - 0.5 * dp)
+    return tk - dp * k2
+
+
+def derived_cape(psfc, t2, td2, levels, dp=10.0):
+    """Most-unstable CAPE (J/kg) from a coarse profile: the parcel with the highest theta-e in the lowest
+    300 hPa (2 m or a pressure level above the ground) is lifted dry to its LCL, then pseudo-adiabatically
+    to 100 hPa; positive buoyancy (virtual temperature) above the parcel's start is added up."""
+    if not (psfc == psfc and t2 == t2 and td2 == td2):
+        return math.nan
+    prof = [(psfc, t2, min(td2, t2))] + [(p, t, min(d, t)) for p, t, d in levels if p < psfc - 1 and t == t and d == d]
+    if len(prof) < 5 or prof[-1][0] > 200:
+        return math.nan
+    best, src = -1e9, None
+    for p, t, d in prof:
+        if p < psfc - 300:
+            break
+        e = sat_vap(d)
+        r = _mix(e, p)
+        tk = t + 273.15
+        tl = 1.0 / (1.0 / (d + 273.15 - 56.0) + math.log(tk / (d + 273.15)) / 800.0) + 56.0
+        the = tk * (1000.0 / p) ** (0.2854 * (1 - 0.28 * r)) * math.exp((3376.0 / tl - 2.54) * r * (1 + 0.81 * r))
+        if the > best:
+            best, src = the, (p, tk, r, tl)
+    p0, tk0, r0, tl = src
+    plcl = p0 * (tl / tk0) ** (1.0 / 0.2854)
+    cape, p, tk = 0.0, p0, tk0
+    top = prof[-1][0]
+    while p - dp >= top:
+        pn = p - dp
+        if pn >= plcl:                                     # dry, mixing ratio kept
+            tkn = tk0 * (pn / p0) ** 0.2854
+            rp = r0
+        else:
+            if p > plcl:                                   # crossing the LCL: start from it
+                tk, p = tl, plcl
+                if p - pn <= 0:
+                    p = pn
+            tkn = _moist_step(tk, p, p - pn) if p > pn else tk
+            rp = _mix(sat_vap(tkn - 273.15), pn)
+        te, de = _env_at(prof, pn)
+        if te == te:
+            tve = _tv(te + 273.15, _mix(sat_vap(de), pn))
+            b = _tv(tkn, rp) - tve
+            if b > 0:
+                cape += RD * b * math.log((pn + dp) / pn)
+        p, tk = pn, tkn
+    return cape
+
+
+def cape_check():
+    """How the derived CAPE compares with HRES's own (same profile levels) -> dict for cape_check.json."""
+    pr = [(a, b) for a, b in CAPE_PAIRS if a == a and b == b]
+    out = {'made': dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), 'aifs_mode': AIFS_CAPE, 'scale': CAPE_SCALE, 'n': len(pr)}
+    if len(pr) < 50:
+        return out
+    a = np.array([x[0] for x in pr]); b = np.array([x[1] for x in pr])
+    big = a >= 250
+    out['corr'] = round(float(np.corrcoef(a, b)[0, 1]), 3)
+    out['median_ratio_250plus'] = round(float(np.median(b[big] / a[big])), 3) if big.sum() >= 20 else None
+    out['scale_suggested'] = round(float(np.sum(a[big]) / max(np.sum(b[big]), 1)), 3) if big.sum() >= 20 else None
+    out['mean_hres'], out['mean_derived'] = round(float(a.mean()), 1), round(float(b.mean()), 1)
+    for th in (250, 1000, 2500):   # does the derived CAPE put the same points over each threshold?
+        x, y = a >= th, b >= th
+        h, m, f = int((x & y).sum()), int((x & ~y).sum()), int((~x & y).sum())
+        out['agree_%d' % th] = {'both': h, 'hres_only': m, 'derived_only': f, 'csi': round(h / max(h + m + f, 1), 3)}
+    if CAPE_AIFS:
+        c = np.array([x for x in CAPE_AIFS if x == x])
+        out['aifs'] = {'n': int(c.size), 'mean': round(float(c.mean()), 1), 'p90': round(float(np.percentile(c, 90)), 0),
+                       'share_250plus': round(float((c >= 250).mean()), 3)}
+    return out
+
+
 def omega_to_w(omega, p, t):
     """Pa/s (positive down) -> m/s (positive up), as the outlook's vertical velocity."""
     if not (omega == omega) or not (t == t):
@@ -569,6 +697,11 @@ def main():
                 json.dump(res, fh, separators=(',', ':'))
             ok += 1
         log('%s took %.0f s' % (kind, time.time() - t0))
+    if CAPE_PAIRS or CAPE_AIFS:
+        chk = cape_check()
+        log('Derived CAPE check: ' + json.dumps(chk))
+        with open(os.path.join(OUT_DIR, 'cape_check.json'), 'w') as fh:
+            json.dump(chk, fh)
     return 0 if ok else 1
 
 
