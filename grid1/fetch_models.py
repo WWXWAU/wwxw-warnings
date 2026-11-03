@@ -44,6 +44,22 @@ GFS_ROOT = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com'
 GEFS_ROOT = 'https://noaa-gefs-pds.s3.amazonaws.com'
 OPEN_METEO_ENS = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 
+# Time limits, so a slow or busy server can't stop the run publishing (GitHub cancels the job at 2 hours).
+# A model that runs out of time keeps the steps it already has; one with too few steps is left out.
+START = time.time()
+JOB_BUDGET = 95 * 60                                   # stop downloading anything after this
+MODEL_BUDGET = {'AIFS': 25 * 60, 'ECMWF': 35 * 60}     # per model (the others take a few minutes)
+MIN_STEP_SHARE = 0.75                                  # need at least 3/4 of the steps to use a model
+DEADLINE = START + JOB_BUDGET
+
+
+class OutOfTime(Exception):
+    pass
+
+
+def left():
+    return DEADLINE - time.time()
+
 
 def log(*a):
     print(*a, flush=True)
@@ -53,6 +69,8 @@ def get(url, rng=None, tries=8):
     """Download (part of) a file; busy replies (429/503 "Slow Down", 5xx) wait and retry with back-off."""
     last = None
     for k in range(tries):
+        if left() <= 0:
+            raise OutOfTime('out of time')
         try:
             hdr = {'Range': 'bytes=%d-%d' % rng} if rng else {}
             with urllib.request.urlopen(urllib.request.Request(url, headers=hdr), timeout=120) as r:
@@ -62,10 +80,12 @@ def get(url, rng=None, tries=8):
             if e.code == 404:
                 raise
             wait = e.headers.get('Retry-After') if e.headers else None
-            time.sleep(float(wait) if wait and wait.isdigit() else min(60, 3 * 2 ** k) + 3 * random.random())
+            time.sleep(max(0, min(left(), float(wait) if wait and wait.isdigit() else min(60, 3 * 2 ** k) + 3 * random.random())))
+        except OutOfTime:
+            raise
         except Exception as e:  # noqa: BLE001
             last = e
-            time.sleep(1 + k + random.random())
+            time.sleep(max(0, min(left(), 1 + k + random.random())))
     raise last
 
 
@@ -116,6 +136,8 @@ def fetch_fields(url, items, gap=0, alt_urls=()):
     for start, end, group in merge_ranges(items, gap):
         buf = None
         for u in (url,) + tuple(alt_urls):
+            if left() <= 0:
+                break
             try:
                 buf = get(u, (start, end))
                 break
@@ -222,6 +244,9 @@ def fetch_ecmwf(kind):
     if again:   # a second, slower pass for steps that came back empty or short
         log('%s: retrying %d step(s) one at a time: %s' % (kind, len(again), again))
         for s in again:
+            if left() <= 60:
+                log('%s: out of time, %d step(s) left out.' % (kind, len([x for x in again if len(fields.get(x) or {}) < 10])))
+                break
             time.sleep(5)
             st, f = one(s)
             if len(f) > len(fields.get(s) or {}):
@@ -520,14 +545,25 @@ def build_rows(kind, run, steps, fields, point_fn):
 def main():
     which = [a for a in sys.argv[1:] if not a.startswith('-')] or ['GFS', 'GEFS', 'ECENS', 'AIFS', 'ECMWF']
     os.makedirs(OUT_DIR, exist_ok=True)
+    global DEADLINE
     ok = 0
     for kind in which:
         t0 = time.time()
+        DEADLINE = min(START + JOB_BUDGET, t0 + MODEL_BUDGET.get(kind, JOB_BUDGET))
+        if left() <= 60:
+            log('%s skipped: the run is out of time.' % kind)
+            continue
         try:
             res = (fetch_gfs(kind) if kind in ('GFS', 'GEFS') else fetch_ecens() if kind == 'ECENS' else fetch_ecmwf(kind))
         except Exception as e:  # noqa: BLE001
             log('%s failed: %s' % (kind, e))
             res = None
+        nsteps = len(STEPS if kind == 'ECMWF' else STEPS_6H) if kind in ('ECMWF', 'AIFS') else 0
+        if res and res['rows'] and nsteps:
+            have = nsteps - len([m for m in res.get('missing', []) if m.startswith('step')])
+            if have < MIN_STEP_SHARE * nsteps:
+                log('%s left out: only %d of %d steps came through.' % (kind, have, nsteps))
+                res = None
         if res and res['rows']:
             with open(os.path.join(OUT_DIR, 'raw_%s.json' % kind), 'w') as fh:
                 json.dump(res, fh, separators=(',', ':'))
