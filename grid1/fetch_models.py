@@ -38,6 +38,7 @@ CAPE_LEVELS = [600, 400, 150, 100]                   # extra ECMWF/AIFS levels, 
 # 'on':    AIFS rows get the derived CAPE (times CAPE_SCALE, set from the check).
 AIFS_CAPE = os.environ.get('AIFS_CAPE', 'on')          # on from 3 Nov 2026 (first check: corr 0.987, 1000 J/kg agreement 90%)
 CAPE_SCALE = float(os.environ.get('CAPE_SCALE', '0.96'))  # HRES own CAPE / derived, from that check
+CAPE_CHECK = os.environ.get('CAPE_CHECK', '') == '1'      # also fetch HRES's extra levels and compare (2 runs on 3 Nov: corr 0.98-0.99)
 STEPS = list(range(0, 49, 3)) + list(range(54, 169, 6))
 STEPS_6H = list(range(0, 169, 6))
 AWST = dt.timedelta(hours=8)
@@ -171,7 +172,8 @@ def ec_paths(kind, run):
 def ec_wanted(kind):
     pl = ['t', 'u', 'v'] + (['r'] if kind == 'ECMWF' else ['q'])
     want = {(p, lv) for p in pl for lv in PLEVELS}
-    want |= {(p, lv) for p in ('t', 'r' if kind == 'ECMWF' else 'q') for lv in CAPE_LEVELS}
+    if kind == 'AIFS' or CAPE_CHECK:   # HRES has its own CAPE: its extra levels only for the check (slow server days)
+        want |= {(p, lv) for p in ('t', 'r' if kind == 'ECMWF' else 'q') for lv in CAPE_LEVELS}
     want |= {('w', 700), ('gh', 500)}
     sfc = ['2t', '2d', '10u', '10v', 'sp', 'tp'] + (['mucape', '10fg', 'tcwv'] if kind == 'ECMWF' else ['tcw'])
     return want, set(sfc)
@@ -291,10 +293,11 @@ def ecmwf_point(kind, f, prev, step, prev_step, i, j):
     rate = 0.0 if prev is None else max(0.0, (tp_now - tp_prev) * to_mm / max(1, step - prev_step))
     psfc = g('sp') / 100.0
     t700 = lv[700][0]
-    dcape = derived_cape(psfc, g('2t') - 273.15, g('2d') - 273.15, prof)
+    dcape = derived_cape(psfc, g('2t') - 273.15, g('2d') - 273.15, prof) if (kind == 'AIFS' or CAPE_CHECK) else math.nan
     cape = g('mucape')
     if kind == 'ECMWF':
-        CAPE_PAIRS.append((cape, dcape))
+        if CAPE_CHECK:
+            CAPE_PAIRS.append((cape, dcape))
     else:
         CAPE_AIFS.append(dcape)
         if AIFS_CAPE == 'on' and dcape == dcape:
