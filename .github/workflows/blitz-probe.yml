@@ -1,0 +1,12 @@
+name: blitz-probe
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - run: python3 blitz/probe.py
+        env:
+          BLITZ_USER: ${{ secrets.BLITZ_USER }}
+          BLITZ_PASS: ${{ secrets.BLITZ_PASS }}
