@@ -36,8 +36,8 @@ CAPE_LEVELS = [600, 400, 150, 100]                   # extra ECMWF/AIFS levels, 
 # AIFS has no CAPE of its own. We lift a parcel through its temperature/humidity profile instead (derived_cape).
 # 'check': worked out for AIFS and HRES and compared with HRES's own CAPE (data/grid1/cape_check.json), not used yet.
 # 'on':    AIFS rows get the derived CAPE (times CAPE_SCALE, set from the check).
-AIFS_CAPE = os.environ.get('AIFS_CAPE', 'check')
-CAPE_SCALE = float(os.environ.get('CAPE_SCALE', '1.0'))
+AIFS_CAPE = os.environ.get('AIFS_CAPE', 'on')          # on from 3 Nov 2026 (first check: corr 0.987, 1000 J/kg agreement 90%)
+CAPE_SCALE = float(os.environ.get('CAPE_SCALE', '0.96'))  # HRES own CAPE / derived, from that check
 STEPS = list(range(0, 49, 3)) + list(range(54, 169, 6))
 STEPS_6H = list(range(0, 169, 6))
 AWST = dt.timedelta(hours=8)
