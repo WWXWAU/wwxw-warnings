@@ -24,8 +24,12 @@ import urllib.request
 
 import numpy as np
 
-MIRRORS = ['https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com',   # ECMWF's AWS mirror (fast)
-           'https://data.ecmwf.int/forecasts']
+# Every copy of ECMWF's open data (same layout). Requests are spread over them in turn, and a busy one ("503") is
+# skipped for the next, so one slow server can't stop the run.
+MIRRORS = ['https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com',   # AWS
+           'https://storage.googleapis.com/ecmwf-open-data',          # Google Cloud
+           'https://ai4edataeuwest.blob.core.windows.net/ecmwf',      # Azure
+           'https://data.ecmwf.int/forecasts']                        # ECMWF
 OUT = 'data/ens_storms.json'
 STEPS = list(range(0, 79, 6))            # 0..78 h, 6-hourly
 PARAMS = ('mucape', 'tp')
@@ -68,18 +72,33 @@ def file_base(mirror, run):
 
 
 def find_run():
-    """Newest run whose last step is published, and a mirror that has it."""
+    """Newest run whose last step is published, and the copies (mirrors) that have it."""
     now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
     for back in range(4):
         t = now - dt.timedelta(hours=12 * back)
         run = t.replace(hour=12 if t.hour >= 12 else 0, minute=0, second=0, microsecond=0)
+        have = []
         for m in MIRRORS:
             try:
-                get(file_base(m, run) + '%dh-enfo-ef.index' % STEPS[-1])
-                return run, m
+                get(file_base(m, run) + '%dh-enfo-ef.index' % STEPS[-1], tries=2)
+                have.append(m)
             except Exception:  # noqa: BLE001
                 pass
+        if have:
+            return run, have
     return None, None
+
+
+def from_any(mirrors, k, path, rng=None):
+    """A file (or part of one) from the copies in turn, starting at copy k; quick retries on each."""
+    order = mirrors[k % len(mirrors):] + mirrors[:k % len(mirrors)]
+    err = None
+    for m in order:
+        try:
+            return get(m + path, rng, tries=3 if len(mirrors) > 1 else 6)
+        except Exception as e:  # noqa: BLE001
+            err = e
+    raise err
 
 
 def wanted(index_text):
@@ -122,7 +141,7 @@ def main():
             prev = json.load(open(OUT)).get('run')
         except ValueError:
             pass
-    run, mirror = find_run()
+    run, mirrors = find_run()
     if not run:
         print('No complete ensemble run found yet.')
         return 0
@@ -130,34 +149,36 @@ def main():
     if prev == run_id and '--force' not in sys.argv:
         print('Already have run %s.' % run_id)
         return 0
-    print('Run %s from %s' % (run_id, mirror))
+    print('Run %s from %d cop%s: %s' % (run_id, len(mirrors), 'y' if len(mirrors) == 1 else 'ies', ', '.join(m.split('/')[2] for m in mirrors)))
+    rel = lambda path: file_base('', run) + path   # noqa: E731  (path below each copy's base)
 
     jobs = []                                   # (step, param, member, offset, length)
-    for s in STEPS:
-        idx = get(file_base(mirror, run) + '%dh-enfo-ef.index' % s).decode()
+    for k, s in enumerate(STEPS):
+        try:
+            idx = from_any(mirrors, k, rel('%dh-enfo-ef.index' % s)).decode()
+        except Exception as e:  # noqa: BLE001
+            print('  step %d index: %s' % (s, e))
+            continue
         for p, n, off, ln in wanted(idx):
             jobs.append((s, p, n, off, ln))
     print('%d fields to fetch' % len(jobs))
 
     fields, grid = {}, {}
 
-    others = [m for m in MIRRORS if m != mirror]
-
-    def fetch(job):
+    def fetch(ij):
+        i, job = ij
         s, p, n, off, ln = job
-        for m in [mirror] + others:      # the same file has the same index on both servers
-            try:
-                buf = get(file_base(m, run) + '%dh-enfo-ef.grib2' % s, (off, off + ln - 1))
-                a, la, lo = decode(buf)
-                return job, a, la, lo
-            except Exception as e:  # noqa: BLE001
-                err = e
-        print('  could not fetch %s step %d member %d: %s' % (p, s, n, err))
-        return job, None, None, None
+        try:                             # the same file has the same index on every copy
+            buf = from_any(mirrors, i, rel('%dh-enfo-ef.grib2' % s), (off, off + ln - 1))
+            a, la, lo = decode(buf)
+            return job, a, la, lo
+        except Exception as e:  # noqa: BLE001
+            print('  could not fetch %s step %d member %d: %s' % (p, s, n, e))
+            return job, None, None, None
 
     failed = 0
     with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
-        for job, a, la, lo in ex.map(fetch, jobs):
+        for job, a, la, lo in ex.map(fetch, list(enumerate(jobs))):
             if a is None:
                 failed += 1
                 continue
@@ -170,8 +191,8 @@ def main():
     every = [(s, p) for s in STEPS for p in PARAMS]
     members = sorted(n for n in {k[2] for k in fields} if all((s, p, n) in fields for s, p in every))
     if len(members) < MIN_MEMBERS:
-        print('Only %d complete members (need %d): keeping the previous file.' % (len(members), MIN_MEMBERS))
-        return 1
+        print('::warning::Only %d complete members (need %d): keeping the previous file; the next run tries again.' % (len(members), MIN_MEMBERS))
+        return 0
     lat, lng = grid['lat'], grid['lng']
     storm = {}                                  # period date -> {member: bool grid}
     windows = {}                                # period date -> number of 6-hour windows covered
