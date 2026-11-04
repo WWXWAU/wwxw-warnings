@@ -43,10 +43,15 @@ STEPS = list(range(0, 49, 3)) + list(range(54, 169, 6))
 STEPS_6H = list(range(0, 169, 6))
 AWST = dt.timedelta(hours=8)
 WORKERS = 8          # GFS (NOAA's bucket copes)
-EC_WORKERS = 4       # ECMWF's bucket answers "503 Slow Down" when pushed
+EC_WORKERS = 6       # spread over the copies (ECMWF's own bucket answers "503 Slow Down" when pushed)
 EC_GAP = 4000000     # join ECMWF pieces less than 4 MB apart into one request (fewer requests)
 
-ECMWF_MIRRORS = ['https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com', 'https://data.ecmwf.int/forecasts']
+# Every copy of ECMWF's open data (same folder layout). Each step is downloaded from the next copy in turn, so no one
+# server gets all the requests (ECMWF's own answers "503 busy" when pushed); a failed piece is tried on the others.
+ECMWF_MIRRORS = ['https://ecmwf-forecasts.s3.eu-central-1.amazonaws.com',   # AWS
+                 'https://storage.googleapis.com/ecmwf-open-data',          # Google Cloud
+                 'https://ai4edataeuwest.blob.core.windows.net/ecmwf',      # Azure
+                 'https://data.ecmwf.int/forecasts']                        # ECMWF
 GFS_ROOT = 'https://noaa-gfs-bdp-pds.s3.amazonaws.com'
 GEFS_ROOT = 'https://noaa-gefs-pds.s3.amazonaws.com'
 OPEN_METEO_ENS = 'https://ensemble-api.open-meteo.com/v1/ensemble'
@@ -54,8 +59,8 @@ OPEN_METEO_ENS = 'https://ensemble-api.open-meteo.com/v1/ensemble'
 # Time limits, so a slow or busy server can't stop the run publishing (GitHub cancels the job at 2 hours).
 # A model that runs out of time keeps the steps it already has; one with too few steps is left out.
 START = time.time()
-JOB_BUDGET = 95 * 60                                   # stop downloading anything after this
-MODEL_BUDGET = {'AIFS': 30 * 60, 'ECMWF': 45 * 60}     # per model (the others take a few minutes); AIFS + HRES fit in the 95 min job
+JOB_BUDGET = int(os.environ.get('JOB_BUDGET_MIN', '95')) * 60   # stop downloading anything after this
+MODEL_BUDGET = {'AIFS': 80 * 60, 'ECMWF': 95 * 60}     # per model: each runs in its own job now (grid1.yml), so they don't share time
 MIN_STEP_SHARE = 0.75                                  # need at least 3/4 of the steps to use a model
 DEADLINE = START + JOB_BUDGET
 
@@ -146,7 +151,7 @@ def fetch_fields(url, items, gap=0, alt_urls=()):
             if left() <= 0:
                 break
             try:
-                buf = get(u, (start, end))
+                buf = get(u, (start, end), tries=3 if alt_urls else 8)   # with other copies to try, don't wait long on a busy one
                 break
             except Exception as e:  # noqa: BLE001
                 log('  %s bytes %d-%d: %s' % (u.rsplit('/', 1)[-1], start, end, e))
@@ -179,8 +184,8 @@ def ec_wanted(kind):
     return want, set(sfc)
 
 
-def ec_index(base, step):
-    txt = get(base.replace('{s}', str(step)) + '.index').decode()
+def ec_index(base, step, tries=3):
+    txt = get(base.replace('{s}', str(step)) + '.index', tries=tries).decode()
     out = []
     for line in txt.splitlines():
         try:
@@ -191,7 +196,7 @@ def ec_index(base, step):
 
 
 def find_run(kind, steps):
-    """Newest run (last 2 days) whose last wanted step is published, and a mirror that has it."""
+    """Newest run (last 2 days) whose last wanted step is published, and the copies (mirrors) that have it."""
     now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
     cycles = (0, 6, 12, 18)
     t = now.replace(minute=0, second=0, microsecond=0)
@@ -208,32 +213,45 @@ def find_run(kind, steps):
                 return run, None
             except Exception:  # noqa: BLE001
                 continue
+        have = []
         for m in ECMWF_MIRRORS:
             try:
-                get('%s/%s.index' % (m, ec_paths(kind, run).replace('{s}', str(steps[-1]))))
-                return run, m
+                get('%s/%s.index' % (m, ec_paths(kind, run).replace('{s}', str(steps[-1]))), tries=2)
+                have.append(m)
             except Exception:  # noqa: BLE001
                 pass
+        if have:
+            return run, have
     return None, None
 
 
 def fetch_ecmwf(kind):
     steps = STEPS if kind == 'ECMWF' else STEPS_6H
-    run, mirror = find_run(kind, steps)
+    run, mirrors = find_run(kind, steps)
     if not run:
         log('%s: no complete run found.' % kind)
         return None
-    base = '%s/%s' % (mirror, ec_paths(kind, run))
-    log('%s: run %s from %s' % (kind, run.strftime('%Y-%m-%d %Hz'), mirror))
+    bases = ['%s/%s' % (m, ec_paths(kind, run)) for m in mirrors]
+    log('%s: run %s, from %d cop%s: %s' % (kind, run.strftime('%Y-%m-%d %Hz'), len(mirrors), 'y' if len(mirrors) == 1 else 'ies',
+                                         ', '.join(m.split('/')[2] for m in mirrors)))
     want, sfc = ec_wanted(kind)
 
-    others = ['%s/%s' % (m, ec_paths(kind, run)) for m in ECMWF_MIRRORS if m != mirror]
+    pos = {st: k for k, st in enumerate(steps)}
 
-    def one(step):
-        try:
-            idx = ec_index(base, step)
-        except Exception as e:  # noqa: BLE001
-            log('  step %d index: %s' % (step, e))
+    def one(step, shift=0):
+        """One step: from the copies in turn (step k starts at copy k), the others as stand-ins."""
+        k = (pos[step] + shift) % len(bases)
+        order = bases[k:] + bases[:k]
+        idx = None
+        for b in order:
+            try:
+                idx = ec_index(b, step)
+                break
+            except OutOfTime:
+                raise
+            except Exception as e:  # noqa: BLE001
+                log('  step %d index (%s): %s' % (step, b.split('/')[2], e))
+        if idx is None:
             return step, {}
         items = []
         for o in idx:
@@ -242,8 +260,8 @@ def fetch_ecmwf(kind):
                 items.append(('%s%s' % (p, o['levelist']), int(o['_offset']), int(o['_length'])))
             elif lt == 'sfc' and p in sfc:
                 items.append((p, int(o['_offset']), int(o['_length'])))
-        return step, fetch_fields(base.replace('{s}', str(step)) + '.grib2', items, EC_GAP,
-                                  [o.replace('{s}', str(step)) + '.grib2' for o in others])
+        return step, fetch_fields(order[0].replace('{s}', str(step)) + '.grib2', items, EC_GAP,
+                                  [o.replace('{s}', str(step)) + '.grib2' for o in order[1:]])
 
     fields = {}
     with cf.ThreadPoolExecutor(max_workers=EC_WORKERS) as ex:
@@ -256,8 +274,8 @@ def fetch_ecmwf(kind):
             if left() <= 60:
                 log('%s: out of time, %d step(s) left out.' % (kind, len([x for x in again if len(fields.get(x) or {}) < 10])))
                 break
-            time.sleep(5)
-            st, f = one(s)
+            time.sleep(3)
+            st, f = one(s, 1)                     # starting from a different copy this time
             if len(f) > len(fields.get(s) or {}):
                 fields[s] = f
     return build_rows(kind, run, steps, fields, ecmwf_point)
@@ -673,6 +691,40 @@ def build_rows(kind, run, steps, fields, point_fn):
     return {'model': kind, 'run': run.strftime('%Y-%m-%d %Hz'), 'rows': rows, 'missing': sorted(missing)}
 
 
+PREV_DIR = os.environ.get('PREV_DIR', 'prev')   # the last published raw files (grid1-data branch), for stand-ins
+PREV_MAX_H = 36                                  # a stand-in run can be at most this old
+
+
+def run_time(run):
+    """'2026-11-03 12z' or 'Open-Meteo 2026-11-03 02:41Z' -> datetime (UTC), else None."""
+    m = re.search(r'(\d{4}-\d\d-\d\d) (\d\d)(?::(\d\d))?[zZ]', run or '')
+    if not m:
+        return None
+    return dt.datetime.strptime(m.group(1), '%Y-%m-%d') + dt.timedelta(hours=int(m.group(2)), minutes=int(m.group(3) or 0))
+
+
+def previous(kind):
+    """The last published run of a model, if it isn't too old (used when this run's download fell short)."""
+    import gzip
+    path = os.path.join(PREV_DIR, 'raw_%s.json.gz' % kind)
+    if not os.path.exists(path):
+        return None
+    try:
+        with gzip.open(path, 'rt') as fh:
+            res = json.load(fh)
+    except Exception as e:  # noqa: BLE001
+        log('%s: previous run not readable (%s)' % (kind, e))
+        return None
+    rt = run_time(res.get('run'))
+    age = (dt.datetime.utcnow() - rt).total_seconds() / 3600 if rt else 999
+    if age > PREV_MAX_H:
+        log('%s: previous run %s is %.0f h old: too old to stand in.' % (kind, res.get('run'), age))
+        return None
+    res['fallback'] = True
+    log('%s: using the previous run instead (%s, %.0f h old).' % (kind, res.get('run'), age))
+    return res
+
+
 def main():
     which = [a for a in sys.argv[1:] if not a.startswith('-')] or ['GFS', 'GEFS', 'ECENS', 'AIFS', 'ECMWF']
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -695,7 +747,10 @@ def main():
             if have < MIN_STEP_SHARE * nsteps:
                 log('%s left out: only %d of %d steps came through.' % (kind, have, nsteps))
                 res = None
+        if not (res and res['rows']):
+            res = previous(kind)
         if res and res['rows']:
+            res.setdefault('fallback', False)
             with open(os.path.join(OUT_DIR, 'raw_%s.json' % kind), 'w') as fh:
                 json.dump(res, fh, separators=(',', ':'))
             ok += 1
