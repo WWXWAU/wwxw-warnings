@@ -5,12 +5,11 @@ name: 1-degree model grid
 # server can't hold up the rest. A model whose download falls short stands in with its previous run (up to 36 h old).
 # The result goes to the grid1-data branch (replaced each time, so the repository doesn't grow), where the outlook
 # reads it - but only with at least 4 of the 5 models; otherwise the last published grid stays.
+# Checked every hour: it only downloads and rebuilds when a model has a newer run out than the published one
+# (or the published grid is more than 7 hours old), so a new run is on the page within about an hour of coming out.
 on:
   schedule:
-    - cron: '35 2 * * *'
-    - cron: '35 8 * * *'
-    - cron: '35 14 * * *'
-    - cron: '35 20 * * *'
+    - cron: '45 * * * *'
   workflow_dispatch:
 
 permissions:
@@ -21,7 +20,35 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    outputs:
+      go: ${{ steps.cmp.outputs.go }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install -q numpy
+      - name: Newer runs out?
+        id: cmp
+        run: |
+          git fetch -q --depth 1 origin grid1-data && git show FETCH_HEAD:status.json > published.json || echo '{}' > published.json
+          python grid1/fetch_models.py --newest | tail -1 > newest.json
+          python3 - <<'EOF'
+          import json, os, datetime as dt
+          pub, new = json.load(open('published.json')), json.load(open('newest.json'))
+          runs = pub.get('runs', {}); newer = [m for m, r in new.items() if r and (runs.get(m) or '') < r]
+          made = pub.get('made'); age = (dt.datetime.utcnow() - dt.datetime.strptime(made, '%Y-%m-%dT%H:%MZ')).total_seconds() / 3600 if made else 99
+          go = bool(newer) or age > 7 or os.environ.get('GITHUB_EVENT_NAME') == 'workflow_dispatch' or bool(pub.get('standin')) or bool(pub.get('missing'))
+          print('Published:', runs, '| newest out:', new, '| newer:', newer or 'none', '| grid %.1f h old' % age, '->', 'update' if go else 'nothing to do')
+          open(os.environ['GITHUB_OUTPUT'], 'a').write('go=%s\n' % ('true' if go else 'false'))
+          EOF
+
   fetch:
+    needs: check
+    if: needs.check.outputs.go == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 110
     strategy:
@@ -63,8 +90,8 @@ jobs:
           retention-days: 2
 
   build:
-    needs: fetch
-    if: always()
+    needs: [check, fetch]
+    if: always() && needs.check.outputs.go == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:

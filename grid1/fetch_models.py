@@ -195,6 +195,14 @@ def ec_index(base, step, tries=3):
     return out
 
 
+def run_steps(kind, run):
+    """The steps a run has: HRES's 06z and 18z runs only go out 144 h (6 days); the rest of day 7 comes from
+    the previous full run (see main). AIFS is 6-hourly to 360 h on every run."""
+    if kind == 'ECMWF':
+        return [s for s in STEPS if s <= 144] if run.hour in (6, 18) else STEPS
+    return STEPS_6H if kind == 'AIFS' else STEPS
+
+
 def find_run(kind, steps):
     """Newest run (last 2 days) whose last wanted step is published, and the copies (mirrors) that have it."""
     now = dt.datetime.now(dt.timezone.utc).replace(tzinfo=None)
@@ -213,10 +221,10 @@ def find_run(kind, steps):
                 return run, None
             except Exception:  # noqa: BLE001
                 continue
-        have = []
+        have, last = [], run_steps(kind, run)[-1]
         for m in ECMWF_MIRRORS:
             try:
-                get('%s/%s.index' % (m, ec_paths(kind, run).replace('{s}', str(steps[-1]))), tries=2)
+                get('%s/%s.index' % (m, ec_paths(kind, run).replace('{s}', str(last))), tries=2)
                 have.append(m)
             except Exception:  # noqa: BLE001
                 pass
@@ -231,6 +239,7 @@ def fetch_ecmwf(kind):
     if not run:
         log('%s: no complete run found.' % kind)
         return None
+    steps = run_steps(kind, run)
     bases = ['%s/%s' % (m, ec_paths(kind, run)) for m in mirrors]
     log('%s: run %s, from %d cop%s: %s' % (kind, run.strftime('%Y-%m-%d %Hz'), len(mirrors), 'y' if len(mirrors) == 1 else 'ies',
                                          ', '.join(m.split('/')[2] for m in mirrors)))
@@ -703,17 +712,23 @@ def run_time(run):
     return dt.datetime.strptime(m.group(1), '%Y-%m-%d') + dt.timedelta(hours=int(m.group(2)), minutes=int(m.group(3) or 0))
 
 
-def previous(kind):
-    """The last published run of a model, if it isn't too old (used when this run's download fell short)."""
+def prev_raw(kind):
     import gzip
     path = os.path.join(PREV_DIR, 'raw_%s.json.gz' % kind)
     if not os.path.exists(path):
         return None
     try:
         with gzip.open(path, 'rt') as fh:
-            res = json.load(fh)
+            return json.load(fh)
     except Exception as e:  # noqa: BLE001
         log('%s: previous run not readable (%s)' % (kind, e))
+        return None
+
+
+def previous(kind):
+    """The last published run of a model, if it isn't too old (used when this run's download fell short)."""
+    res = prev_raw(kind)
+    if not res:
         return None
     rt = run_time(res.get('run'))
     age = (dt.datetime.utcnow() - rt).total_seconds() / 3600 if rt else 999
@@ -725,7 +740,23 @@ def previous(kind):
     return res
 
 
+def newest():
+    """--newest: the newest run each model has out now (the hourly check compares it with what's published)."""
+    out = {}
+    for kind in ('GFS', 'GEFS', 'AIFS', 'ECMWF'):
+        try:
+            run, _ = find_run(kind, STEPS_6H if kind == 'AIFS' else STEPS)
+            out[kind] = run.strftime('%Y-%m-%d %Hz') if run else None
+        except Exception as e:  # noqa: BLE001
+            log('%s: %s' % (kind, e))
+            out[kind] = None
+    print(json.dumps(out))
+    return 0
+
+
 def main():
+    if '--newest' in sys.argv:
+        return newest()
     which = [a for a in sys.argv[1:] if not a.startswith('-')] or ['GFS', 'GEFS', 'ECENS', 'AIFS', 'ECMWF']
     os.makedirs(OUT_DIR, exist_ok=True)
     global DEADLINE
@@ -749,6 +780,15 @@ def main():
                 res = None
         if not (res and res['rows']):
             res = previous(kind)
+        elif kind == 'ECMWF' and run_time(res['run']) and run_time(res['run']).hour in (6, 18):
+            # a 6-day run: the rest of day 7 from the previous full run (its rows are in AWST times, so only later ones)
+            pr = prev_raw(kind)
+            if pr and pr.get('rows') and pr.get('run') != res['run']:
+                last = max(r[2] for r in res['rows'])
+                tail = [r for r in pr['rows'] if r[2] > last]
+                res['rows'] += tail
+                res['tail'] = pr['run']
+                log('ECMWF: %d rows after %s from the previous run (%s) to finish day 7.' % (len(tail), last, pr['run']))
         if res and res['rows']:
             res.setdefault('fallback', False)
             with open(os.path.join(OUT_DIR, 'raw_%s.json' % kind), 'w') as fh:
