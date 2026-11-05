@@ -355,8 +355,7 @@ def bottom_card(img, show_logo_text=True):
         dr.text((x0 + i * seg, by + bh + 8), lab, font=font(500, 20), fill=MUTED)
     dr.text((x0, y0 + 16), K['unit'], font=font(600, 20), fill=MUTED)
     dr.line([60, y0 + 124, W - 60, y0 + 124], fill=LINE, width=2)
-    dr.text((60, y0 + 140), 'westweatherwatchers.com', font=font(700, 30), fill=ACCENT)
-    dr.text((W - 60, y0 + 146), 'Data: ' + SRC, font=font(500, 22), fill=MUTED, anchor='ra')
+    dr.text((60, y0 + 146), 'Data: ' + SRC, font=font(500, 22), fill=MUTED)
 
 def summary_card(img, rows, badge, t):
     n = len(rows); rh = 92 if n <= 5 else 70
@@ -442,8 +441,7 @@ def main():
                 lg = logo_img(300)
                 if lg is not None: frame.alpha_composite(lg, (int((W - lg.width) / 2), int(H / 2 - 240)))
                 else: dr.text((W / 2, H / 2 - 40), 'West WX Watchers', font=font(700, 84), fill=TEXT, anchor='mm')
-                dr.text((W / 2, H / 2 + 130), 'westweatherwatchers.com', font=font(700, 48), fill=ACCENT, anchor='mm')
-                dr.text((W / 2, H / 2 + 196), 'Data: ' + SRC, font=font(500, 28), fill=MUTED, anchor='mm')
+                dr.text((W / 2, H / 2 + 130), 'Data: ' + SRC, font=font(500, 28), fill=MUTED, anchor='mm')
             ff.stdin.write(frame.convert('RGB').tobytes())
         T += dur; prev = cam
     ff.stdin.close(); ff.wait()
