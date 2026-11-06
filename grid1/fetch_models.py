@@ -166,10 +166,15 @@ def fetch_fields(url, items, gap=0, alt_urls=()):
 
 
 # ---------------------------------------------------------------- ECMWF HRES and AIFS (open data)
-def ec_paths(kind, run):
+EC_STREAM = {}   # run -> the stream name its HRES files use (found by find_run)
+
+
+def ec_paths(kind, run, stream=None):
+    """HRES 06z/18z files used to be 'scda'; ECMWF's open data now lists them as 'oper' like 00z/12z,
+    so both names are tried (find_run remembers which one has the run)."""
     ymd, hh = run.strftime('%Y%m%d'), run.strftime('%H')
     if kind == 'ECMWF':
-        stream = 'oper' if hh in ('00', '12') else 'scda'
+        stream = stream or EC_STREAM.get(run) or 'oper'
         return '%s/%sz/ifs/0p25/%s/%s%s0000-{s}h-%s-fc' % (ymd, hh, stream, ymd, hh, stream)
     return '%s/%sz/aifs-single/0p25/oper/%s%s0000-{s}h-oper-fc' % (ymd, hh, ymd, hh)
 
@@ -222,16 +227,22 @@ def find_run(kind, steps):
                 return run, None
             except Exception:  # noqa: BLE001
                 continue
-        have, last = [], run_steps(kind, run)[-1]
-        for m in ECMWF_MIRRORS:
-            try:
-                get('%s/%s.index' % (m, ec_paths(kind, run).replace('{s}', str(last))), tries=2)
-                have.append(m)
-            except Exception as e:  # noqa: BLE001
-                if '--newest' in sys.argv and kind == 'ECMWF':
-                    log('  ECMWF %s step %d not on %s: %s' % (run.strftime('%d %Hz'), last, m.split('/')[2], str(e)[:120]))
-        if have:
-            return run, have
+        last = run_steps(kind, run)[-1]
+        streams = ['oper', 'scda'] if kind == 'ECMWF' and run.hour in (6, 18) else [None]
+        for st in streams:
+            have = []
+            for m in ECMWF_MIRRORS:
+                try:
+                    get('%s/%s.index' % (m, ec_paths(kind, run, st).replace('{s}', str(last))), tries=2)
+                    have.append(m)
+                except Exception as e:  # noqa: BLE001
+                    if '--newest' in sys.argv and kind == 'ECMWF':
+                        log('  ECMWF %s %s step %d not on %s: %s' % (run.strftime('%d %Hz'), st or '', last,
+                                                                      m.split('/')[2], str(e)[:80]))
+            if have:
+                if st:
+                    EC_STREAM[run] = st
+                return run, have
     return None, None
 
 
