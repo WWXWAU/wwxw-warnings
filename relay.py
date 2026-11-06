@@ -28,6 +28,11 @@ except ImportError:
     import subprocess
     subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'pillow'], check=False)
 try:
+    from warnimg import render as warn_images          # post and story images for each current warning
+except Exception as e:
+    warn_images = None
+    print('Warning images unavailable:', e, flush=True)
+try:
     from imgarea import yellow_area
 except Exception as e:   # if the image reader isn't available, fall back to the town/district outlines
     yellow_area = None
@@ -274,6 +279,17 @@ def main():
                 open(os.path.join(IMG, img + '.png'), 'wb').write(files[img + '.png'])
                 item['image'] = 'img/' + img + '.png'
                 keep_imgs.add(img + '.png')
+            if warn_images and item['status'] == 'current':
+                # a square post and a story image, named after this issue of the warning (made once per issue)
+                tag = item['id'] + '-' + re.sub(r'\D', '', item['sent'])[:12]
+                post, story = tag + '-post.png', tag + '-story.png'
+                try:
+                    if not (os.path.exists(os.path.join(IMG, post)) and os.path.exists(os.path.join(IMG, story))):
+                        warn_images(item, os.path.join(IMG, post), os.path.join(IMG, story))
+                    item['post'], item['story'] = 'img/' + post, 'img/' + story
+                    keep_imgs.update([post, story])
+                except Exception as e:
+                    log('  warning images failed:', e)
             warnings.append(item)
 
     for f in os.listdir(IMG):                   # remove images of warnings that have ended
