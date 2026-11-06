@@ -227,8 +227,9 @@ def find_run(kind, steps):
             try:
                 get('%s/%s.index' % (m, ec_paths(kind, run).replace('{s}', str(last))), tries=2)
                 have.append(m)
-            except Exception:  # noqa: BLE001
-                pass
+            except Exception as e:  # noqa: BLE001
+                if '--newest' in sys.argv and kind == 'ECMWF':
+                    log('  ECMWF %s step %d not on %s: %s' % (run.strftime('%d %Hz'), last, m.split('/')[2], str(e)[:120]))
         if have:
             return run, have
     return None, None
