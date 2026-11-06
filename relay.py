@@ -279,6 +279,13 @@ def main():
                 open(os.path.join(IMG, img + '.png'), 'wb').write(files[img + '.png'])
                 item['image'] = 'img/' + img + '.png'
                 keep_imgs.add(img + '.png')
+            if item.get('area') and item['status'] == 'current':
+                try:                                       # people living in towns in the area
+                    from warnimg import people_in
+                    n, towns = people_in(item['area'])
+                    item['people'], item['peopleTowns'] = n, [t for t, _ in towns[:8]]
+                except Exception as e:
+                    log('  people count failed:', e)
             if warn_images and item['status'] == 'current':
                 # a square post and a story image, named after this issue of the warning (made once per issue)
                 tag = item['id'] + '-' + re.sub(r'\D', '', item['sent'])[:12]

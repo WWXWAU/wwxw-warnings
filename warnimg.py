@@ -102,6 +102,35 @@ def geo():
         _GEO['towns'] = json.load(open(os.path.join(ASSETS, 'towns.json')))
     return _GEO
 
+# ---------------------------------------------------------------- people in the warning area
+def _inside(x, y, ring):
+    c, j = False, len(ring) - 1
+    for i in range(len(ring)):
+        xi, yi = ring[i][0], ring[i][1]; xj, yj = ring[j][0], ring[j][1]
+        if (yi > y) != (yj > y) and x < (xj - xi) * (y - yi) / ((yj - yi) or 1e-12) + xi: c = not c
+        j = i
+    return c
+
+def people_in(area):
+    """People living in towns inside the area (GeoNames populations in wa_places.json): (total, [(town, people), ...]).
+    A city is listed whole and suburb by suburb, so a smaller place near a bigger one already counted is skipped."""
+    if not area: return 0, []
+    polys = area['coordinates'] if area['type'] == 'MultiPolygon' else [area['coordinates']]
+    def inn(lng, lat): return any(_inside(lng, lat, p[0]) and not any(_inside(lng, lat, h) for h in p[1:]) for p in polys)
+    places = geo()['places']
+    cand = sorted(((v[2], k, v[0], v[1]) for k, v in places.items() if len(v) > 3 and v[3] == 'P' and v[2] > 0 and inn(v[1], v[0])), reverse=True)
+    kept = []
+    for pop, k, la, lo in cand:
+        if any(math.hypot((la - b[2]) * 111, (lo - b[3]) * 111 * math.cos(math.radians(la))) < max(5, min(45, math.sqrt(b[0]) / 30)) for b in kept):
+            continue
+        kept.append((pop, k, la, lo))
+    return sum(k[0] for k in kept), [(k[1].title(), k[0]) for k in kept]
+
+def people_text(n):
+    if n <= 0: return ''
+    r = round(n, -1) if n < 1000 else round(n, -2) if n < 10000 else round(n, -3)
+    return 'About {:,} people in towns in the warning area'.format(int(r))
+
 def norm(s):
     return re.sub(r'[^a-z0-9 ]', '', s.lower().replace('mt ', 'mount ').replace('&', 'and')).strip()
 
@@ -227,6 +256,9 @@ def render(item, post_path=None, story_path=None):
         d.text((Wd - 32 * S, 62 * S), kind.replace(' (Perth Area)', ''), font=font(700, 38 if len(kind) < 30 else 32), fill=(255, 255, 255), anchor='rs')
         d.text((Wd - 32 * S, 104 * S), stamp(item), font=font(400, 21), fill=(157, 205, 211), anchor='rs')
         y = chips(d, hz, 36 * S, 172 * S, Wd - 72 * S, 22) if hz else 172 * S
+        ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
+        if ppl:
+            d.text((36 * S, y + 12 * S), ppl, font=font(600, 21), fill=TEXT); y += 40 * S
         map_top = y + 18 * S
         text_h = 196 * S
         draw_map(img, (36 * S, map_top, Wd - 36 * S, Hd - text_h - 64 * S), item, col)
@@ -244,6 +276,9 @@ def render(item, post_path=None, story_path=None):
             d.text((48 * S, y), ln, font=f, fill=TEXT); y += 66 * S
         d.text((48 * S, y + 6 * S), stamp(item), font=font(400, 26), fill=MUTED); y += 58 * S
         if hz: y = chips(d, hz, 48 * S, y + 6 * S, Wd - 96 * S, 26) + 28 * S
+        ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
+        if ppl:
+            d.text((48 * S, y - 6 * S), ppl, font=font(600, 26), fill=TEXT); y += 46 * S
         mh = 780 * S
         draw_map(img, (48 * S, y, Wd - 48 * S, y + mh), item, col); y += mh + 34 * S
         y = textbox(d, 48 * S, y, Wd - 96 * S, 'Weather situation', situ, 28, 7, ACCENT) + 18 * S
