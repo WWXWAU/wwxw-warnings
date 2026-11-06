@@ -196,10 +196,11 @@ def ec_index(base, step, tries=3):
 
 
 def run_steps(kind, run):
-    """The steps a run has: HRES's 06z and 18z runs only go out 144 h (6 days); the rest of day 7 comes from
-    the previous full run (see main). AIFS is 6-hourly to 360 h on every run."""
+    """The steps a run has: on ECMWF open data, HRES's 06z and 18z runs only go out 90 h (until 6 Nov this asked
+    for 144 h, so they were never found and HRES sat on 00z/12z, up to ~19 h old); the rest of the week comes
+    from the previous full run (see main). AIFS is 6-hourly to 360 h on every run."""
     if kind == 'ECMWF':
-        return [s for s in STEPS if s <= 144] if run.hour in (6, 18) else STEPS
+        return [s for s in STEPS if s <= 90] if run.hour in (6, 18) else STEPS
     return STEPS_6H if kind == 'AIFS' else STEPS
 
 
@@ -772,7 +773,7 @@ def main():
         except Exception as e:  # noqa: BLE001
             log('%s failed: %s' % (kind, e))
             res = None
-        nsteps = len(STEPS if kind == 'ECMWF' else STEPS_6H) if kind in ('ECMWF', 'AIFS') else 0
+        nsteps = (len(run_steps(kind, run_time(res['run']))) if res and run_time(res['run']) else len(STEPS if kind == 'ECMWF' else STEPS_6H)) if kind in ('ECMWF', 'AIFS') else 0
         if res and res['rows'] and nsteps:
             have = nsteps - len([m for m in res.get('missing', []) if m.startswith('step')])
             if have < MIN_STEP_SHARE * nsteps:
@@ -781,14 +782,14 @@ def main():
         if not (res and res['rows']):
             res = previous(kind)
         elif kind == 'ECMWF' and run_time(res['run']) and run_time(res['run']).hour in (6, 18):
-            # a 6-day run: the rest of day 7 from the previous full run (its rows are in AWST times, so only later ones)
+            # a 90 h run: the rest of the week from the previous full run (its rows are in AWST times, so only later ones)
             pr = prev_raw(kind)
             if pr and pr.get('rows') and pr.get('run') != res['run']:
                 last = max(r[2] for r in res['rows'])
                 tail = [r for r in pr['rows'] if r[2] > last]
                 res['rows'] += tail
                 res['tail'] = pr['run']
-                log('ECMWF: %d rows after %s from the previous run (%s) to finish day 7.' % (len(tail), last, pr['run']))
+                log('ECMWF: %d rows after %s from the previous run (%s) to finish the week.' % (len(tail), last, pr['run']))
         if res and res['rows']:
             res.setdefault('fallback', False)
             with open(os.path.join(OUT_DIR, 'raw_%s.json' % kind), 'w') as fh:
