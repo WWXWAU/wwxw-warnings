@@ -35,7 +35,7 @@ jobs:
         id: cmp
         run: |
           git fetch -q --depth 1 origin grid1-data && git show FETCH_HEAD:status.json > published.json || echo '{}' > published.json
-          python grid1/fetch_models.py --newest | tail -1 > newest.json
+          python grid1/fetch_models.py --newest > newest.log; grep -v '^{' newest.log || true; tail -1 newest.log > newest.json
           python3 - <<'EOF'
           import json, os, datetime as dt
           pub, new = json.load(open('published.json')), json.load(open('newest.json'))
