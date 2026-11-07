@@ -8,8 +8,8 @@
    "type": "Severe Thunderstorm Warning",
    "status": "current",
    "headline": "Severe Thunderstorm Warning for Kimberley forecast district",
-   "sent": "2026-11-07T13:23:00+00:00",
-   "expires": "2026-11-07T18:22:57+00:00",
+   "sent": "2026-11-07T15:12:26+00:00",
+   "expires": "2026-11-07T20:12:20+00:00",
    "hazards": [
     "damaging winds",
     "heavy rainfall"
@@ -17,198 +17,112 @@
    "districts": [
     "Kimberley"
    ],
-   "towns": [
-    "Wyndham"
-   ],
-   "townsPlaced": [
-    "Wyndham"
-   ],
-   "description": "Severe thunderstorms are likely to produce damaging winds and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Wyndham.",
+   "towns": [],
+   "townsPlaced": [],
+   "description": "Severe thunderstorms are likely to produce damaging winds and heavy rainfall that may lead to flash flooding in the warning area over the next several hours.",
    "areaSource": "image",
    "area": {
     "type": "Polygon",
     "coordinates": [
      [
       [
-       126.986,
-       -16.453
+       126.672,
+       -16.153
       ],
       [
-       126.978,
-       -16.13
+       126.67,
+       -15.749
       ],
       [
-       127.093,
-       -15.824
+       126.759,
+       -15.554
       ],
       [
-       127.18,
-       -15.687
+       126.896,
+       -15.424
       ],
       [
-       127.397,
-       -15.48
+       126.967,
+       -15.415
       ],
       [
-       127.514,
-       -15.437
-      ],
-      [
-       127.574,
-       -15.395
-      ],
-      [
-       127.684,
-       -15.391
-      ],
-      [
-       127.742,
-       -15.367
-      ],
-      [
-       128.086,
+       127.073,
        -15.366
       ],
       [
-       128.079,
-       -15.43
-      ],
-      [
-       128.05,
-       -15.482
-      ],
-      [
-       128.019,
-       -15.496
-      ],
-      [
-       127.996,
-       -15.514
-      ],
-      [
-       127.99,
-       -15.526
-      ],
-      [
-       127.962,
-       -15.52
-      ],
-      [
-       127.869,
-       -15.576
-      ],
-      [
-       127.842,
-       -15.609
-      ],
-      [
-       127.854,
-       -15.621
-      ],
-      [
-       127.916,
-       -15.596
-      ],
-      [
-       127.974,
-       -15.559
-      ],
-      [
-       128.018,
-       -15.502
-      ],
-      [
-       128.06,
-       -15.497
-      ],
-      [
-       128.096,
-       -15.467
-      ],
-      [
-       128.124,
+       127.453,
        -15.368
       ],
       [
-       128.243,
-       -15.44
+       127.68,
+       -15.478
       ],
       [
-       128.333,
-       -15.457
+       127.901,
+       -15.696
       ],
       [
-       128.431,
-       -15.552
+       127.903,
+       -15.927
       ],
       [
-       128.489,
-       -15.638
+       127.815,
+       -16.175
       ],
       [
-       128.492,
-       -15.795
+       127.656,
+       -16.332
       ],
       [
-       128.38,
-       -15.985
+       127.484,
+       -16.443
       ],
       [
-       128.319,
-       -16.073
+       127.364,
+       -16.473
       ],
       [
-       128.042,
-       -16.337
+       127.278,
+       -16.476
       ],
       [
-       127.932,
-       -16.375
+       127.111,
+       -16.527
       ],
       [
-       127.87,
-       -16.42
+       126.951,
+       -16.525
       ],
       [
-       127.764,
-       -16.456
+       126.836,
+       -16.47
       ],
       [
-       127.705,
-       -16.499
+       126.762,
+       -16.399
       ],
       [
-       127.527,
-       -16.581
+       126.744,
+       -16.318
       ],
       [
-       127.187,
-       -16.58
+       126.699,
+       -16.253
       ],
       [
-       127.122,
-       -16.536
-      ],
-      [
-       127.058,
-       -16.521
-      ],
-      [
-       126.986,
-       -16.453
+       126.672,
+       -16.153
       ]
      ]
     ]
    },
    "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
    "image": "img/IDW21041.png",
-   "people": 941,
-   "peopleTowns": [
-    "Wyndham"
-   ],
-   "post": "img/IDW21033-202611071323-post.png",
-   "story": "img/IDW21033-202611071323-story.png"
+   "people": 0,
+   "peopleTowns": [],
+   "post": "img/IDW21033-202611071512-post.png",
+   "story": "img/IDW21033-202611071512-story.png"
   }
  ],
- "updated": "2026-11-07T13:23:55+00:00"
+ "updated": "2026-11-07T15:13:52+00:00"
 }
