@@ -286,9 +286,11 @@ def himawari_disk():
             day = (now - dt.timedelta(days=back)).strftime('%Y/%m/%d/')
             folders += [f for f in _h9_list('AHI-L2-FLDK-ISatSS/' + day)[0] if f.rstrip('/').endswith('0')]
         folders.sort(reverse=True)
+        if not folders: print('Himawari-9: no scans listed')
         for f in folders[:4]:
-            keys = [k for k in _h9_list(f, False)[1] if '-HFD-020-B12-M1C13-' in k]
-            if len(keys) < 80: continue          # still arriving: the scan before
+            keys = [k for k in _h9_list(f, False)[1] if 'HFD-020-B12-M1C13-T' in k]
+            if len(keys) < 80:                  # still arriving: the scan before
+                print('Himawari-9 %s: %d tiles so far' % (f.split('/')[-2], len(keys))); continue
             def get(k):
                 return h5py.File(io.BytesIO(_gibs_get(H9 + k)), 'r')
             with ThreadPoolExecutor(16) as ex:
