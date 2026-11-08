@@ -1,7 +1,7 @@
 name: Warning image previews
 on: workflow_dispatch
 permissions:
-  contents: read
+  contents: write
 jobs:
   preview:
     runs-on: ubuntu-latest
@@ -12,7 +12,9 @@ jobs:
           python-version: '3.12'
       - run: pip install -q pillow
       - run: python warnimg.py data/test/sample-warning.json previews --styles
-      - uses: actions/upload-artifact@v4
-        with:
-          name: warning-previews
-          path: previews/
+      - name: Save to the previews branch
+        run: |
+          cd previews
+          git init -q -b previews && git add -A
+          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Warning image previews"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" previews
