@@ -397,7 +397,7 @@ def when_sat(t):
 
 # ---------------------------------------------------------------- the pieces
 def header(img, d, item, col, Wd, h, th=None):
-    d.rectangle([0, 0, Wd, h], fill=(6, 12, 16) if th is DARK else HEAD)
+    d.rectangle([0, 0, Wd, h], fill=HEAD)
     logo = Image.open(os.path.join(ASSETS, 'logo-dark.png')).convert('RGBA')
     lh = int(h * 0.62); logo = logo.resize((int(logo.width * lh / logo.height), lh), Image.LANCZOS)
     img.paste(logo, (int(28 * S), int((h - lh) / 2)), logo)
@@ -415,10 +415,13 @@ def chips(d, hazards, x, y, maxw, size=22):
         cx += tw + 12 * S
     return cy + hh
 
-def textbox(d, x, y, w, title, body, size, max_lines, col, th=LIGHT):
+def textbox(d, x, y, w, title, body, size, max_lines, col, th=LIGHT, plain=False):
     ft, fb = font(700, size * 0.8), font(400, size)
-    d.text((x, y), title.upper(), font=ft, fill=col)
-    y += int(size * 1.35 * S)
+    if plain:   # the site's headings: sentence case, bold
+        d.text((x, y), title, font=font(700, size * 0.92), fill=col); y += int(size * 1.45 * S)
+    else:
+        d.text((x, y), title.upper(), font=ft, fill=col)
+        y += int(size * 1.35 * S)
     lines = wrap(d, body, fb, w)
     if len(lines) > max_lines:
         lines = lines[:max_lines]
@@ -428,24 +431,25 @@ def textbox(d, x, y, w, title, body, size, max_lines, col, th=LIGHT):
         d.text((x, y), ln, font=fb, fill=th['text']); y += int(size * 1.42 * S)
     return y
 
-def report_cards(d, reps, x, y, w, th, size=1.0, cols=2):
-    """'Reported' cards: the value big, what and where small, coloured by kind. Returns the bottom y."""
+def report_cards(d, reps, x, y, w, th, size=1.0, cols=2, head=None):
+    """Reported values: the value in white on a solid block (wind orange, hail purple, rain blue),
+    what it was beside it and where / when under that. Returns the bottom y."""
     if not reps: return y
-    f_t = font(700, 17 * size); d.text((x, y), 'REPORTED', font=f_t, fill=th['accent']); y += int(26 * size * S)
-    ch, gap = int(76 * size * S), int(12 * S)
+    d.text((x, y), 'Reported', font=font(700, 22 * size), fill=head or th['accent']); y += int(34 * size * S)
+    bh, gap = int(64 * size * S), int(16 * S)
     n = len(reps); cols = max(1, min(cols, n)); cw = (w - gap * (cols - 1)) / cols
-    fv, fl = font(700, 32 * size), font(500, 17 * size)
-    card = (22, 34, 42) if th is DARK else (255, 255, 255)
+    fv, f1, f2 = font(700, 30 * size), font(600, 19 * size), font(400, 16 * size)
     for i, r in enumerate(reps):
-        cx = x + (i % cols) * (cw + gap); cy = y + (i // cols) * (ch + gap)
-        c = REP_COL[r['kind']]
-        d.rounded_rectangle([cx, cy, cx + cw, cy + ch], radius=int(14 * S), fill=card)
-        d.rounded_rectangle([cx, cy, cx + int(10 * S), cy + ch], radius=int(5 * S), fill=c)
-        d.text((cx + 26 * S, cy + ch * 0.36), r['value'], font=fv, fill=c if th is LIGHT else tuple(min(255, int(v * 1.25 + 40)) for v in c), anchor='lm')
-        sub = ' · '.join(t for t in (r['label'], r['where'], r['when']) if t)
-        while d.textlength(sub, font=fl) > cw - 40 * S and ' · ' in sub: sub = sub.rsplit(' · ', 1)[0]
-        d.text((cx + 26 * S, cy + ch * 0.74), sub, font=fl, fill=th['muted'], anchor='lm')
-    return y + ((n - 1) // cols + 1) * (ch + gap) - gap
+        cx = x + (i % cols) * (cw + gap); cy = y + (i // cols) * (bh + gap)
+        bw = d.textlength(r['value'], font=fv) + 36 * S
+        d.rounded_rectangle([cx, cy, cx + bw, cy + bh], radius=int(10 * S), fill=REP_COL[r['kind']])
+        d.text((cx + bw / 2, cy + bh / 2), r['value'], font=fv, fill=(255, 255, 255), anchor='mm')
+        tx = cx + bw + 16 * S; room = cw - bw - 16 * S
+        sub = ' · '.join(t for t in (r['where'], r['when']) if t)
+        while sub and d.textlength(sub, font=f2) > room and ' ' in sub: sub = sub.rsplit(' ', 1)[0]
+        d.text((tx, cy + bh * 0.30), r['label'], font=f1, fill=th['text'], anchor='lm')
+        if sub: d.text((tx, cy + bh * 0.72), sub, font=f2, fill=th['muted'], anchor='lm')
+    return y + ((n - 1) // cols + 1) * (bh + gap) - gap
 
 def stamp(item):
     s = 'Issued ' + when(item.get('sent'))
@@ -468,6 +472,7 @@ def render(item, post_path=None, story_path=None, style=None):
     hz = item.get('hazards') or []
     kind = item.get('type', 'Warning'); title = kind.replace(' (Perth Area)', '')
     ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
+    plain = style != 'classic'; hc = th['accent'] if style == 'classic' else col   # headings: warning colour on the dark styles
     foot = lambda cr: ('Unofficial copy · official warnings: bom.gov.au · Warning © Bureau of Meteorology') + ('' if not cr else '')
     if post_path:
         Wd = Hd = 1080 * S
@@ -488,14 +493,14 @@ def render(item, post_path=None, story_path=None, style=None):
         if ppl:
             d.text((36 * S, y + 12 * S), ppl, font=font(600, 21), fill=th['text']); y += 40 * S
         if reps:
-            y = report_cards(d, reps[:2], 36 * S, y + 18 * S, Wd - 72 * S, th, 1.0, 2)
+            y = report_cards(d, reps[:2], 36 * S, y + 20 * S, Wd - 72 * S, th, 1.0, 2, hc)
         map_top = y + 18 * S
         text_h = (160 if reps else 196) * S
         credit = draw_map(img, (36 * S, map_top, Wd - 36 * S, Hd - text_h - 64 * S), item, col, style)
         if credit:
             d.text((Wd - 48 * S, Hd - text_h - 64 * S - 12 * S), credit, font=font(500, 14), fill=(220, 228, 232), anchor='rs',
                    stroke_width=int(2 * S), stroke_fill=(0, 0, 0))
-        textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, 3 if reps else 4, th['accent'], th)
+        textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, 3 if reps else 4, hc, th, plain)
         d.line([36 * S, Hd - 50 * S, Wd - 36 * S, Hd - 50 * S], fill=th['rule'], width=int(1.5 * S))
         d.text((Wd / 2, Hd - 24 * S), foot(credit), font=font(400, 17), fill=th['muted'], anchor='mm')
         img.resize((Wd // S, Hd // S), Image.LANCZOS).save(post_path, optimize=True)
@@ -521,19 +526,24 @@ def render(item, post_path=None, story_path=None, style=None):
         if ppl:
             d.text((48 * S, y - 6 * S), ppl, font=font(600, 26), fill=th['text']); y += 46 * S
         if reps:
-            y = report_cards(d, reps[:4], 48 * S, y, Wd - 96 * S, th, 1.2, 1 if len(reps) == 1 else 2) + 30 * S
-        mh = (700 if reps else 780) * S - (60 * S if style == 'poster' else 0)
+            y = report_cards(d, reps[:4], 48 * S, y, Wd - 96 * S, th, 1.2, 1 if len(reps) == 1 else 2, hc) + 30 * S
+        # the map takes whatever the text below it doesn't need
+        sc = ImageDraw.Draw(Image.new('RGB', (Wd, 10)))
+        need = textbox(sc, 0, 0, Wd - 96 * S, 'Weather situation', situ, 28, 6 if reps else 7, hc, th, plain) + 18 * S
+        if more: need = textbox(sc, 0, need, Wd - 96 * S, 'What to expect', ' '.join(more), 26, 5, hc, th, plain) + 18 * S
+        if item.get('towns'): need = textbox(sc, 0, need, Wd - 96 * S, 'Locations which may be affected', ', '.join(item['towns']), 26, 3, hc, th, plain)
+        mh = max(620 * S, min(1000 * S, Hd - 120 * S - need - 34 * S - y)) if plain else (700 if reps else 780) * S - (60 * S if style == 'poster' else 0)
         credit = draw_map(img, (48 * S, y, Wd - 48 * S, y + mh), item, col, style)
         if credit:
             d.text((Wd - 62 * S, y + mh - 14 * S), credit, font=font(500, 17), fill=(220, 228, 232), anchor='rs',
                    stroke_width=int(2 * S), stroke_fill=(0, 0, 0))
         y += mh + 34 * S
-        y = textbox(d, 48 * S, y, Wd - 96 * S, 'Weather situation', situ, 28, 6 if reps else 7, th['accent'], th) + 18 * S
-        if more and y < Hd - 380 * S:
-            y = textbox(d, 48 * S, y, Wd - 96 * S, 'What to expect', ' '.join(more), 26, 5, th['accent'], th) + 18 * S
+        y = textbox(d, 48 * S, y, Wd - 96 * S, 'Weather situation', situ, 28, 6 if reps else 7, hc, th, plain) + 18 * S
+        if more and (plain or y < Hd - 380 * S):
+            y = textbox(d, 48 * S, y, Wd - 96 * S, 'What to expect', ' '.join(more), 26, 5, hc, th, plain) + 18 * S
         towns = item.get('towns') or []
-        if towns and y < Hd - 260 * S:
-            y = textbox(d, 48 * S, y, Wd - 96 * S, 'Locations which may be affected', ', '.join(towns), 26, 3, th['accent'], th)
+        if towns and (plain or y < Hd - 260 * S):
+            y = textbox(d, 48 * S, y, Wd - 96 * S, 'Locations which may be affected', ', '.join(towns), 26, 3, hc, th, plain)
         d.line([48 * S, Hd - 92 * S, Wd - 48 * S, Hd - 92 * S], fill=th['rule'], width=int(1.5 * S))
         d.text((Wd / 2, Hd - 62 * S), 'Unofficial copy · always check the official warning at bom.gov.au', font=font(500, 22), fill=th['muted'], anchor='mm')
         d.text((Wd / 2, Hd - 32 * S), 'Warning © Commonwealth of Australia, Bureau of Meteorology', font=font(400, 18), fill=th['muted'], anchor='mm')
@@ -626,7 +636,7 @@ def render_brand(item, post_path, story_path, style):
 if __name__ == '__main__':
     src, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
-    styles = (list(BRAND) if '--brand' in sys.argv else STYLES) if '--styles' in sys.argv or '--brand' in sys.argv else [STYLE]
+    styles = (list(BRAND) if '--brand' in sys.argv else ['night', 'satellite', 'clouds', 'poster'] if '--yellow' in sys.argv else STYLES) if any(a in sys.argv for a in ('--styles', '--brand', '--yellow')) else [STYLE]
     for w in json.load(open(src)).get('warnings', []):
         for stl in styles:
             base = os.path.join(out, w['id'] + ('-' + stl if len(styles) > 1 else ''))
