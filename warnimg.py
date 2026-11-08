@@ -272,25 +272,31 @@ def _h9_list(prefix, delim=True):
         m = re.search(r'<NextContinuationToken>([^<]+)<', x); tok = m.group(1) if m else None
         if not tok: return out, keys
 
-def himawari_disk():
-    """The newest complete full-disk band-13 (10.4 µm) scan: (brightness temperature array, x0, y0, dx, dy, time) or None.
-    Tiles from NOAA's ISatSS full-disk sector (OR_HFD-020-B12-M1C13-T###), 2 km, fixed-grid scan angles."""
-    if 'disk' in _H9: return _H9['disk']
-    _H9['disk'] = None
+def himawari_scans():
+    """The newest full-disk scan folders (newest first)."""
+    if 'folders' not in _H9:
+        now = dt.datetime.now(dt.timezone.utc); folders = []
+        try:
+            for back in (0, 1):
+                day = (now - dt.timedelta(days=back)).strftime('%Y/%m/%d/')
+                folders += [f for f in _h9_list('AHI-L2-FLDK-ISatSS/' + day)[0] if f.rstrip('/').endswith('0')]
+        except Exception as e:  # noqa: BLE001
+            print('Himawari-9 list not read:', e)
+        _H9['folders'] = sorted(folders, reverse=True)[:4]
+    return _H9['folders']
+
+def himawari_disk(folder):
+    """One full-disk band-13 (10.4 µm) scan, with whatever tiles are up so far:
+    (brightness temperature array, x0, y0, dx, dy, time) or None. Tiles from NOAA's ISatSS full-disk sector
+    (OR_HFD-020-B12-M1C13-T###), 2 km, fixed-grid scan angles."""
+    if folder in _H9: return _H9[folder]
+    _H9[folder] = None
     try:
         import numpy as np, h5py
         from concurrent.futures import ThreadPoolExecutor
-        now = dt.datetime.now(dt.timezone.utc)
-        folders = []
-        for back in (0, 1):
-            day = (now - dt.timedelta(days=back)).strftime('%Y/%m/%d/')
-            folders += [f for f in _h9_list('AHI-L2-FLDK-ISatSS/' + day)[0] if f.rstrip('/').endswith('0')]
-        folders.sort(reverse=True)
-        if not folders: print('Himawari-9: no scans listed')
-        for f in folders[:4]:
+        for f in [folder]:
             keys = [k for k in _h9_list(f, False)[1] if 'HFD-020-B12-M1C13-T' in k]
-            if len(keys) < 80:                  # still arriving: the scan before
-                print('Himawari-9 %s: %d tiles so far' % (f.split('/')[-2], len(keys))); continue
+            if not keys: continue
             def get(k):
                 return h5py.File(io.BytesIO(_gibs_get(H9 + k)), 'r')
             with ThreadPoolExecutor(16) as ex:
@@ -315,7 +321,7 @@ def himawari_disk():
             x0, y0 = X0 * 1e-6, Y0 * 1e-6
             t = files[0].attrs['start_date_time'].decode()     # yyyydddhhmmss
             when_ = dt.datetime.strptime(t[:7], '%Y%j').replace(hour=int(t[7:9]), minute=int(t[9:11]), tzinfo=dt.timezone.utc)
-            _H9['disk'] = (bt, x0, y0, dx * 1e-6, dy * 1e-6, when_)
+            _H9[folder] = (bt, x0, y0, dx * 1e-6, dy * 1e-6, when_)
             # self-check: tiles' stated centres (those on the disk) should land in the middle of the tile
             errs = []
             for t, (xs, ys) in list(zip(files, XY))[::6]:
@@ -324,11 +330,10 @@ def himawari_disk():
                 gx, gy = _scan(np.array([[np.radians(la)]]), np.array([[np.radians(lo - 140.7)]]))
                 errs.append((round(float(gx[0, 0] * 1e6 - (xs[0] + xs[-1]) / 2) / dx, 1), round(float(gy[0, 0] * 1e6 - (ys[0] + ys[-1]) / 2) / dy, 1)))
             print('Himawari-9 check (pixels off, col/row):', errs)
-            print('Himawari-9 scan %s: %d tiles, %dx%d' % (when_.strftime('%H:%M UTC'), len(files), cols, rows))
-            break
+            print('Himawari-9 scan %s: %d tiles' % (when_.strftime('%H:%M UTC'), len(files)))
     except Exception as e:  # noqa: BLE001
         print('Himawari-9 (NOAA) not read:', e)
-    return _H9['disk']
+    return _H9[folder]
 
 def _scan(lat, dlon):
     """Geostationary scan angles (radians; x east, y north) of points at latitude lat and longitude dlon from the
@@ -342,17 +347,29 @@ def _scan(lat, dlon):
 
 def himawari_map(lng0, lng1, lat_top, lat_bot, W, H, k, cm):
     """Band-13 brightness temperature (K) on our Mercator box, W x H (numpy), and the scan time; or (None, None)."""
-    disk = himawari_disk()
-    if not disk: return None, None
+    import numpy as np
+    for f in himawari_scans():
+        disk = himawari_disk(f)
+        if not disk: continue
+        bt, x0, y0, dx, dy, when_ = disk
+        out = _h9_sample(disk, lng0, lng1, W, H, k, cm)
+        if np.isnan(out).mean() < 0.02:      # this scan covers the map (the newest one may still be arriving)
+            return out, when_
+        print('Himawari-9 %s does not cover the map yet' % when_.strftime('%H:%M'))
+    return None, None
+
+def _h9_sample(disk, lng0, lng1, W, H, k, cm):
     import numpy as np
     bt, x0, y0, dx, dy, when_ = disk
     lon = np.radians(np.linspace(lng0, lng1, W, endpoint=False) + (lng1 - lng0) / W / 2 - 140.7)[None, :]
     ys = (H / 2 - np.arange(H) - 0.5)[:, None]
     lat = 2 * np.arctan(np.exp(cm + np.radians(ys / k))) - np.pi / 2
     sx, sy = _scan(lat, lon)
-    ci = np.clip(np.round((sx - x0) / dx).astype(int), 0, bt.shape[1] - 1)
-    ri = np.clip(np.round((sy - y0) / dy).astype(int), 0, bt.shape[0] - 1)
-    return bt[ri, ci], when_
+    ci = np.round((sx - x0) / dx).astype(int); ri = np.round((sy - y0) / dy).astype(int)
+    off = (ci < 0) | (ci >= bt.shape[1]) | (ri < 0) | (ri >= bt.shape[0])     # outside the tiles that are up
+    out = bt[np.clip(ri, 0, bt.shape[0] - 1), np.clip(ci, 0, bt.shape[1] - 1)]
+    out[off] = np.nan
+    return out
 
 def _area_mask(polys, X, Y, ox, oy, W, H):
     m = Image.new('L', (W, H), 0); md = ImageDraw.Draw(m)
