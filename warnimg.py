@@ -39,8 +39,8 @@ HAZ = {   # label, chip colour
 }
 
 STYLE = os.environ.get('WARN_STYLE', '')                       # one style for both images, if set
-POST_STYLE = os.environ.get('WARN_POST_STYLE', 'satellite')    # default: NASA Blue Marble 'Earth' map for the post
-STORY_STYLE = os.environ.get('WARN_STORY_STYLE', 'clouds')     # and the latest Himawari clouds for the story
+POST_STYLE = os.environ.get('WARN_POST_STYLE', 'clouds')       # default: the latest Himawari clouds on the post
+STORY_STYLE = os.environ.get('WARN_STORY_STYLE', 'clouds')     # and on the story
 STYLES = ['classic', 'light', 'dark', 'satellite', 'clouds']   # (night and poster: earlier trials, still drawable)
 BRAND = ('light', 'dark', 'satellite', 'clouds')                # the website's look: outlook-image layout
 LIGHT = dict(bg=BG, text=TEXT, muted=MUTED, accent=ACCENT, rule=(201, 216, 220), stamp=(157, 205, 211))
