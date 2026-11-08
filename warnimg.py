@@ -263,7 +263,7 @@ def _area_mask(polys, X, Y, ox, oy, W, H):
         for hole in poly[1:]: md.polygon([(X(x) - ox, Y(y) - oy) for x, y in hole], fill=0)
     return m
 
-def draw_map(img, box, item, col, style='classic', rounded=True):
+def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     """The warning area on WA, fitted to the area, inside box = (x0, y0, x1, y1) in drawing pixels.
     Returns a credit line for the imagery used ('' for none)."""
     G = geo(); x0, y0, x1, y1 = box; W, H = x1 - x0, y1 - y0
@@ -315,7 +315,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True):
                     credit += ' · satellite clouds unavailable'
         except Exception as ex:  # noqa: BLE001
             print('Imagery not fetched (%s): drawn map instead' % ex)
-            base = None; st = MAPS['dark' if style in BRAND else 'night']
+            base = None; st = MAPS['dark' if brand else 'night']
     layer = (base.convert('RGBA') if base else Image.new('RGBA', (W, H), st['ocean'] + (255,)))
     d = ImageDraw.Draw(layer)
     if base is None:
@@ -325,7 +325,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True):
     m = _area_mask(polys, X, Y, ox, oy, W, H) if polys else None
     dark = style not in ('classic', 'light')
     if m is not None:
-        if style in BRAND:
+        if brand:
             # like the outlook's areas: a strong fill and a darker edge (a bright edge over dark maps)
             layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * (0.62 if style == 'light' else 0.42 if st['img'] else 0.55))))
             e1 = m.filter(ImageFilter.FIND_EDGES)
@@ -459,9 +459,11 @@ def stamp(item):
 
 
 # ---------------------------------------------------------------- the two images
-def render(item, post_path=None, story_path=None, style=None):
+LAYOUT = os.environ.get('WARN_LAYOUT', 'yellow')   # 'yellow' (warning-colour header stripe) or 'site' (outlook-image layout)
+
+def render(item, post_path=None, story_path=None, style=None, layout=None):
     style = style or STYLE
-    if style in BRAND:
+    if (layout or LAYOUT) == 'site' and style in BRAND:
         return render_brand(item, post_path, story_path, style)
     th = LIGHT if style == 'classic' else DARK
     col = TYPE_COL.get(item.get('type'), (242, 194, 0))
@@ -623,7 +625,7 @@ def render_brand(item, post_path, story_path, style):
         ph = panel(scratch, Wd, 0, pad, size, lines, extra) + 28 * S      # panel height
         map_bot = Hd - fh - ph - 20 * S
         img = Image.new('RGB', (Wd, Hd), th['bg']); d = ImageDraw.Draw(img)
-        credit = draw_map(img, (0, hh, Wd, map_bot), item, col, style, rounded=False)
+        credit = draw_map(img, (0, hh, Wd, map_bot), item, col, style, rounded=False, brand=True)
         brand_header(img, d, Wd, hh, title, stamp(item), tsize)
         if credit:
             d.text((Wd - 16 * S, map_bot - 12 * S), credit, font=font(500, 15 if not extra else 18), fill=(235, 241, 243), anchor='rs',
@@ -640,5 +642,5 @@ if __name__ == '__main__':
     for w in json.load(open(src)).get('warnings', []):
         for stl in styles:
             base = os.path.join(out, w['id'] + ('-' + stl if len(styles) > 1 else ''))
-            render(w, base + '-post.png', base + '-story.png', style=stl)
+            render(w, base + '-post.png', base + '-story.png', style=stl, layout='site' if '--brand' in sys.argv else 'yellow')
             print('made', base + '-post.png', base + '-story.png')
