@@ -378,6 +378,23 @@ def _area_mask(polys, X, Y, ox, oy, W, H):
         for hole in poly[1:]: md.polygon([(X(x) - ox, Y(y) - oy) for x, y in hole], fill=0)
     return m
 
+def _frame(item):
+    """The map frame for the warning area: (centre lng, centre Mercator y, degrees across, Mercator-degrees down)."""
+    ga = item.get('area') or None
+    polys = (ga['coordinates'] if ga['type'] == 'MultiPolygon' else [ga['coordinates']]) if ga else []
+    pts = [pt for poly in polys for ring in poly[:1] for pt in ring]
+    if pts:
+        a, c = min(p[0] for p in pts), max(p[0] for p in pts); b, e = min(p[1] for p in pts), max(p[1] for p in pts)
+    else:
+        a, b, c, e = 112.5, -35.5, 129.5, -13.5
+    span = max((c - a) * 1.5, 6.0); mspan = max((merc(e) - merc(b)) * 1.45, math.radians(6.0) * 0.9)
+    return (a + c) / 2, (merc(b) + merc(e)) / 2, span, math.degrees(mspan)
+
+def map_scale(item, box):
+    """Pixels per degree the warning area would get in box (bigger = shown larger)."""
+    _, _, span, md = _frame(item)
+    return min((box[2] - box[0]) / span, (box[3] - box[1]) / md)
+
 def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     """The warning area on WA, fitted to the area, inside box = (x0, y0, x1, y1) in drawing pixels.
     Returns a credit line for the imagery used ('' for none)."""
@@ -634,12 +651,21 @@ def render(item, post_path=None, story_path=None, style=None, layout=None):
         text_h = textbox(sc, 0, 0, Wd - 72 * S, 'Weather situation', situ, 23, sl, hc, th, plain)
         if towns: text_h = textbox(sc, 0, text_h + 10 * S, Wd - 72 * S, 'Locations which may be affected', ', '.join(towns), 21, 2, hc, th, plain)
         text_h += 22 * S
-        credit = draw_map(img, (36 * S, map_top, Wd - 36 * S, Hd - text_h - 64 * S), item, col, style)
+        # a tall warning area: the map as a tall panel on the right and the words beside it, if that shows it bigger
+        wide = (36 * S, map_top, Wd - 36 * S, Hd - text_h - 64 * S)
+        side = (int(Wd * 0.43), map_top, Wd - 36 * S, Hd - 70 * S)
+        if map_scale(item, wide) * 1.15 < map_scale(item, side):
+            box = side
+            ty = textbox(d, 36 * S, map_top, side[0] - 36 * S - 24 * S, 'Weather situation', situ, 22, 9 if not towns else 7, hc, th, plain)
+            if towns: textbox(d, 36 * S, ty + 12 * S, side[0] - 36 * S - 24 * S, 'Locations which may be affected', ', '.join(towns), 20, max(2, int((Hd - 80 * S - ty) / (20 * 1.42 * S)) - 2), hc, th, plain)
+        else:
+            box = wide
+            ty = textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, sl, hc, th, plain)
+            if towns: textbox(d, 36 * S, ty + 10 * S, Wd - 72 * S, 'Locations which may be affected', ', '.join(towns), 21, 2, hc, th, plain)
+        credit = draw_map(img, box, item, col, style)
         if credit:
-            d.text((Wd - 48 * S, Hd - text_h - 64 * S - 12 * S), credit, font=font(500, 14), fill=(220, 228, 232), anchor='rs',
+            d.text((box[2] - 12 * S, box[3] - 12 * S), credit, font=font(500, 14 if box is wide else 12), fill=(220, 228, 232), anchor='rs',
                    stroke_width=int(2 * S), stroke_fill=(0, 0, 0))
-        ty = textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, sl, hc, th, plain)
-        if towns: textbox(d, 36 * S, ty + 10 * S, Wd - 72 * S, 'Locations which may be affected', ', '.join(towns), 21, 2, hc, th, plain)
         d.line([36 * S, Hd - 50 * S, Wd - 36 * S, Hd - 50 * S], fill=th['rule'], width=int(1.5 * S))
         d.text((Wd / 2, Hd - 24 * S), foot(credit), font=font(400, 17), fill=th['muted'], anchor='mm')
         img.resize((Wd // S, Hd // S), Image.LANCZOS).save(post_path, optimize=True)
