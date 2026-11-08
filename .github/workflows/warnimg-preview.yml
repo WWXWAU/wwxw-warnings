@@ -10,7 +10,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: pip install -q pillow
+      - run: pip install -q pillow numpy h5py
       - run: python warnimg.py data/test/sample-warning.json previews
       - name: Save to the previews branch
         run: |

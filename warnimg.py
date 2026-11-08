@@ -258,6 +258,98 @@ def gibs_map(layer, lng0, lng1, lat_top, lat_bot, W, H, k, cm, time=None, fmt='i
         out.paste(src.crop((0, sy, W, sy + 1)), (0, y))
     return out
 
+# ---------------------------------------------------------------- live Himawari-9 infrared (NOAA open data, ~10 min old)
+H9 = 'https://noaa-himawari9.s3.amazonaws.com/'
+_H9 = {}
+
+def _h9_list(prefix, delim=True):
+    out, keys, tok = [], [], None
+    while True:
+        url = H9 + '?list-type=2&prefix=' + prefix + ('&delimiter=/' if delim else '') + ('&continuation-token=' + urllib.request.quote(tok) if tok else '')
+        x = _gibs_get(url).decode()
+        out += re.findall(r'<Prefix>([^<]+)</Prefix>', x)[1:] if not tok else re.findall(r'<Prefix>([^<]+)</Prefix>', x)
+        keys += re.findall(r'<Key>([^<]+)</Key>', x)
+        m = re.search(r'<NextContinuationToken>([^<]+)<', x); tok = m.group(1) if m else None
+        if not tok: return out, keys
+
+def himawari_disk():
+    """The newest complete full-disk band-13 (10.4 µm) scan: (brightness temperature array, x0, y0, dx, dy, time) or None.
+    Tiles from NOAA's ISatSS full-disk sector (OR_HFD-020-B12-M1C13-T###), 2 km, fixed-grid scan angles."""
+    if 'disk' in _H9: return _H9['disk']
+    _H9['disk'] = None
+    try:
+        import numpy as np, h5py
+        from concurrent.futures import ThreadPoolExecutor
+        now = dt.datetime.now(dt.timezone.utc)
+        folders = []
+        for back in (0, 1):
+            day = (now - dt.timedelta(days=back)).strftime('%Y/%m/%d/')
+            folders += [f for f in _h9_list('AHI-L2-FLDK-ISatSS/' + day)[0] if f.rstrip('/').endswith('0')]
+        folders.sort(reverse=True)
+        for f in folders[:4]:
+            keys = [k for k in _h9_list(f, False)[1] if '-HFD-020-B12-M1C13-' in k]
+            if len(keys) < 80: continue          # still arriving: the scan before
+            def get(k):
+                return h5py.File(io.BytesIO(_gibs_get(H9 + k)), 'r')
+            with ThreadPoolExecutor(16) as ex:
+                files = list(ex.map(get, keys))
+            a0 = files[0]
+            sx, ox_ = float(a0['x'].attrs['scale_factor'][0]), float(a0['x'].attrs['add_offset'][0])
+            sy, oy_ = float(a0['y'].attrs['scale_factor'][0]), float(a0['y'].attrs['add_offset'][0])
+            rows = max(int(t.attrs['tile_row_offset'][0]) + t['Sectorized_CMI'].shape[0] for t in files)
+            cols = max(int(t.attrs['tile_column_offset'][0]) + t['Sectorized_CMI'].shape[1] for t in files)
+            bt = np.full((rows, cols), np.nan, dtype=np.float32)
+            for t in files:
+                v = t['Sectorized_CMI']; r0, c0 = int(t.attrs['tile_row_offset'][0]), int(t.attrs['tile_column_offset'][0])
+                raw = v[()].astype(np.float32); fill = v.attrs.get('_FillValue')
+                d_ = raw * float(v.attrs['scale_factor'][0]) + float(v.attrs['add_offset'][0])
+                if fill is not None: d_[raw == float(fill[0])] = np.nan
+                bt[r0:r0 + raw.shape[0], c0:c0 + raw.shape[1]] = d_
+            # scan angle of column 0 / row 0 of the whole disk (from the first tile's own offsets), radians
+            x0 = (ox_ - sx * int(a0.attrs['tile_column_offset'][0])) * 1e-6
+            y0 = (oy_ - sy * int(a0.attrs['tile_row_offset'][0])) * 1e-6
+            t = a0.attrs['start_date_time'].decode()     # yyyydddhhmmss
+            when_ = dt.datetime.strptime(t[:7], '%Y%j').replace(hour=int(t[7:9]), minute=int(t[9:11]), tzinfo=dt.timezone.utc)
+            _H9['disk'] = (bt, x0, y0, sx * 1e-6, sy * 1e-6, when_)
+            # self-check: each tile's stated centre should land in the middle of that tile
+            errs = []
+            for t in files[::9]:
+                la, lo = float(t.attrs['tile_center_latitude'][0]), float(t.attrs['tile_center_longitude'][0])
+                gx, gy = _scan(np.array([[np.radians(la)]]), np.array([[np.radians(lo - 140.7)]]))
+                h_, w_ = t['Sectorized_CMI'].shape
+                cc = int(t.attrs['tile_column_offset'][0]) + w_ / 2; rr = int(t.attrs['tile_row_offset'][0]) + h_ / 2
+                errs.append((round(float((gx[0, 0] - x0) / (sx * 1e-6) - cc), 1), round(float((gy[0, 0] - y0) / (sy * 1e-6) - rr), 1)))
+            print('Himawari-9 check (pixels off, col/row):', errs)
+            print('Himawari-9 scan %s: %d tiles, %dx%d' % (when_.strftime('%H:%M UTC'), len(files), cols, rows))
+            break
+    except Exception as e:  # noqa: BLE001
+        print('Himawari-9 (NOAA) not read:', e)
+    return _H9['disk']
+
+def _scan(lat, dlon):
+    """Geostationary scan angles (radians; x east, y north) of points at latitude lat and longitude dlon from the
+    sub-satellite point (radians), for Himawari's 'sweep y' fixed grid (CGMS)."""
+    import numpy as np
+    a, b, h = 6378137.0, 6356752.31414, 35785831.0; Hh = h + a; e2 = 1 - (b / a) ** 2
+    clat = np.arctan((b * b) / (a * a) * np.tan(lat))
+    rl = b / np.sqrt(1 - e2 * np.cos(clat) ** 2)
+    r1 = Hh - rl * np.cos(clat) * np.cos(dlon); r2 = -rl * np.cos(clat) * np.sin(dlon); r3 = rl * np.sin(clat) * np.ones_like(dlon)
+    return np.arctan(-r2 / r1), np.arcsin(r3 / np.sqrt(r1 ** 2 + r2 ** 2 + r3 ** 2))
+
+def himawari_map(lng0, lng1, lat_top, lat_bot, W, H, k, cm):
+    """Band-13 brightness temperature (K) on our Mercator box, W x H (numpy), and the scan time; or (None, None)."""
+    disk = himawari_disk()
+    if not disk: return None, None
+    import numpy as np
+    bt, x0, y0, dx, dy, when_ = disk
+    lon = np.radians(np.linspace(lng0, lng1, W, endpoint=False) + (lng1 - lng0) / W / 2 - 140.7)[None, :]
+    ys = (H / 2 - np.arange(H) - 0.5)[:, None]
+    lat = 2 * np.arctan(np.exp(cm + np.radians(ys / k))) - np.pi / 2
+    sx, sy = _scan(lat, lon)
+    ci = np.clip(np.round((sx - x0) / dx).astype(int), 0, bt.shape[1] - 1)
+    ri = np.clip(np.round((sy - y0) / dy).astype(int), 0, bt.shape[0] - 1)
+    return bt[ri, ci], when_
+
 def _area_mask(polys, X, Y, ox, oy, W, H):
     m = Image.new('L', (W, H), 0); md = ImageDraw.Draw(m)
     for poly in polys:
@@ -303,8 +395,20 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
             else:
                 base = ImageEnhance.Brightness(ImageEnhance.Color(rel).enhance(0.35)).enhance(0.42)
                 credit = 'Map: NASA Blue Marble'
-                lay, t = himawari_layer()
-                if lay:
+                btm, t9 = himawari_map(lng0, lng1, lat_top, lat_bot, W, H, k, cm)
+                lay, t = (None, None) if btm is not None else himawari_layer()
+                if btm is not None:
+                    import numpy as np
+                    # brightness temperature to cloud brightness: warm ground clear, cold tops white
+                    v = np.nan_to_num(np.clip((292.0 - btm) / (292.0 - 205.0), 0, 1) * 255, nan=0).astype('uint8')
+                    ir = Image.fromarray(v, 'L').filter(ImageFilter.GaussianBlur(1.6 * S))
+                    a_ = ir.point(lambda q: 0 if q < 40 else min(240, int((q - 40) * 1.5)))
+                    base.paste(Image.new('RGB', (W, H), (236, 244, 248)), (0, 0), a_)
+                    cold = Image.fromarray(np.nan_to_num(np.clip((222.0 - btm) / 18.0, 0, 1) * 170, nan=0).astype('uint8'), 'L').filter(ImageFilter.GaussianBlur(1.6 * S))
+                    base.paste(Image.new('RGB', (W, H), (120, 200, 255)), (0, 0), cold)
+                    item['_sat_time'] = t9.isoformat()
+                    credit = 'Satellite: Himawari-9 (JMA/NOAA) · ' + when_sat(t9.isoformat())
+                elif lay:
                     ir = gibs_map(lay, lng0, lng1, lat_top, lat_bot, W, H, k, cm, time=t, fmt='image/png').convert('L').filter(ImageFilter.GaussianBlur(2.2 * S))   # soften the 2 km pixels
                     # cold cloud tops are bright: white cloud, the coldest tops tinted
                     a_ = ir.point(lambda v: 0 if v < 70 else min(235, int((v - 70) * 1.9)))

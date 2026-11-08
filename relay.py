@@ -26,7 +26,7 @@ try:
     import PIL  # noqa: F401  (Pillow reads BoM's warning images)
 except ImportError:
     import subprocess
-    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'pillow'], check=False)
+    subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'pillow', 'numpy', 'h5py'], check=False)
 try:
     from warnimg import render as warn_images          # post and story images for each current warning
 except Exception as e:
