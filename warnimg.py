@@ -628,12 +628,18 @@ def render(item, post_path=None, story_path=None, style=None, layout=None):
         if reps:
             y = report_cards(d, reps[:2], 36 * S, y + 20 * S, Wd - 72 * S, th, 1.0, 2, hc)
         map_top = y + 18 * S
-        text_h = (160 if reps else 196) * S
+        towns = item.get('towns') or []
+        sl = 2 if reps and towns else 3 if (reps or towns) else 4          # situation lines
+        sc = ImageDraw.Draw(Image.new('RGB', (Wd, 10)))
+        text_h = textbox(sc, 0, 0, Wd - 72 * S, 'Weather situation', situ, 23, sl, hc, th, plain)
+        if towns: text_h = textbox(sc, 0, text_h + 10 * S, Wd - 72 * S, 'Locations which may be affected', ', '.join(towns), 21, 2, hc, th, plain)
+        text_h += 22 * S
         credit = draw_map(img, (36 * S, map_top, Wd - 36 * S, Hd - text_h - 64 * S), item, col, style)
         if credit:
             d.text((Wd - 48 * S, Hd - text_h - 64 * S - 12 * S), credit, font=font(500, 14), fill=(220, 228, 232), anchor='rs',
                    stroke_width=int(2 * S), stroke_fill=(0, 0, 0))
-        textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, 3 if reps else 4, hc, th, plain)
+        ty = textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, sl, hc, th, plain)
+        if towns: textbox(d, 36 * S, ty + 10 * S, Wd - 72 * S, 'Locations which may be affected', ', '.join(towns), 21, 2, hc, th, plain)
         d.line([36 * S, Hd - 50 * S, Wd - 36 * S, Hd - 50 * S], fill=th['rule'], width=int(1.5 * S))
         d.text((Wd / 2, Hd - 24 * S), foot(credit), font=font(400, 17), fill=th['muted'], anchor='mm')
         img.resize((Wd // S, Hd // S), Image.LANCZOS).save(post_path, optimize=True)
