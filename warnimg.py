@@ -10,9 +10,15 @@ Unofficial: the images say so, and point to bom.gov.au.
     render(item, 'post.png', 'story.png')        # item = one warning from data/warnings.json
 
     python warnimg.py data/warnings.json OUTDIR  # test: images for every warning in a file
+    python warnimg.py data/warnings.json OUTDIR --styles   # the same in every style
+
+Styles (STYLE, or render(..., style=)): 'classic' (light), 'night' (dark map with a glowing area),
+'satellite' (NASA Blue Marble relief), 'clouds' (the latest Himawari infrared clouds over a dark relief map),
+'poster' (dark map, hazard-striped area and a warning-coloured banner). Imagery comes from NASA GIBS
+(free to use with credit); if it can't be fetched the map falls back to 'night'.
 """
-import json, math, os, re, sys, datetime as dt
-from PIL import Image, ImageDraw, ImageFilter, ImageFont
+import io, json, math, os, re, sys, urllib.request, datetime as dt
+from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ASSETS = os.path.join(HERE, 'wxvideo')
@@ -31,6 +37,23 @@ HAZ = {   # label, chip colour
     'tornado': ('Tornadoes', (106, 27, 154)), 'abnormally high tides': ('Abnormally high tides', (0, 105, 92)),
     'damaging surf': ('Damaging surf', (0, 121, 107)),
 }
+
+STYLE = os.environ.get('WARN_STYLE', 'classic')
+STYLES = ['classic', 'night', 'satellite', 'clouds', 'poster']
+LIGHT = dict(bg=BG, text=TEXT, muted=MUTED, accent=ACCENT, rule=(201, 216, 220), stamp=(157, 205, 211))
+DARK = dict(bg=(10, 18, 24), text=(238, 243, 245), muted=(146, 168, 177), accent=(110, 206, 214), rule=(38, 54, 64), stamp=(157, 205, 211))
+MAPS = {   # ocean, WA, other states, district lines, coast, label text, label outline, other towns
+    'classic': dict(ocean=OCEAN, land=LAND, other=OTHER, dist=DIST + (255,), coast=COAST + (255,), lab=TEXT, halo=(255, 255, 255), town=MUTED, img=None),
+    'night': dict(ocean=(8, 19, 29), land=(30, 44, 54), other=(20, 30, 38), dist=(70, 92, 106, 255), coast=(104, 136, 152, 255),
+                  lab=(255, 255, 255), halo=(6, 12, 16), town=(176, 192, 200), img=None),
+    'satellite': dict(ocean=(8, 19, 29), land=(30, 44, 54), other=(20, 30, 38), dist=(255, 255, 255, 60), coast=(255, 255, 255, 150),
+                      lab=(255, 255, 255), halo=(6, 12, 16), town=(222, 230, 234), img='relief'),
+    'clouds': dict(ocean=(8, 19, 29), land=(30, 44, 54), other=(20, 30, 38), dist=(255, 255, 255, 45), coast=(160, 214, 224, 170),
+                   lab=(255, 255, 255), halo=(6, 12, 16), town=(222, 230, 234), img='clouds'),
+    'poster': dict(ocean=(6, 10, 14), land=(26, 30, 34), other=(16, 19, 22), dist=(62, 70, 78, 255), coast=(120, 130, 138, 255),
+                   lab=(255, 255, 255), halo=(0, 0, 0), town=(170, 178, 184), img=None),
+}
+REP_COL = {'wind': (230, 81, 0), 'hail': (94, 53, 177), 'rain': (21, 101, 192)}
 
 _FC = {}
 def font(wt, size):
@@ -71,6 +94,58 @@ def details(desc, situ):
         if re.search(r'wind|gust|hail|rain|flood|tornado|tide|surf|gale', s, re.I):
             out.append(s)
     return out[:3]
+
+# ---------------------------------------------------------------- values the warning says were recorded
+_OBS = re.compile(r'\b(recorded|observed|reported|measured|registered)\b', re.I)
+_TIME = re.compile(r'\b(\d{1,2}(?::\d{2})?\s*[ap]\.?m\.?)', re.I)
+_PLACE = re.compile(r"\b(?:at|near|in) ((?:[A-Z][\w'’\-]*|Mt|of|the|and)(?: (?:[A-Z][\w'’\-]*|\(\w+\)|of|the))*)")
+_PLACE_SUBJ = re.compile(r"^((?:[A-Z][\w'’\-]*)(?: [A-Z][\w'’\-]*)*) (?:recorded|observed|reported|measured|registered)")
+
+def reports(desc):
+    """Values the warning says were recorded or reported (wind gusts, rain totals, hail sizes), strongest first:
+    [{'kind': 'wind'|'rain'|'hail', 'value': '91 km/h', 'label': 'Wind gust', 'where': 'Newman Airport', 'when': '2:25 pm'}]"""
+    out = []
+    parts = []
+    for sent in re.split(r'(?<=[.!])\s+(?=[A-Z])', clean(desc)):
+        if _OBS.search(sent):   # 'X recorded 98 km/h and Y recorded 30 mm': one report each
+            parts += [p for p in re.split(r';\s*|,?\s+and\s+(?=[A-Z])', sent) if re.search(r'\d|sized? hail', p, re.I)]
+    for s in parts:
+        kind = val = None; label = ''
+        m = re.search(r'(\d{2,3})\s*km/?h', s)
+        if m and re.search(r'wind|gust', s, re.I):
+            kind, val, num, label = 'wind', m.group(1) + ' km/h', int(m.group(1)), 'Wind gust'
+        else:
+            m = re.search(r'(\d+(?:\.\d+)?)\s*(cm|mm|centimetre|millimetre)s?\b[^.]*?\bhail|\bhail[^.]*?(\d+(?:\.\d+)?)\s*(cm|mm)\b', s, re.I)
+            mw = re.search(r'\b(golf ?ball|tennis ?ball|cricket ?ball|marble|pea|coin|cent coin|dollar coin|ping ?pong ball)[- ]sized? hail', s, re.I)
+            if m:
+                n, u = (m.group(1), m.group(2)) if m.group(1) else (m.group(3), m.group(4))
+                u = 'cm' if u.lower().startswith('c') else 'mm'
+                kind, val, num, label = 'hail', n + ' ' + u, float(n) * (10 if u == 'cm' else 1), 'Hail'
+            elif mw:
+                kind, val, num, label = 'hail', re.sub(r'\s+', ' ', mw.group(1)).capitalize() + ' size', 0, 'Hail'
+            else:
+                m = re.search(r'(\d+(?:\.\d+)?)\s*mm\b', s)
+                if m and re.search(r'rain|fell|recorded|total', s, re.I):
+                    per = re.search(r'\bin (?:the |just |about |under |less than )?((?:\d+|one|two|three|six|twelve|24) (?:minutes?|hours?)|(?:half an |an )?hour)', s, re.I)
+                    label = 'Rain' + (' in ' + re.sub(r'^(?:an |)hour$', '1 hour', re.sub(r'^half an hour$', '30 minutes', per.group(1))) if per else '')
+                    kind, val, num = 'rain', m.group(1) + ' mm', float(m.group(1))
+        if not kind: continue
+        where = ''
+        ps = _PLACE_SUBJ.search(s)
+        if ps and ps.group(1) not in ('A', 'An', 'The', 'Wind', 'Large', 'Heavy', 'Hail', 'Rainfall'):
+            where = ps.group(1)
+        else:
+            for pm in _PLACE.finditer(s):
+                w = pm.group(1)
+                if re.match(r'(the )?(hour|minutes?|warning|area|last|past)', w, re.I): continue
+                where = re.sub(r' (?:the|of|and)$', '', w); break
+        tm = _TIME.search(s)
+        when = re.sub(r'\s*([ap])\.?m\.?', r' \1m', tm.group(1).lower()) if tm else ''
+        out.append({'kind': kind, 'value': val, 'num': num, 'label': label, 'where': where, 'when': when, 'text': s})
+    rank = {'wind': 0, 'hail': 1, 'rain': 2}
+    out.sort(key=lambda r: (rank[r['kind']], -r['num']))
+    return out[:4]
+
 
 def when(iso):
     try:
@@ -134,9 +209,60 @@ def people_text(n):
 def norm(s):
     return re.sub(r'[^a-z0-9 ]', '', s.lower().replace('mt ', 'mount ').replace('&', 'and')).strip()
 
-def draw_map(img, box, item, col):
-    """The warning area on WA, fitted to the area, inside box = (x0, y0, x1, y1) in drawing pixels."""
+GIBS = 'https://gibs.earthdata.nasa.gov/wms/epsg4326/best/wms.cgi'
+HIMAWARI = ['Himawari_AHI_Band13_Clean_Infrared', 'Himawari_AHI_Band14_Longwave_Window']
+_CAPS = {}
+
+def _gibs_get(url, tries=2):
+    for i in range(tries):
+        try:
+            req = urllib.request.Request(url, headers={'User-Agent': 'westwxwatchers-warning-images'})
+            return urllib.request.urlopen(req, timeout=40).read()
+        except Exception as e:  # noqa: BLE001
+            err = e
+    raise err
+
+def himawari_layer():
+    """(layer, time) for the newest Himawari infrared picture on NASA GIBS, or (None, None)."""
+    if 'him' not in _CAPS:
+        _CAPS['him'] = (None, None)
+        try:
+            xml = _gibs_get(GIBS + '?SERVICE=WMS&REQUEST=GetCapabilities&VERSION=1.3.0').decode('utf-8', 'replace')
+            for lay in HIMAWARI:
+                i = xml.find('<Name>%s</Name>' % lay)
+                if i < 0: continue
+                m = re.search(r'<Dimension[^>]*name="time"[^>]*default="([^"]+)"', xml[i:i + 6000])
+                _CAPS['him'] = (lay, m.group(1) if m else None); break
+        except Exception as e:  # noqa: BLE001
+            print('Himawari list not read:', e)
+    return _CAPS['him']
+
+def gibs_map(layer, lng0, lng1, lat_top, lat_bot, W, H, k, cm, time=None, fmt='image/jpeg'):
+    """A GIBS picture (plate carrée) of the box, stretched row by row onto our Mercator map: W x H pixels."""
+    hq = max(64, int(W * (lat_top - lat_bot) / (lng1 - lng0)))
+    url = (GIBS + '?SERVICE=WMS&REQUEST=GetMap&VERSION=1.1.1&SRS=EPSG:4326&STYLES=&LAYERS=%s&BBOX=%.4f,%.4f,%.4f,%.4f'
+           '&WIDTH=%d&HEIGHT=%d&FORMAT=%s' % (layer, lng0, lat_bot, lng1, lat_top, W, hq, fmt.replace('/', '%2F')))
+    if time: url += '&TIME=' + time
+    src = Image.open(io.BytesIO(_gibs_get(url))).convert('RGB')
+    out = Image.new('RGB', (W, H))
+    for y in range(H):
+        lat = math.degrees(2 * math.atan(math.exp(cm + math.radians((H / 2 - y - 0.5) / k))) - math.pi / 2)
+        sy = min(hq - 1, max(0, int((lat_top - lat) / (lat_top - lat_bot) * hq)))
+        out.paste(src.crop((0, sy, W, sy + 1)), (0, y))
+    return out
+
+def _area_mask(polys, X, Y, ox, oy, W, H):
+    m = Image.new('L', (W, H), 0); md = ImageDraw.Draw(m)
+    for poly in polys:
+        md.polygon([(X(x) - ox, Y(y) - oy) for x, y in poly[0]], fill=255)
+        for hole in poly[1:]: md.polygon([(X(x) - ox, Y(y) - oy) for x, y in hole], fill=0)
+    return m
+
+def draw_map(img, box, item, col, style='classic'):
+    """The warning area on WA, fitted to the area, inside box = (x0, y0, x1, y1) in drawing pixels.
+    Returns a credit line for the imagery used ('' for none)."""
     G = geo(); x0, y0, x1, y1 = box; W, H = x1 - x0, y1 - y0
+    st = MAPS.get(style, MAPS['classic']); credit = ''
     ga = item.get('area') or None
     polys = (ga['coordinates'] if ga['type'] == 'MultiPolygon' else [ga['coordinates']]) if ga else []
     pts = [pt for poly in polys for ring in poly[:1] for pt in ring]
@@ -150,41 +276,87 @@ def draw_map(img, box, item, col):
     k = min(W / span, H / math.degrees(mspan))           # pixels per degree
     X = lambda lng: x0 + W / 2 + (lng - cx) * k
     Y = lambda lat: y0 + H / 2 - math.degrees(merc(lat) - cm) * k
-    layer = Image.new('RGB', (W, H), OCEAN); d = ImageDraw.Draw(layer)
     ox, oy = x0, y0
     def rings(g):
         cs = g['coordinates'] if g['type'] == 'MultiPolygon' else [g['coordinates']]
         for poly in cs:
             for ring in poly[:1]:
                 yield [(X(p[0]) - ox, Y(p[1]) - oy) for p in ring]
-    for name, gj in G['states'].items():
-        for r in rings(gj):
-            if len(r) > 2: d.polygon(r, fill=LAND if name == 'Western Australia' else OTHER)
-    # the warning area: a soft-edged fill and a strong outline
-    if polys:
-        m = Image.new('L', (W, H), 0); md = ImageDraw.Draw(m)
-        for poly in polys:
-            md.polygon([(X(x) - ox, Y(y) - oy) for x, y in poly[0]], fill=255)
-            for hole in poly[1:]: md.polygon([(X(x) - ox, Y(y) - oy) for x, y in hole], fill=0)
-        fill = Image.new('RGB', (W, H), col)
-        layer.paste(fill, (0, 0), m.point(lambda v: int(v * 0.55)))
-        edge = m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(5))
-        layer.paste(Image.new('RGB', (W, H), tuple(int(v * 0.72) for v in col)), (0, 0), edge)
-    # district lines, then coast and borders on top
+    # the base: drawn land and sea, or satellite imagery
+    base = None
+    if st['img']:
+        lng0, lng1 = cx - W / 2 / k, cx + W / 2 / k
+        inv = lambda mm: math.degrees(2 * math.atan(math.exp(mm)) - math.pi / 2)
+        lat_top, lat_bot = inv(cm + math.radians(H / 2 / k)), inv(cm - math.radians(H / 2 / k))
+        try:
+            rel = gibs_map('BlueMarble_ShadedRelief_Bathymetry', lng0, lng1, lat_top, lat_bot, W, H, k, cm)
+            if st['img'] == 'relief':
+                base = ImageEnhance.Brightness(ImageEnhance.Color(rel).enhance(1.15)).enhance(0.78)
+                credit = 'Map: NASA Blue Marble'
+            else:
+                base = ImageEnhance.Brightness(ImageEnhance.Color(rel).enhance(0.35)).enhance(0.42)
+                credit = 'Map: NASA Blue Marble'
+                lay, t = himawari_layer()
+                if lay:
+                    ir = gibs_map(lay, lng0, lng1, lat_top, lat_bot, W, H, k, cm, time=t, fmt='image/png').convert('L')
+                    # cold cloud tops are bright: white cloud, the coldest tops tinted
+                    a_ = ir.point(lambda v: 0 if v < 70 else min(235, int((v - 70) * 1.9)))
+                    base.paste(Image.new('RGB', (W, H), (236, 244, 248)), (0, 0), a_)
+                    cold = ir.point(lambda v: 0 if v < 200 else min(170, (v - 200) * 5))
+                    base.paste(Image.new('RGB', (W, H), (120, 200, 255)), (0, 0), cold)
+                    item['_sat_time'] = t
+                    credit = 'Satellite: Himawari-9 (JMA) via NASA GIBS' + (' · ' + when_sat(t) if t else '')
+                else:
+                    credit += ' · satellite clouds unavailable'
+        except Exception as ex:  # noqa: BLE001
+            print('Imagery not fetched (%s): drawn map instead' % ex)
+            base = None; st = MAPS['night']
+    layer = (base.convert('RGBA') if base else Image.new('RGBA', (W, H), st['ocean'] + (255,)))
+    d = ImageDraw.Draw(layer)
+    if base is None:
+        for name, gj in G['states'].items():
+            for r in rings(gj):
+                if len(r) > 2: d.polygon(r, fill=st['land'] if name == 'Western Australia' else st['other'])
+    m = _area_mask(polys, X, Y, ox, oy, W, H) if polys else None
+    dark = style != 'classic'
+    if m is not None:
+        if style == 'classic':
+            layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * 0.55)))
+            edge = m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(5))
+            layer.paste(Image.new('RGBA', (W, H), tuple(int(v * 0.72) for v in col) + (255,)), (0, 0), edge)
+        else:
+            # outer glow, a fill (striped on the poster), then a crisp bright outline
+            edge = m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(3))
+            glow = edge.filter(ImageFilter.MaxFilter(9)).filter(ImageFilter.GaussianBlur(14 * S))
+            glow = glow.point(lambda v: min(255, int(v * 3.2)))
+            layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), ImageChops.multiply(glow, ImageOps.invert(m).point(lambda v: int(v * 0.9))))
+            if style == 'poster':
+                stripes = Image.new('L', (W, H), 0); sd = ImageDraw.Draw(stripes); step = 26 * S
+                for i in range(-H, W + H, step):
+                    sd.polygon([(i, 0), (i + step // 2, 0), (i + step // 2 - H, H), (i - H, H)], fill=255)
+                layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), ImageChops.multiply(m, stripes.point(lambda v: int(v * 0.62))))
+                layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * 0.16)))
+            else:
+                layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * (0.30 if st['img'] else 0.40))))
+            layer.paste(Image.new('RGBA', (W, H), (0, 0, 0, 255)), (0, 0), m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(11)).point(lambda v: int(v * 0.55)))
+            layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(7)))
+    # district lines, then coast and borders on top (semi-transparent on imagery)
+    ov = Image.new('RGBA', (W, H), (0, 0, 0, 0)); od = ImageDraw.Draw(ov)
     for r in G['districts']:
-        d.line([(X(p[0]) - ox, Y(p[1]) - oy) for p in r], fill=DIST, width=int(1.1 * S), joint='curve')
+        od.line([(X(p[0]) - ox, Y(p[1]) - oy) for p in r], fill=st['dist'], width=int(1.1 * S), joint='curve')
     for name, gj in G['states'].items():
         for r in rings(gj):
-            if len(r) > 2: d.line(r + [r[0]], fill=COAST, width=int(1.6 * S), joint='curve')
+            if len(r) > 2: od.line(r + [r[0]], fill=st['coast'], width=int((1.3 if base else 1.6) * S), joint='curve')
+    layer = Image.alpha_composite(layer, ov); d = ImageDraw.Draw(layer)
     # towns: the ones named in the warning first, then a few big ones for bearings
     named = [t for t in item.get('towns', []) if norm(t) in G['places']]
     others = [t['n'] for t in G['towns'][:40]]
-    placed, ft_b, ft_r = [], font(600, 21), font(500, 18)
+    placed, ft_b, ft_r = [], font(700 if dark else 600, 23 if dark else 21), font(500, 18)
     for i, n in enumerate(named + [o for o in others if o not in named]):
         if n in named:
-            lat, lng = G['places'][norm(n)][:2]; f, dot = ft_b, TEXT
+            lat, lng = G['places'][norm(n)][:2]; f, dot = ft_b, st['lab']
         else:
-            t = next(t for t in G['towns'] if t['n'] == n); lat, lng = t['lat'], t['lng']; f, dot = ft_r, MUTED
+            t = next(t for t in G['towns'] if t['n'] == n); lat, lng = t['lat'], t['lng']; f, dot = ft_r, st['town']
         px, py = X(lng) - ox, Y(lat) - oy
         if not (24 * S < px < W - 24 * S and 20 * S < py < H - 20 * S): continue
         tw = d.textlength(n, font=f); left = px + 10 * S + tw > W - 10 * S
@@ -195,16 +367,24 @@ def draw_map(img, box, item, col):
         if n not in named and len([q for q in placed]) > len(named) + 6: break
         placed.append(bb)
         r = 5 * S if n in named else 4 * S
-        d.ellipse([px - r, py - r, px + r, py + r], fill=dot, outline=(255, 255, 255), width=int(1.5 * S))
-        d.text((tx, py - 13 * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=(255, 255, 255))
+        d.ellipse([px - r, py - r, px + r, py + r], fill=dot, outline=st['halo'] if dark else (255, 255, 255), width=int(1.5 * S))
+        d.text((tx, py - (14 if dark and n in named else 13) * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=st['halo'])
     # rounded corners
     mask = Image.new('L', (W, H), 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], radius=18 * S, fill=255)
-    img.paste(layer, (x0, y0), mask)
+    img.paste(layer.convert('RGB'), (x0, y0), mask)
+    return credit
+
+def when_sat(t):
+    try:
+        x = dt.datetime.fromisoformat(t.replace('Z', '+00:00')).astimezone(dt.timezone(dt.timedelta(hours=8)))
+        return 'image ' + x.strftime('%-I:%M %p').lower() + ' AWST'
+    except Exception:
+        return ''
 
 
 # ---------------------------------------------------------------- the pieces
-def header(img, d, item, col, Wd, h):
-    d.rectangle([0, 0, Wd, h], fill=HEAD)
+def header(img, d, item, col, Wd, h, th=None):
+    d.rectangle([0, 0, Wd, h], fill=(6, 12, 16) if th is DARK else HEAD)
     logo = Image.open(os.path.join(ASSETS, 'logo-dark.png')).convert('RGBA')
     lh = int(h * 0.62); logo = logo.resize((int(logo.width * lh / logo.height), lh), Image.LANCZOS)
     img.paste(logo, (int(28 * S), int((h - lh) / 2)), logo)
@@ -222,7 +402,7 @@ def chips(d, hazards, x, y, maxw, size=22):
         cx += tw + 12 * S
     return cy + hh
 
-def textbox(d, x, y, w, title, body, size, max_lines, col):
+def textbox(d, x, y, w, title, body, size, max_lines, col, th=LIGHT):
     ft, fb = font(700, size * 0.8), font(400, size)
     d.text((x, y), title.upper(), font=ft, fill=col)
     y += int(size * 1.35 * S)
@@ -232,8 +412,27 @@ def textbox(d, x, y, w, title, body, size, max_lines, col):
         while lines[-1] and d.textlength(lines[-1] + '…', font=fb) > w: lines[-1] = lines[-1].rsplit(' ', 1)[0]
         lines[-1] += '…'
     for ln in lines:
-        d.text((x, y), ln, font=fb, fill=TEXT); y += int(size * 1.42 * S)
+        d.text((x, y), ln, font=fb, fill=th['text']); y += int(size * 1.42 * S)
     return y
+
+def report_cards(d, reps, x, y, w, th, size=1.0, cols=2):
+    """'Reported' cards: the value big, what and where small, coloured by kind. Returns the bottom y."""
+    if not reps: return y
+    f_t = font(700, 17 * size); d.text((x, y), 'REPORTED', font=f_t, fill=th['accent']); y += int(26 * size * S)
+    ch, gap = int(76 * size * S), int(12 * S)
+    n = len(reps); cols = max(1, min(cols, n)); cw = (w - gap * (cols - 1)) / cols
+    fv, fl = font(700, 32 * size), font(500, 17 * size)
+    card = (22, 34, 42) if th is DARK else (255, 255, 255)
+    for i, r in enumerate(reps):
+        cx = x + (i % cols) * (cw + gap); cy = y + (i // cols) * (ch + gap)
+        c = REP_COL[r['kind']]
+        d.rounded_rectangle([cx, cy, cx + cw, cy + ch], radius=int(14 * S), fill=card)
+        d.rounded_rectangle([cx, cy, cx + int(10 * S), cy + ch], radius=int(5 * S), fill=c)
+        d.text((cx + 26 * S, cy + ch * 0.36), r['value'], font=fv, fill=c if th is LIGHT else tuple(min(255, int(v * 1.25 + 40)) for v in c), anchor='lm')
+        sub = ' · '.join(t for t in (r['label'], r['where'], r['when']) if t)
+        while d.textlength(sub, font=fl) > cw - 40 * S and ' · ' in sub: sub = sub.rsplit(' · ', 1)[0]
+        d.text((cx + 26 * S, cy + ch * 0.74), sub, font=fl, fill=th['muted'], anchor='lm')
+    return y + ((n - 1) // cols + 1) * (ch + gap) - gap
 
 def stamp(item):
     s = 'Issued ' + when(item.get('sent'))
@@ -243,60 +442,95 @@ def stamp(item):
 
 
 # ---------------------------------------------------------------- the two images
-def render(item, post_path=None, story_path=None):
+def render(item, post_path=None, story_path=None, style=None):
+    style = style or STYLE
+    th = LIGHT if style == 'classic' else DARK
     col = TYPE_COL.get(item.get('type'), (242, 194, 0))
     situ = situation(item.get('description', ''))
-    more = details(item.get('description', ''), situ)
+    more = [x for x in details(item.get('description', ''), situ) if not _OBS.search(x)]
+    reps = item.get('reports')
+    if reps is None: reps = reports(item.get('description', ''))
     hz = item.get('hazards') or []
-    kind = item.get('type', 'Warning')
+    kind = item.get('type', 'Warning'); title = kind.replace(' (Perth Area)', '')
+    ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
+    foot = lambda cr: ('Unofficial copy · official warnings: bom.gov.au · Warning © Bureau of Meteorology') + ('' if not cr else '')
     if post_path:
         Wd = Hd = 1080 * S
-        img = Image.new('RGB', (Wd, Hd), BG); d = ImageDraw.Draw(img)
-        header(img, d, item, col, Wd, 150 * S)
-        d.text((Wd - 32 * S, 62 * S), kind.replace(' (Perth Area)', ''), font=font(700, 38 if len(kind) < 30 else 32), fill=(255, 255, 255), anchor='rs')
-        d.text((Wd - 32 * S, 104 * S), stamp(item), font=font(400, 21), fill=(157, 205, 211), anchor='rs')
-        y = chips(d, hz, 36 * S, 172 * S, Wd - 72 * S, 22) if hz else 172 * S
-        ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
+        img = Image.new('RGB', (Wd, Hd), th['bg']); d = ImageDraw.Draw(img)
+        if style == 'poster':
+            header(img, d, item, col, Wd, 118 * S, th)
+            d.text((Wd - 32 * S, 72 * S), stamp(item), font=font(500, 21), fill=th['stamp'], anchor='rs')
+            d.rectangle([0, 118 * S, Wd, 214 * S], fill=col)
+            ft = font(800, 52 if len(title) < 30 else 42)
+            d.text((36 * S, 166 * S), title.upper(), font=ft, fill=(12, 12, 12), anchor='lm')
+            y = 236 * S
+        else:
+            header(img, d, item, col, Wd, 150 * S, th)
+            d.text((Wd - 32 * S, 62 * S), title, font=font(700, 38 if len(kind) < 30 else 32), fill=(255, 255, 255), anchor='rs')
+            d.text((Wd - 32 * S, 104 * S), stamp(item), font=font(400, 21), fill=th['stamp'], anchor='rs')
+            y = 172 * S
+        y = chips(d, hz, 36 * S, y, Wd - 72 * S, 22) if hz else y
         if ppl:
-            d.text((36 * S, y + 12 * S), ppl, font=font(600, 21), fill=TEXT); y += 40 * S
+            d.text((36 * S, y + 12 * S), ppl, font=font(600, 21), fill=th['text']); y += 40 * S
+        if reps:
+            y = report_cards(d, reps[:2], 36 * S, y + 18 * S, Wd - 72 * S, th, 1.0, 2)
         map_top = y + 18 * S
-        text_h = 196 * S
-        draw_map(img, (36 * S, map_top, Wd - 36 * S, Hd - text_h - 64 * S), item, col)
-        textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, 4, ACCENT)
-        d.line([36 * S, Hd - 50 * S, Wd - 36 * S, Hd - 50 * S], fill=(201, 216, 220), width=int(1.5 * S))
-        d.text((Wd / 2, Hd - 24 * S), 'Unofficial copy · official warnings: bom.gov.au · Warning © Bureau of Meteorology', font=font(400, 17), fill=MUTED, anchor='mm')
+        text_h = (160 if reps else 196) * S
+        credit = draw_map(img, (36 * S, map_top, Wd - 36 * S, Hd - text_h - 64 * S), item, col, style)
+        if credit:
+            d.text((Wd - 48 * S, Hd - text_h - 64 * S - 12 * S), credit, font=font(500, 14), fill=(220, 228, 232), anchor='rs',
+                   stroke_width=int(2 * S), stroke_fill=(0, 0, 0))
+        textbox(d, 36 * S, Hd - text_h - 44 * S, Wd - 72 * S, 'Weather situation', situ, 23, 3 if reps else 4, th['accent'], th)
+        d.line([36 * S, Hd - 50 * S, Wd - 36 * S, Hd - 50 * S], fill=th['rule'], width=int(1.5 * S))
+        d.text((Wd / 2, Hd - 24 * S), foot(credit), font=font(400, 17), fill=th['muted'], anchor='mm')
         img.resize((Wd // S, Hd // S), Image.LANCZOS).save(post_path, optimize=True)
     if story_path:
         Wd, Hd = 1080 * S, 1920 * S
-        img = Image.new('RGB', (Wd, Hd), BG); d = ImageDraw.Draw(img)
-        header(img, d, item, col, Wd, 190 * S)
+        img = Image.new('RGB', (Wd, Hd), th['bg']); d = ImageDraw.Draw(img)
+        header(img, d, item, col, Wd, 190 * S, th)
         y = 226 * S
-        f = font(700, 56 if len(kind) < 30 else 46)
-        for ln in wrap(d, kind.replace(' (Perth Area)', ''), f, Wd - 96 * S):
-            d.text((48 * S, y), ln, font=f, fill=TEXT); y += 66 * S
-        d.text((48 * S, y + 6 * S), stamp(item), font=font(400, 26), fill=MUTED); y += 58 * S
+        if style == 'poster':
+            f = font(800, 60 if len(title) < 30 else 50)
+            lines = wrap(d, title.upper(), f, Wd - 96 * S)
+            d.rectangle([0, 190 * S, Wd, 190 * S + (len(lines) * 70 + 50) * S], fill=col)
+            y = 190 * S + 24 * S
+            for ln in lines:
+                d.text((48 * S, y), ln, font=f, fill=(12, 12, 12)); y += 70 * S
+            y += 44 * S
+        else:
+            f = font(700, 56 if len(kind) < 30 else 46)
+            for ln in wrap(d, title, f, Wd - 96 * S):
+                d.text((48 * S, y), ln, font=f, fill=th['text']); y += 66 * S
+        d.text((48 * S, y + 6 * S), stamp(item), font=font(400, 26), fill=th['muted']); y += 58 * S
         if hz: y = chips(d, hz, 48 * S, y + 6 * S, Wd - 96 * S, 26) + 28 * S
-        ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
         if ppl:
-            d.text((48 * S, y - 6 * S), ppl, font=font(600, 26), fill=TEXT); y += 46 * S
-        mh = 780 * S
-        draw_map(img, (48 * S, y, Wd - 48 * S, y + mh), item, col); y += mh + 34 * S
-        y = textbox(d, 48 * S, y, Wd - 96 * S, 'Weather situation', situ, 28, 7, ACCENT) + 18 * S
+            d.text((48 * S, y - 6 * S), ppl, font=font(600, 26), fill=th['text']); y += 46 * S
+        if reps:
+            y = report_cards(d, reps[:4], 48 * S, y, Wd - 96 * S, th, 1.2, 1 if len(reps) == 1 else 2) + 30 * S
+        mh = (700 if reps else 780) * S - (60 * S if style == 'poster' else 0)
+        credit = draw_map(img, (48 * S, y, Wd - 48 * S, y + mh), item, col, style)
+        if credit:
+            d.text((Wd - 62 * S, y + mh - 14 * S), credit, font=font(500, 17), fill=(220, 228, 232), anchor='rs',
+                   stroke_width=int(2 * S), stroke_fill=(0, 0, 0))
+        y += mh + 34 * S
+        y = textbox(d, 48 * S, y, Wd - 96 * S, 'Weather situation', situ, 28, 6 if reps else 7, th['accent'], th) + 18 * S
         if more and y < Hd - 380 * S:
-            y = textbox(d, 48 * S, y, Wd - 96 * S, 'What to expect', ' '.join(more), 26, 5, ACCENT) + 18 * S
+            y = textbox(d, 48 * S, y, Wd - 96 * S, 'What to expect', ' '.join(more), 26, 5, th['accent'], th) + 18 * S
         towns = item.get('towns') or []
         if towns and y < Hd - 260 * S:
-            y = textbox(d, 48 * S, y, Wd - 96 * S, 'Locations which may be affected', ', '.join(towns), 26, 3, ACCENT)
-        d.line([48 * S, Hd - 92 * S, Wd - 48 * S, Hd - 92 * S], fill=(201, 216, 220), width=int(1.5 * S))
-        d.text((Wd / 2, Hd - 62 * S), 'Unofficial copy · always check the official warning at bom.gov.au', font=font(500, 22), fill=MUTED, anchor='mm')
-        d.text((Wd / 2, Hd - 32 * S), 'Warning © Commonwealth of Australia, Bureau of Meteorology', font=font(400, 18), fill=MUTED, anchor='mm')
+            y = textbox(d, 48 * S, y, Wd - 96 * S, 'Locations which may be affected', ', '.join(towns), 26, 3, th['accent'], th)
+        d.line([48 * S, Hd - 92 * S, Wd - 48 * S, Hd - 92 * S], fill=th['rule'], width=int(1.5 * S))
+        d.text((Wd / 2, Hd - 62 * S), 'Unofficial copy · always check the official warning at bom.gov.au', font=font(500, 22), fill=th['muted'], anchor='mm')
+        d.text((Wd / 2, Hd - 32 * S), 'Warning © Commonwealth of Australia, Bureau of Meteorology', font=font(400, 18), fill=th['muted'], anchor='mm')
         img.resize((Wd // S, Hd // S), Image.LANCZOS).save(story_path, optimize=True)
 
 
 if __name__ == '__main__':
     src, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
+    styles = STYLES if '--styles' in sys.argv else [STYLE]
     for w in json.load(open(src)).get('warnings', []):
-        base = os.path.join(out, w['id'])
-        render(w, base + '-post.png', base + '-story.png')
-        print('made', base + '-post.png', base + '-story.png')
+        for stl in styles:
+            base = os.path.join(out, w['id'] + ('-' + stl if len(styles) > 1 else ''))
+            render(w, base + '-post.png', base + '-story.png', style=stl)
+            print('made', base + '-post.png', base + '-story.png')
