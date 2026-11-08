@@ -298,7 +298,7 @@ def draw_map(img, box, item, col, style='classic'):
                 credit = 'Map: NASA Blue Marble'
                 lay, t = himawari_layer()
                 if lay:
-                    ir = gibs_map(lay, lng0, lng1, lat_top, lat_bot, W, H, k, cm, time=t, fmt='image/png').convert('L')
+                    ir = gibs_map(lay, lng0, lng1, lat_top, lat_bot, W, H, k, cm, time=t, fmt='image/png').convert('L').filter(ImageFilter.GaussianBlur(2.2 * S))   # soften the 2 km pixels
                     # cold cloud tops are bright: white cloud, the coldest tops tinted
                     a_ = ir.point(lambda v: 0 if v < 70 else min(235, int((v - 70) * 1.9)))
                     base.paste(Image.new('RGB', (W, H), (236, 244, 248)), (0, 0), a_)
