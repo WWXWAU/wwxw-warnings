@@ -49,14 +49,14 @@ MAPS = {   # ocean, WA, other states, district lines, coast, label text, label o
     'dark': dict(ocean=(13, 29, 35), land=(22, 48, 58), other=(16, 37, 45), dist=(52, 82, 94, 255), coast=(92, 128, 140, 255),
                  lab=(226, 238, 240), halo=(13, 29, 35), town=(157, 182, 189), img=None),
     'classic': dict(ocean=OCEAN, land=LAND, other=OTHER, dist=DIST + (255,), coast=COAST + (255,), lab=TEXT, halo=(255, 255, 255), town=MUTED, img=None),
-    'night': dict(ocean=(8, 19, 29), land=(30, 44, 54), other=(20, 30, 38), dist=(70, 92, 106, 255), coast=(104, 136, 152, 255),
-                  lab=(255, 255, 255), halo=(6, 12, 16), town=(176, 192, 200), img=None),
+    'night': dict(ocean=(13, 29, 35), land=(22, 48, 58), other=(16, 37, 45), dist=(52, 82, 94, 255), coast=(92, 128, 140, 255),
+                  lab=(255, 255, 255), halo=(13, 29, 35), town=(176, 196, 202), img=None),   # the site's dark map colours
     'satellite': dict(ocean=(8, 19, 29), land=(30, 44, 54), other=(20, 30, 38), dist=(255, 255, 255, 60), coast=(255, 255, 255, 150),
                       lab=(255, 255, 255), halo=(6, 12, 16), town=(222, 230, 234), img='relief'),
     'clouds': dict(ocean=(8, 19, 29), land=(30, 44, 54), other=(20, 30, 38), dist=(255, 255, 255, 45), coast=(160, 214, 224, 170),
                    lab=(255, 255, 255), halo=(6, 12, 16), town=(222, 230, 234), img='clouds'),
-    'poster': dict(ocean=(6, 10, 14), land=(26, 30, 34), other=(16, 19, 22), dist=(62, 70, 78, 255), coast=(120, 130, 138, 255),
-                   lab=(255, 255, 255), halo=(0, 0, 0), town=(170, 178, 184), img=None),
+    'poster': dict(ocean=(13, 29, 35), land=(22, 48, 58), other=(16, 37, 45), dist=(52, 82, 94, 255), coast=(92, 128, 140, 255),
+                   lab=(255, 255, 255), halo=(13, 29, 35), town=(176, 196, 202), img=None),
 }
 REP_COL = {'wind': (230, 81, 0), 'hail': (94, 53, 177), 'rain': (21, 101, 192)}
 
