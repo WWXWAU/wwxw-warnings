@@ -30,8 +30,8 @@ DIST = (170, 186, 192)
 TYPE_COL = {'Severe Thunderstorm Warning': (242, 194, 0), 'Severe Thunderstorm Warning (Perth Area)': (242, 194, 0),
             'Severe Weather Warning': (255, 145, 0), 'Tropical Cyclone Warning': (229, 57, 53), 'Tropical Cyclone Watch': (171, 71, 188)}
 HAZ = {   # label, chip colour
-    'very destructive winds': ('Very destructive winds', (183, 28, 28)), 'destructive winds': ('Destructive winds', (198, 40, 40)),
-    'damaging winds': ('Damaging winds', (230, 81, 0)), 'gales': ('Gales', (230, 81, 0)),
+    'very destructive winds': ('Very destructive winds', (136, 14, 14)), 'destructive winds': ('Destructive winds', (183, 28, 28)),
+    'damaging winds': ('Damaging winds', (211, 47, 47)), 'gales': ('Gales', (211, 47, 47)),   # winds red, rain blue, hail purple
     'giant hail': ('Giant hail', (69, 39, 160)), 'large hail': ('Large hail', (94, 53, 177)),
     'intense rainfall': ('Intense rainfall', (13, 71, 161)), 'heavy rainfall': ('Heavy rainfall', (21, 101, 192)),
     'tornado': ('Tornadoes', (106, 27, 154)), 'abnormally high tides': ('Abnormally high tides', (0, 105, 92)),
@@ -60,7 +60,7 @@ MAPS = {   # ocean, WA, other states, district lines, coast, label text, label o
     'poster': dict(ocean=(13, 29, 35), land=(22, 48, 58), other=(16, 37, 45), dist=(52, 82, 94, 255), coast=(92, 128, 140, 255),
                    lab=(255, 255, 255), halo=(13, 29, 35), town=(176, 196, 202), img=None),
 }
-REP_COL = {'wind': (230, 81, 0), 'hail': (94, 53, 177), 'rain': (21, 101, 192)}
+REP_COL = {'wind': (211, 47, 47), 'hail': (94, 53, 177), 'rain': (21, 101, 192)}
 
 _FC = {}
 def font(wt, size):
