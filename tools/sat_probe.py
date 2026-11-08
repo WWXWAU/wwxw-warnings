@@ -1,20 +1,22 @@
-"""Probe: the layout of NOAA's Himawari-9 ISatSS band-13 tiles."""
-import datetime as dt, re, urllib.request, h5py, io, numpy as np
+"""Probe: which ISatSS sectors exist (full disk?) and where their band-13 tiles sit."""
+import datetime as dt, re, urllib.request, collections
 B = 'https://noaa-himawari9.s3.amazonaws.com/'
-def ls(prefix, delim=True):
-    url = B + '?list-type=2&prefix=' + prefix + ('&delimiter=/' if delim else '')
+def ls(prefix, delim=True, token=None):
+    url = B + '?list-type=2&prefix=' + prefix + ('&delimiter=/' if delim else '') + ('&continuation-token=' + urllib.request.quote(token) if token else '')
     x = urllib.request.urlopen(url, timeout=30).read().decode()
-    return re.findall(r'<Prefix>([^<]+)</Prefix>', x)[1:], re.findall(r'<Key>([^<]+)</Key>.*?<LastModified>([^<]+)</LastModified>.*?<Size>(\d+)', x)
-now = dt.datetime.utcnow(); day = now.strftime('%Y/%m/%d/')
-sub, _ = ls('AHI-L2-FLDK-ISatSS/' + day)
-c13 = []
-for f in sub[-8:]:
-    for k, lm, sz in ls(f, False)[1]:
-        if '-M1C13-' in k: c13.append((k, lm, sz))
-for k, lm, sz in c13: print(k.split('/')[-2], k.split('/')[-1][:60], lm[11:19], sz)
-k = c13[-1][0]
-f = h5py.File(io.BytesIO(urllib.request.urlopen(B + k, timeout=60).read()), 'r')
-def show(name, o):
-    print(name, getattr(o, 'shape', ''), getattr(o, 'dtype', ''), {a: (o.attrs[a][:5] if hasattr(o.attrs[a], '__len__') and not isinstance(o.attrs[a], (bytes, str)) else o.attrs[a]) for a in list(o.attrs)[:40]})
-show('/', f)
-f.visititems(show)
+    nxt = re.search(r'<NextContinuationToken>([^<]+)<', x)
+    return re.findall(r'<Prefix>([^<]+)</Prefix>', x)[1:], re.findall(r'<Key>([^<]+)</Key>.*?<LastModified>([^<]+)</LastModified>.*?<Size>(\d+)', x), (nxt.group(1) if nxt else None)
+now = dt.datetime.now(dt.timezone.utc); day = now.strftime('%Y/%m/%d/')
+sub = ls('AHI-L2-FLDK-ISatSS/' + day)[0]
+cnt = collections.Counter()
+for f in sub[-14:]:
+    keys, tok = [], None
+    while True:
+        _, k, tok = ls(f, False, tok); keys += k
+        if not tok: break
+    sect = collections.Counter(re.sub(r'-T\d+_.*', '', x[0].split('/')[-1]) for x in keys)
+    print(f.split('/')[-2], len(keys), 'files', dict((s, n) for s, n in sect.items() if 'C13' in s or 'C03' in s))
+    for k, lm, sz in keys:
+        n = k.split('/')[-1]
+        if 'C13' in n and 'HR3' not in n: cnt[re.sub(r'_GH9.*', '', n)] += 1
+print(sorted(cnt.items())[:80])
