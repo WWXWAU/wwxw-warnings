@@ -38,7 +38,9 @@ HAZ = {   # label, chip colour
     'damaging surf': ('Damaging surf', (0, 121, 107)),
 }
 
-STYLE = os.environ.get('WARN_STYLE', 'classic')
+STYLE = os.environ.get('WARN_STYLE', '')                       # one style for both images, if set
+POST_STYLE = os.environ.get('WARN_POST_STYLE', 'satellite')    # default: NASA Blue Marble 'Earth' map for the post
+STORY_STYLE = os.environ.get('WARN_STORY_STYLE', 'clouds')     # and the latest Himawari clouds for the story
 STYLES = ['classic', 'light', 'dark', 'satellite', 'clouds']   # (night and poster: earlier trials, still drawable)
 BRAND = ('light', 'dark', 'satellite', 'clouds')                # the website's look: outlook-image layout
 LIGHT = dict(bg=BG, text=TEXT, muted=MUTED, accent=ACCENT, rule=(201, 216, 220), stamp=(157, 205, 211))
@@ -333,7 +335,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
                 layer.paste(Image.new('RGBA', (W, H), (13, 29, 35, 255)), (0, 0), e1.filter(ImageFilter.MaxFilter(9)).point(lambda v: int(v * 0.6)))
             ec = tuple(int(v * 0.68) for v in col) if style == 'light' else col
             layer.paste(Image.new('RGBA', (W, H), ec + (255,)), (0, 0), e1.filter(ImageFilter.MaxFilter(5)))
-        elif style == 'classic':
+        elif False:   # (the old flat area)
             layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * 0.55)))
             edge = m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(5))
             layer.paste(Image.new('RGBA', (W, H), tuple(int(v * 0.72) for v in col) + (255,)), (0, 0), edge)
@@ -463,9 +465,13 @@ LAYOUT = os.environ.get('WARN_LAYOUT', 'yellow')   # 'yellow' (warning-colour he
 
 def render(item, post_path=None, story_path=None, style=None, layout=None):
     style = style or STYLE
+    if not style:   # the defaults: a different map on each image
+        if post_path: render(item, post_path, None, POST_STYLE, layout)
+        if story_path: render(item, None, story_path, STORY_STYLE, layout)
+        return
     if (layout or LAYOUT) == 'site' and style in BRAND:
         return render_brand(item, post_path, story_path, style)
-    th = LIGHT if style == 'classic' else DARK
+    th = DARK if style in ('night', 'poster') else LIGHT   # the light page theme, like the site
     col = TYPE_COL.get(item.get('type'), (242, 194, 0))
     situ = situation(item.get('description', ''))
     more = [x for x in details(item.get('description', ''), situ) if not _OBS.search(x)]
@@ -474,7 +480,7 @@ def render(item, post_path=None, story_path=None, style=None, layout=None):
     hz = item.get('hazards') or []
     kind = item.get('type', 'Warning'); title = kind.replace(' (Perth Area)', '')
     ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
-    plain = style != 'classic'; hc = th['accent'] if style == 'classic' else col   # headings: warning colour on the dark styles
+    plain = True; hc = col if th is DARK else ACCENT   # headings: warning colour on the dark styles
     foot = lambda cr: ('Unofficial copy · official warnings: bom.gov.au · Warning © Bureau of Meteorology') + ('' if not cr else '')
     if post_path:
         Wd = Hd = 1080 * S
