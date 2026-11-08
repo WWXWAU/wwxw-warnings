@@ -295,32 +295,34 @@ def himawari_disk():
                 return h5py.File(io.BytesIO(_gibs_get(H9 + k)), 'r')
             with ThreadPoolExecutor(16) as ex:
                 files = list(ex.map(get, keys))
-            a0 = files[0]
-            sx, ox_ = float(a0['x'].attrs['scale_factor'][0]), float(a0['x'].attrs['add_offset'][0])
-            sy, oy_ = float(a0['y'].attrs['scale_factor'][0]), float(a0['y'].attrs['add_offset'][0])
-            rows = max(int(t.attrs['tile_row_offset'][0]) + t['Sectorized_CMI'].shape[0] for t in files)
-            cols = max(int(t.attrs['tile_column_offset'][0]) + t['Sectorized_CMI'].shape[1] for t in files)
+            # place each tile by its own scan-angle coordinates (microradians: x east, y north)
+            def xy(t):
+                xs = t['x'][()].astype(float) * float(t['x'].attrs['scale_factor'][0]) + float(t['x'].attrs['add_offset'][0])
+                ys = t['y'][()].astype(float) * float(t['y'].attrs['scale_factor'][0]) + float(t['y'].attrs['add_offset'][0])
+                return xs, ys
+            XY = [xy(t) for t in files]
+            dx = float(files[0]['x'].attrs['scale_factor'][0]); dy = float(files[0]['y'].attrs['scale_factor'][0])   # dy < 0
+            X0 = min(v[0][0] for v in XY); Y0 = max(v[1][0] for v in XY)
+            cols = int(round((max(v[0][-1] for v in XY) - X0) / dx)) + 1; rows = int(round((min(v[1][-1] for v in XY) - Y0) / dy)) + 1
             bt = np.full((rows, cols), np.nan, dtype=np.float32)
-            for t in files:
-                v = t['Sectorized_CMI']; r0, c0 = int(t.attrs['tile_row_offset'][0]), int(t.attrs['tile_column_offset'][0])
-                raw = v[()].astype(np.float32); fill = v.attrs.get('_FillValue')
-                d_ = raw * float(v.attrs['scale_factor'][0]) + float(v.attrs['add_offset'][0])
-                if fill is not None: d_[raw == float(fill[0])] = np.nan
+            for t, (xs, ys) in zip(files, XY):
+                v = t['Sectorized_CMI']; raw = v[()]
+                d_ = raw.astype(np.float32) * float(v.attrs['scale_factor'][0]) + float(v.attrs['add_offset'][0])
+                fill = v.attrs.get('_FillValue')
+                if fill is not None: d_[raw == fill[0]] = np.nan
+                c0 = int(round((xs[0] - X0) / dx)); r0 = int(round((ys[0] - Y0) / dy))
                 bt[r0:r0 + raw.shape[0], c0:c0 + raw.shape[1]] = d_
-            # scan angle of column 0 / row 0 of the whole disk (from the first tile's own offsets), radians
-            x0 = (ox_ - sx * int(a0.attrs['tile_column_offset'][0])) * 1e-6
-            y0 = (oy_ - sy * int(a0.attrs['tile_row_offset'][0])) * 1e-6
-            t = a0.attrs['start_date_time'].decode()     # yyyydddhhmmss
+            x0, y0 = X0 * 1e-6, Y0 * 1e-6
+            t = files[0].attrs['start_date_time'].decode()     # yyyydddhhmmss
             when_ = dt.datetime.strptime(t[:7], '%Y%j').replace(hour=int(t[7:9]), minute=int(t[9:11]), tzinfo=dt.timezone.utc)
-            _H9['disk'] = (bt, x0, y0, sx * 1e-6, sy * 1e-6, when_)
-            # self-check: each tile's stated centre should land in the middle of that tile
+            _H9['disk'] = (bt, x0, y0, dx * 1e-6, dy * 1e-6, when_)
+            # self-check: tiles' stated centres (those on the disk) should land in the middle of the tile
             errs = []
-            for t in files[::9]:
+            for t, (xs, ys) in list(zip(files, XY))[::6]:
                 la, lo = float(t.attrs['tile_center_latitude'][0]), float(t.attrs['tile_center_longitude'][0])
+                if abs(la) > 60 or abs(lo - 140.7) > 60: continue
                 gx, gy = _scan(np.array([[np.radians(la)]]), np.array([[np.radians(lo - 140.7)]]))
-                h_, w_ = t['Sectorized_CMI'].shape
-                cc = int(t.attrs['tile_column_offset'][0]) + w_ / 2; rr = int(t.attrs['tile_row_offset'][0]) + h_ / 2
-                errs.append((round(float((gx[0, 0] - x0) / (sx * 1e-6) - cc), 1), round(float((gy[0, 0] - y0) / (sy * 1e-6) - rr), 1)))
+                errs.append((round(float(gx[0, 0] * 1e6 - (xs[0] + xs[-1]) / 2) / dx, 1), round(float(gy[0, 0] * 1e6 - (ys[0] + ys[-1]) / 2) / dy, 1)))
             print('Himawari-9 check (pixels off, col/row):', errs)
             print('Himawari-9 scan %s: %d tiles, %dx%d' % (when_.strftime('%H:%M UTC'), len(files), cols, rows))
             break
