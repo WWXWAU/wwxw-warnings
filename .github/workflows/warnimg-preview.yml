@@ -11,7 +11,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -q pillow
-      - run: python warnimg.py data/test/sample-warning.json previews --styles
+      - run: python warnimg.py data/test/sample-warning.json previews --brand
       - name: Save to the previews branch
         run: |
           cd previews

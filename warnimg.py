@@ -39,10 +39,15 @@ HAZ = {   # label, chip colour
 }
 
 STYLE = os.environ.get('WARN_STYLE', 'classic')
-STYLES = ['classic', 'night', 'satellite', 'clouds', 'poster']
+STYLES = ['classic', 'light', 'dark', 'satellite', 'clouds']   # (night and poster: earlier trials, still drawable)
+BRAND = ('light', 'dark', 'satellite', 'clouds')                # the website's look: outlook-image layout
 LIGHT = dict(bg=BG, text=TEXT, muted=MUTED, accent=ACCENT, rule=(201, 216, 220), stamp=(157, 205, 211))
-DARK = dict(bg=(10, 18, 24), text=(238, 243, 245), muted=(146, 168, 177), accent=(110, 206, 214), rule=(38, 54, 64), stamp=(157, 205, 211))
+DARK = dict(bg=(16, 35, 42), text=(226, 238, 240), muted=(157, 182, 189), accent=(63, 193, 201), rule=(40, 67, 77), stamp=(157, 205, 211))   # the site's dark mode
+LIGHT['surface'] = (255, 255, 255); DARK['surface'] = (22, 48, 58)
 MAPS = {   # ocean, WA, other states, district lines, coast, label text, label outline, other towns
+    'light': dict(ocean=OCEAN, land=LAND, other=OTHER, dist=DIST + (255,), coast=COAST + (255,), lab=TEXT, halo=(255, 255, 255), town=MUTED, img=None),
+    'dark': dict(ocean=(13, 29, 35), land=(22, 48, 58), other=(16, 37, 45), dist=(52, 82, 94, 255), coast=(92, 128, 140, 255),
+                 lab=(226, 238, 240), halo=(13, 29, 35), town=(157, 182, 189), img=None),
     'classic': dict(ocean=OCEAN, land=LAND, other=OTHER, dist=DIST + (255,), coast=COAST + (255,), lab=TEXT, halo=(255, 255, 255), town=MUTED, img=None),
     'night': dict(ocean=(8, 19, 29), land=(30, 44, 54), other=(20, 30, 38), dist=(70, 92, 106, 255), coast=(104, 136, 152, 255),
                   lab=(255, 255, 255), halo=(6, 12, 16), town=(176, 192, 200), img=None),
@@ -258,7 +263,7 @@ def _area_mask(polys, X, Y, ox, oy, W, H):
         for hole in poly[1:]: md.polygon([(X(x) - ox, Y(y) - oy) for x, y in hole], fill=0)
     return m
 
-def draw_map(img, box, item, col, style='classic'):
+def draw_map(img, box, item, col, style='classic', rounded=True):
     """The warning area on WA, fitted to the area, inside box = (x0, y0, x1, y1) in drawing pixels.
     Returns a credit line for the imagery used ('' for none)."""
     G = geo(); x0, y0, x1, y1 = box; W, H = x1 - x0, y1 - y0
@@ -310,7 +315,7 @@ def draw_map(img, box, item, col, style='classic'):
                     credit += ' · satellite clouds unavailable'
         except Exception as ex:  # noqa: BLE001
             print('Imagery not fetched (%s): drawn map instead' % ex)
-            base = None; st = MAPS['night']
+            base = None; st = MAPS['dark' if style in BRAND else 'night']
     layer = (base.convert('RGBA') if base else Image.new('RGBA', (W, H), st['ocean'] + (255,)))
     d = ImageDraw.Draw(layer)
     if base is None:
@@ -318,9 +323,17 @@ def draw_map(img, box, item, col, style='classic'):
             for r in rings(gj):
                 if len(r) > 2: d.polygon(r, fill=st['land'] if name == 'Western Australia' else st['other'])
     m = _area_mask(polys, X, Y, ox, oy, W, H) if polys else None
-    dark = style != 'classic'
+    dark = style not in ('classic', 'light')
     if m is not None:
-        if style == 'classic':
+        if style in BRAND:
+            # like the outlook's areas: a strong fill and a darker edge (a bright edge over dark maps)
+            layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * (0.62 if style == 'light' else 0.42 if st['img'] else 0.55))))
+            e1 = m.filter(ImageFilter.FIND_EDGES)
+            if style != 'light':
+                layer.paste(Image.new('RGBA', (W, H), (13, 29, 35, 255)), (0, 0), e1.filter(ImageFilter.MaxFilter(9)).point(lambda v: int(v * 0.6)))
+            ec = tuple(int(v * 0.68) for v in col) if style == 'light' else col
+            layer.paste(Image.new('RGBA', (W, H), ec + (255,)), (0, 0), e1.filter(ImageFilter.MaxFilter(5)))
+        elif style == 'classic':
             layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * 0.55)))
             edge = m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(5))
             layer.paste(Image.new('RGBA', (W, H), tuple(int(v * 0.72) for v in col) + (255,)), (0, 0), edge)
@@ -370,7 +383,7 @@ def draw_map(img, box, item, col, style='classic'):
         d.ellipse([px - r, py - r, px + r, py + r], fill=dot, outline=st['halo'] if dark else (255, 255, 255), width=int(1.5 * S))
         d.text((tx, py - (14 if dark and n in named else 13) * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=st['halo'])
     # rounded corners
-    mask = Image.new('L', (W, H), 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], radius=18 * S, fill=255)
+    mask = Image.new('L', (W, H), 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], radius=18 * S if rounded else 0, fill=255)
     img.paste(layer.convert('RGB'), (x0, y0), mask)
     return credit
 
@@ -444,6 +457,8 @@ def stamp(item):
 # ---------------------------------------------------------------- the two images
 def render(item, post_path=None, story_path=None, style=None):
     style = style or STYLE
+    if style in BRAND:
+        return render_brand(item, post_path, story_path, style)
     th = LIGHT if style == 'classic' else DARK
     col = TYPE_COL.get(item.get('type'), (242, 194, 0))
     situ = situation(item.get('description', ''))
@@ -525,10 +540,93 @@ def render(item, post_path=None, story_path=None, style=None):
         img.resize((Wd // S, Hd // S), Image.LANCZOS).save(story_path, optimize=True)
 
 
+# ---------------------------------------------------------------- the website's look (same layout as the outlook image)
+def rep_pills(d, reps, x, y, maxw, th, size):
+    """Reported values as legend rows: a coloured pill with the value, then what / where / when."""
+    fp, fl = font(700, size), font(500, size * 0.86)
+    hh = int(size * 1.75 * S)
+    for r in reps:
+        c = REP_COL[r['kind']]; v = r['value']
+        tw = d.textlength(v, font=fp) + 30 * S
+        d.rounded_rectangle([x, y, x + tw, y + hh], radius=hh // 2, fill=c)
+        d.text((x + 15 * S, y + hh / 2), v, font=fp, fill=(255, 255, 255), anchor='lm')
+        sub = r['label'] + (' at ' + r['where'] if r['where'] else '') + (', ' + r['when'] if r['when'] else '')
+        while d.textlength(sub, font=fl) > maxw - tw - 20 * S and ' ' in sub: sub = sub.rsplit(' ', 1)[0]
+        d.text((x + tw + 14 * S, y + hh / 2), sub, font=fl, fill=th['text'], anchor='lm')
+        y += hh + 12 * S
+    return y - 12 * S
+
+def legend(d, x, y, col, title, sub, th, size):
+    """The outlook's legend item: a swatch, a bold name and a muted line."""
+    sw = int(size * 2.0 * S)
+    d.rounded_rectangle([x, y, x + sw, y + sw], radius=int(5 * S), fill=col, outline=tuple(int(v * 0.68) for v in col), width=int(2 * S))
+    d.text((x + sw + 16 * S, y - 2 * S), title, font=font(600, size), fill=th['text'])
+    if sub: d.text((x + sw + 16 * S, y + size * 1.25 * S), sub, font=font(400, size * 0.74), fill=th['muted'])
+    return y + max(sw, int(size * 2.2 * S))
+
+def brand_header(img, d, Wd, h, title, sub, size):
+    d.rectangle([0, 0, Wd, h], fill=HEAD)
+    logo = Image.open(os.path.join(ASSETS, 'logo-dark.png')).convert('RGBA')
+    lh = int(h * 0.66); logo = logo.resize((int(logo.width * lh / logo.height), lh), Image.LANCZOS)
+    img.paste(logo, (int(28 * S), int((h - lh) / 2)), logo)
+    f = font(700, size)
+    while d.textlength(title, font=f) > Wd - logo.width - 90 * S: size -= 2; f = font(700, size)
+    d.text((Wd - 32 * S, h * 0.50), title, font=f, fill=(255, 255, 255), anchor='rs')
+    d.text((Wd - 32 * S, h * 0.80), sub, font=font(400, size * 0.55), fill=(157, 205, 211), anchor='rs')
+    d.rectangle([0, h - 6 * S, Wd, h], fill=ACCENT)
+
+def render_brand(item, post_path, story_path, style):
+    th = LIGHT if style in ('light', 'satellite') else DARK
+    col = TYPE_COL.get(item.get('type'), (242, 194, 0))
+    situ = situation(item.get('description', ''))
+    more = [x for x in details(item.get('description', ''), situ) if not _OBS.search(x)]
+    reps = item.get('reports')
+    if reps is None: reps = reports(item.get('description', ''))
+    hz = item.get('hazards') or []
+    title = item.get('type', 'Warning').replace(' (Perth Area)', '')
+    ppl = people_text(item.get('people') or people_in(item.get('area'))[0])
+    ppl = ppl.replace('About ', 'About ').replace(' in towns in the warning area', ' people in towns in the area').replace(' people people', ' people') if ppl else ''
+    towns = item.get('towns') or []
+
+    def panel(d, Wd, y, pad, size, situ_lines, extra):
+        """Draws the legend panel from y down; returns the bottom. Run once on a scratch image to measure."""
+        y = legend(d, pad, y, col, 'Warning area', ppl or ('Includes ' + ', '.join(towns[:3]) if towns else ''), th, size) + int(18 * S)
+        if hz: y = chips(d, hz, pad, y, Wd - 2 * pad, size * 0.82) + int(18 * S)
+        if reps: y = rep_pills(d, reps[:extra and 4 or 2], pad, y, Wd - 2 * pad, th, size * 0.9) + int(20 * S)
+        y = textbox(d, pad, y, Wd - 2 * pad, 'Weather situation', situ, size * 0.92, situ_lines, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)
+        if extra:
+            if more: y = textbox(d, pad, y + 8 * S, Wd - 2 * pad, 'What to expect', ' '.join(more), size * 0.86, 4, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)
+            if towns: y = textbox(d, pad, y + 8 * S, Wd - 2 * pad, 'Locations which may be affected', ', '.join(towns), size * 0.86, 3, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)
+        return y
+
+    def footer(d, Wd, Hd, pad, fh, size):
+        d.line([pad, Hd - fh, Wd - pad, Hd - fh], fill=th['rule'], width=int(1.5 * S))
+        d.text((pad, Hd - fh / 2), 'Warning © Bureau of Meteorology', font=font(500, size), fill=th['muted'], anchor='lm')
+        d.text((Wd - pad, Hd - fh / 2), 'Unofficial copy · official warnings: bom.gov.au', font=font(400, size), fill=th['muted'], anchor='rm')
+
+    for path, Wd, Hd, hh, tsize, size, lines, extra in ((post_path, 1080, 1080, 130, 42, 24, 3, False),
+                                                         (story_path, 1080, 1920, 170, 44, 30, 5, True)):
+        if not path: continue
+        Wd, Hd, hh = Wd * S, Hd * S, hh * S
+        pad, fh = 36 * S, 66 * S
+        scratch = ImageDraw.Draw(Image.new('RGB', (Wd, Hd)))
+        ph = panel(scratch, Wd, 0, pad, size, lines, extra) + 28 * S      # panel height
+        map_bot = Hd - fh - ph - 20 * S
+        img = Image.new('RGB', (Wd, Hd), th['bg']); d = ImageDraw.Draw(img)
+        credit = draw_map(img, (0, hh, Wd, map_bot), item, col, style, rounded=False)
+        brand_header(img, d, Wd, hh, title, stamp(item), tsize)
+        if credit:
+            d.text((Wd - 16 * S, map_bot - 12 * S), credit, font=font(500, 15 if not extra else 18), fill=(235, 241, 243), anchor='rs',
+                   stroke_width=int(2 * S), stroke_fill=(13, 29, 35))
+        panel(d, Wd, map_bot + 30 * S, pad, size, lines, extra)
+        footer(d, Wd, Hd, pad, fh, 17 if not extra else 20)
+        img.resize((Wd // S, Hd // S), Image.LANCZOS).save(path, optimize=True)
+
+
 if __name__ == '__main__':
     src, out = sys.argv[1], sys.argv[2]
     os.makedirs(out, exist_ok=True)
-    styles = STYLES if '--styles' in sys.argv else [STYLE]
+    styles = (list(BRAND) if '--brand' in sys.argv else STYLES) if '--styles' in sys.argv or '--brand' in sys.argv else [STYLE]
     for w in json.load(open(src)).get('warnings', []):
         for stl in styles:
             base = os.path.join(out, w['id'] + ('-' + stl if len(styles) > 1 else ''))
