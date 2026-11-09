@@ -3,10 +3,13 @@ import json, re, sys, urllib.request, datetime as dt
 URL = 'https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec'
 t = urllib.request.urlopen(urllib.request.Request(URL, headers={'User-Agent': 'Mozilla/5.0'}), timeout=120).read().decode('utf-8', 'replace')
 print('page bytes', len(t))
-i = t.find('m60_daily'); print('m60_daily at', i)
+for _ in range(3):   # the page arrives as an escaped JavaScript string inside Google's wrapper: undo the escaping
+    t = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1), 16)), t)
+    t = t.replace('\\\\', '\\').replace('\\/', '/').replace('\\"', '"')
+i = t.find('m60_daily'); print('m60_daily at', i); print(t[i - 700:i + 300])
 # the points: find JSON objects holding m60_daily
 objs = []
-for m in re.finditer(r'\{[^{}]*?"m60_daily"[^{}]*\}', t.replace('\\"', '"')):
+for m in re.finditer(r'\{[^{}]*?"m60_daily"[^{}]*\}', t):
     try: objs.append(json.loads(m.group(0)))
     except Exception: pass
 print('points parsed', len(objs))
