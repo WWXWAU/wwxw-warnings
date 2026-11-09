@@ -305,8 +305,11 @@
         bounds: [[112.6, -35.4], [129.2, -13.5]], fitBoundsOptions: { padding: 24 }, minZoom: 3, maxZoom: 13 });
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-      map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: '© OpenMapTiles © OpenStreetMap contributors' }), 'top-left');
-      map.on('load', addGauges);
+      map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+      map.on('load', function () {
+        addGauges();
+        var a = document.querySelector('.maplibregl-ctrl-attrib'); if (a) a.classList.remove('maplibregl-compact-show');   // start folded away
+      });
     }
     function addGauges() {
       map.addSource('g', { type: 'geojson', data: gaugesFC() });

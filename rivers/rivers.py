@@ -165,7 +165,7 @@ def main(out_dir):
         old = [v for k, v in sorted(hh.items()) if k <= ago]
         g['d24'] = round(g['lvl'] - old[-1], 3) if old else None
         g['hi8'] = round(max(hh.values()), 3) if hh else g['lvl']
-        g['pct'] = round(100 * g['lvl'] / g['rec']) if g['rec'] and g['rec'] > 0.2 else None
+        g['pct'] = max(0, round(100 * g['lvl'] / g['rec'])) if g['rec'] and g['rec'] > 0.2 else None   # below the gauge's zero counts as 0%
         try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
         except Exception: g['age'] = None  # noqa: BLE001
         g['off_air'] = g['cls'] == 'rowGREY' or g['age'] is None or g['age'] > 48       # not reporting
