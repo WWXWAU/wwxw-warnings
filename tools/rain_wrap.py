@@ -23,3 +23,17 @@ for k in ['daily', 'm60_daily', 'm180_daily']:
     for o in sorted(K, key=lambda o: -f(o.get(k)))[:15]:
         t60 = o.get('m60t_daily'); t60 = dt.datetime.fromtimestamp(t60 / 1000, dt.timezone(dt.timedelta(hours=8))).strftime('%H:%M') if t60 else ''
         print('  %-35s %-6s daily %s  1h %s (%s)  3h %s  12h %s 24h %s' % (o.get('name'), o.get('source') or o.get('src'), o.get('daily'), o.get('m60_daily'), t60, o.get('m180_daily'), o.get('h12'), o.get('h24')))
+
+# Vaisala (Xweather) 24-hour lightning: strike counts within 100 km of points 2 degrees apart (the Rainfall page's LT24)
+m = re.search(r'var LT24=(\{.*?\});', t)
+if m:
+    L = json.loads(m.group(1)); tz = dt.timezone(dt.timedelta(hours=8))
+    made = dt.datetime.fromtimestamp(L['t'] / 1000, tz).strftime('%a %H:%M')
+    kim = [p for p in L['pts'] if p[0] >= -19 and p[1] >= 121]
+    print('\nLIGHTNING (Xweather 24 h, read %s): Kimberley points %d, total %d strikes' % (made, len(kim), sum(p[2] for p in kim)))
+    for p in sorted(kim, key=lambda p: -p[2]):
+        a = dt.datetime.fromtimestamp(p[3] / 1000, tz).strftime('%a %H:%M') if p[3] else '-'; b = dt.datetime.fromtimestamp(p[4] / 1000, tz).strftime('%a %H:%M') if p[4] else '-'
+        print('   %6.1f %6.1f  %6d strikes  (%s to %s)' % (p[0], p[1], p[2], a, b))
+    print('WA total %d strikes' % sum(p[2] for p in L['pts']))
+else:
+    print('no LT24 in page')
