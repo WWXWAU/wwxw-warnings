@@ -454,9 +454,8 @@
         refs.forEach(function (r) { s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(r[0]) + '" y2="' + y(r[0]) + '" stroke="' + r[2] + '" stroke-dasharray="5 4"/>'
           + '<text x="' + (W - R - 2) + '" y="' + (y(r[0]) - 4) + '" text-anchor="end" font-size="11" fill="' + r[2] + '">' + r[1] + '</text>'; });
         var c = css(STATUS[status(g)][1] === '--steady' ? '--accent' : STATUS[status(g)][1]);
-        var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1); }).join('');
-        s += '<path d="' + line + ' L' + x(pts[pts.length - 1][0]).toFixed(1) + ' ' + (Hh - B) + ' L' + x(pts[0][0]).toFixed(1) + ' ' + (Hh - B) + 'Z" fill="' + c + '" opacity="0.12"/>'
-          + '<path d="' + line + '" fill="none" stroke="' + c + '" stroke-width="2.2" stroke-linejoin="round"/>'
+        var line = pts.map(function (p, i) { return (i && p[0] - pts[i - 1][0] <= 3 * 36e5 ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1); }).join('');   // a gap of over 3 hours (no readings) is left as a gap
+        s += '<path d="' + line + '" fill="none" stroke="' + c + '" stroke-width="2.2" stroke-linejoin="round"/>'
           + '<circle cx="' + x(pts[pts.length - 1][0]) + '" cy="' + y(pts[pts.length - 1][1]) + '" r="4" fill="' + c + '"/>'
           + '<line id="cx" y1="' + T + '" y2="' + (Hh - B) + '" stroke="' + css('--muted') + '" visibility="hidden"/>';
         svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); svg.innerHTML = s;
