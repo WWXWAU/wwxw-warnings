@@ -120,6 +120,8 @@
     .tbl small { color: var(--muted); }
     .bar { position: relative; width: 70px; height: 8px; border-radius: 4px; background: var(--bg); display: inline-block; vertical-align: middle; margin-left: 6px; overflow: hidden; }
     .bar b { position: absolute; inset: 0 auto 0 0; background: var(--c); border-radius: 4px; }
+    .all .more { border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 13.5px; padding: 10px 16px 6px; cursor: pointer; }
+    .all .more[hidden] { display: none; }
     .foot { padding: 0 20px 24px; font-size: 12px; color: var(--muted); max-width: 980px; }
 
     .maplibregl-popup-content { background: var(--surface); color: var(--text); border-radius: 10px; padding: 6px 10px; font: 12.5px/1.4 Lexend, system-ui, sans-serif; box-shadow: 0 4px 14px rgba(0,0,0,0.25); pointer-events: none; }
@@ -173,6 +175,7 @@
   <section class="all" aria-label="Every gauge">
     <div class="hd"><h2 id="allH">Every gauge</h2><input id="q" type="search" placeholder="Find a river or place" aria-label="Find a river or place"></div>
     <div style="overflow-x:auto"><table class="tbl" id="tbl"></table></div>
+    <button class="more" id="allMore" type="button" hidden>Show all gauges</button>
   </section>
 
   <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Gauge positions and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
@@ -184,7 +187,7 @@
     var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
     var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
     var $ = function (id) { return document.getElementById(id); };
-    var D = null, G = [], H = null, map = null, sel = null, sortBy = 'status', sortDir = 1;
+    var D = null, G = [], H = null, map = null, sel = null, sortBy = 'status', sortDir = 1, allRows = false;
 
     // ---- what each gauge is doing
     var FAST = 0.05, MOVE = 0.005;     // metres an hour: rising fast, and the smallest change that counts
@@ -255,6 +258,7 @@
       L.sort(function (a, b) { var x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
       $('allH').textContent = 'Every gauge (' + (q ? L.length + ' of ' : '') + G.length + ')';
       var h = '<thead><tr>' + COLS.map(function (c) { return '<th class="' + (c[2] || '') + '"><button type="button" data-k="' + c[0] + '"' + (sortBy === c[0] ? ' aria-sort="' + (sortDir > 0 ? 'ascending' : 'descending') + '"' : '') + '>' + c[1] + (sortBy === c[0] ? (sortDir > 0 ? ' ↓' : ' ↑') : '') + '</button></th>'; }).join('') + '</tr></thead><tbody>';
+      var total = L.length; if (!allRows && !q) L = L.slice(0, 30);   // the first 30 (most active first); the rest on request
       h += L.map(function (g) {
         var s = STATUS[status(g)], pct = g.pct == null ? '' : '<span class="bar" style="--c:var(' + (g.pct >= 50 ? '--fast' : g.pct >= 25 ? '--rise' : '--steady') + ')"><b style="width:' + Math.min(100, g.pct) + '%"></b></span>';
         return '<tr data-id="' + g.id + '" tabindex="0"><td><span class="st" style="--c:var(' + s[1] + ')"><i></i>' + s[0] + '</span></td>'
@@ -262,6 +266,7 @@
           + '<td class="n hide-xs">' + (g.off_air ? '–' : cm(g.d24)) + '</td><td class="n hide-s">' + (g.pct == null ? '–' : g.pct + '%') + pct + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
       }).join('') + '</tbody>';
       $('tbl').innerHTML = h;
+      var mb = $('allMore'); mb.hidden = !!q || total <= 30; mb.textContent = allRows ? 'Show the first 30' : 'Show all ' + total + ' gauges';
       $('tbl').querySelectorAll('th button').forEach(function (b) { b.addEventListener('click', function () {
         var k = b.getAttribute('data-k'); if (sortBy === k) sortDir = -sortDir; else { sortBy = k; sortDir = 1; } drawTable(); }); });
       $('tbl').querySelectorAll('tbody tr').forEach(function (r) {
@@ -270,6 +275,7 @@
       });
     }
     $('q').addEventListener('input', drawTable);
+    $('allMore').addEventListener('click', function () { allRows = !allRows; drawTable(); });
 
     // ---- map
     function gaugesFC() {
