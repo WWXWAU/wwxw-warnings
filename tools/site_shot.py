@@ -37,6 +37,9 @@ async def run():
                     await pg.evaluate("window.riverPick()"); await pg.wait_for_timeout(3500)
                     await pg.screenshot(path='previews/desktop-detail.png')
                     await pg.screenshot(path='previews/desktop-full.png', full_page=True)
+                    if await pg.query_selector('.seg button[data-v=q]'):
+                        await pg.click('.seg button[data-v=q]'); await pg.wait_for_timeout(800)
+                        await pg.screenshot(path='previews/desktop-flow.png')
             await ctx.close()
         await b.close()
 asyncio.run(run())

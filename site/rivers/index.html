@@ -27,6 +27,7 @@
     :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
             --land: #F3F6F4; --water: #C9E2EA; --river: #6FB3CC; --road: #E1E6E3; --border: #9AAFB5;
             --fast: #D32F2F; --rise: #EF8A17; --steady: #7FA2AA; --fall: #2F7FC1; --tide: #8C7BBF; --off: #B7C2C5;
+            --minor: #D9A400; --moderate: #E8590C; --major: #A61B1B;
             color-scheme: light; }
     [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
             --land: #1B323B; --water: #0E2229; --river: #2F6C82; --road: #24414B; --border: #4E6E78;
@@ -89,10 +90,18 @@
     .detail h2 { margin: 0; font-size: 19px; line-height: 1.2; flex: 1; }
     .detail h2 small { display: block; font-size: 13px; font-weight: 500; color: var(--muted); }
     .detail .x { flex: none; width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); cursor: pointer; font-size: 17px; line-height: 1; }
-    .facts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px 0 6px; }
+    .facts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin: 12px 0 6px; }
     .facts div { background: var(--bg); border-radius: 10px; padding: 7px 9px; }
     .facts b { display: block; font-size: 17px; }
     .facts span { font-size: 11.5px; color: var(--muted); }
+    .flood { margin: 4px 0 8px; padding: 9px 11px; border-radius: 10px; background: var(--bg); font-size: 13px; }
+    .flood b.cls { color: var(--fc, var(--text)); }
+    .flood .lv { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+    .flood .lv span { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1.5px solid var(--c); }
+    .flood .lv span.on { background: var(--c); color: #fff; }
+    .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; margin-top: 4px; }
+    .seg button { border: 0; background: none; color: var(--muted); font-size: 12.5px; font-weight: 600; padding: 3px 11px; border-radius: 999px; cursor: pointer; }
+    .seg button[aria-pressed=true] { background: var(--accent); color: var(--onAccent); }
     .chart { position: relative; margin-top: 6px; }
     .chart svg { display: block; width: 100%; height: 190px; }
     .chart .tipc { position: absolute; top: 0; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; border-radius: 7px; padding: 3px 7px; white-space: nowrap; transform: translateX(-50%); }
@@ -167,6 +176,7 @@
     </div>
     <div class="panel">
       <section class="detail" id="detail" hidden aria-live="polite"></section>
+      <section class="card" id="floodCard" hidden style="border-left:6px solid var(--moderate)"><h2>Above flood level</h2><div id="flooded"></div></section>
       <section class="card" id="risingCard"><h2 id="risingH">Rising now</h2><div id="rising"></div></section>
       <section class="card"><h2>Highest against their record</h2><div id="highest"></div></section>
     </div>
@@ -204,12 +214,24 @@
     var when = function (iso) { if (!iso) return ''; var d = new Date(iso); return d.toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }); };
     var yearOf = function (iso) { return iso ? new Date(iso + 'T12:00:00+08:00').toLocaleDateString('en-AU', { month: 'short', year: 'numeric', timeZone: 'Australia/Perth' }) : ''; };
     var place = function (g) { return g.river + ' at ' + g.name; };
+    var FLOOD = { minor: ['Minor flood', '--minor', 1], moderate: ['Moderate flood', '--moderate', 2], major: ['Major flood', '--major', 3] };
+    var fcls = function (g) { return g.fl && FLOOD[g.fl.cls] ? g.fl.cls : null; };
+    var fq = function (q) { if (q == null) return '–'; if (q < 1) return Math.round(q * 1000) + ' L/s'; return (q < 10 ? q.toFixed(1) : Math.round(q).toLocaleString('en-AU')) + ' m³/s'; };
+    var toMinor = function (g) { return g.fl && g.fl.minor != null && !g.off_air ? g.fl.minor - g.lvl : null; };
 
     // ---- the state of the rivers (flood first)
     function drawState() {
       var live = G.filter(function (g) { return !g.off_air && !g.tidal; });
       var fast = live.filter(function (g) { return status(g) === 'fast'; }), rise = live.filter(function (g) { return status(g) === 'rise'; });
       var n = fast.length + rise.length, el = $('state');
+      var FL = G.filter(function (g) { return fcls(g) && !g.off_air; }).sort(function (a, b) { return FLOOD[fcls(b)][2] - FLOOD[fcls(a)][2]; });
+      if (FL.length) {
+        var w = FLOOD[fcls(FL[0])];
+        el.style.setProperty('--statec', 'var(' + w[1] + ')'); $('stBig').textContent = FL.length;
+        $('stHead').textContent = (FL.length === 1 ? '1 river gauge above flood level' : FL.length + ' river gauges above flood level') + (n ? ', ' + n + ' rising' : '');
+        $('stSub').textContent = 'Highest class: ' + w[0].toLowerCase() + ' at ' + place(FL[0]) + ' (' + m2(FL[0].lvl) + ', ' + STATUS[status(FL[0])][0].toLowerCase() + '). Check the Bureau\u2019s flood warnings.';
+        return;
+      }
       el.style.setProperty('--statec', 'var(' + (fast.length ? '--fast' : n ? '--rise' : '--steady') + ')');
       $('stBig').textContent = n;
       var top = fast.concat(rise).sort(function (a, b) { return b.rate - a.rate; })[0];
@@ -229,10 +251,13 @@
     }
     function drawLists() {
       var live = G.filter(function (g) { return !g.off_air && !g.tidal; });
+      var FL = G.filter(function (g) { return fcls(g) && !g.off_air; }).sort(function (a, b) { return FLOOD[fcls(b)][2] - FLOOD[fcls(a)][2] || b.lvl - a.lvl; });
+      $('floodCard').hidden = !FL.length;
+      $('flooded').innerHTML = FL.map(function (g) { var f = FLOOD[fcls(g)]; return row(g, '<span style="color:var(' + f[1] + ')">' + f[0] + '</span>', m2(g.lvl) + ' · ' + STATUS[status(g)][0].toLowerCase()); }).join('');
       var R = live.filter(function (g) { return (g.rate || 0) >= MOVE; }).sort(function (a, b) { return b.rate - a.rate; });
       if (R.length) {
         $('risingH').textContent = 'Rising now';
-        $('rising').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(g.rate), m2(g.lvl) + (g.pct != null ? ' · ' + g.pct + '% of record' : '')); }).join('');
+        $('rising').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(g.rate), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : g.pct != null ? ' · ' + g.pct + '% of record' : '')); }).join('');
       } else {
         var B = live.filter(function (g) { return g.d24 != null && g.d24 >= 0.02; }).sort(function (a, b) { return b.d24 - a.d24; });
         $('risingH').textContent = B.length ? 'Biggest rises, last 24 hours' : 'Rising now';
@@ -245,7 +270,7 @@
     }
 
     // ---- every gauge
-    var COLS = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['rate', 'Last hour', 'n'], ['d24', '24 hours', 'n hide-xs'], ['pct', 'Against record', 'n hide-s'], ['at', 'Reading', 'n hide-s']];
+    var COLS = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['rate', 'Last hour', 'n'], ['d24', '24 hours', 'n hide-xs'], ['q', 'Flow', 'n hide-xs'], ['fld', 'Flood level', 'n hide-s'], ['pct', 'Against record', 'n hide-s'], ['at', 'Reading', 'n hide-s']];
     function drawTable() {
       var q = $('q').value.trim().toLowerCase();
       var L = G.filter(function (g) { return !q || (g.river + ' ' + g.name + ' ' + g.id).toLowerCase().indexOf(q) >= 0; });
@@ -253,6 +278,7 @@
         if (sortBy === 'status') return STATUS[status(g)][2] * 1000 - (g.rate || 0) * 100;
         if (sortBy === 'river') return (g.river + ' ' + g.name).toLowerCase();
         if (sortBy === 'at') return g.at || '';
+        if (sortBy === 'fld') return fcls(g) ? -10 - FLOOD[fcls(g)][2] : toMinor(g) == null ? 1e9 : toMinor(g);
         var v = g[sortBy]; return v == null ? -1e9 : -v;
       };
       L.sort(function (a, b) { var x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
@@ -263,7 +289,8 @@
         var s = STATUS[status(g)], pct = g.pct == null ? '' : '<span class="bar" style="--c:var(' + (g.pct >= 50 ? '--fast' : g.pct >= 25 ? '--rise' : '--steady') + ')"><b style="width:' + Math.min(100, g.pct) + '%"></b></span>';
         return '<tr data-id="' + g.id + '" tabindex="0"><td><span class="st" style="--c:var(' + s[1] + ')"><i></i>' + s[0] + '</span></td>'
           + '<td>' + esc(g.river) + '<br><small>' + esc(g.name) + '</small></td><td class="n">' + m2(g.lvl) + '</td><td class="n">' + (g.off_air ? '–' : cmh(g.rate)) + '</td>'
-          + '<td class="n hide-xs">' + (g.off_air ? '–' : cm(g.d24)) + '</td><td class="n hide-s">' + (g.pct == null ? '–' : g.pct + '%') + pct + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
+          + '<td class="n hide-xs">' + (g.off_air ? '–' : cm(g.d24)) + '</td><td class="n hide-xs">' + (g.off_air ? '–' : fq(g.q)) + '</td>'
+          + '<td class="n hide-s">' + (fcls(g) ? '<b style="color:var(' + FLOOD[fcls(g)][1] + ')">' + FLOOD[fcls(g)][0] + '</b>' : toMinor(g) != null ? '<small>' + m2(toMinor(g)) + ' below minor</small>' : '<small>–</small>') + '</td><td class="n hide-s">' + (g.pct == null ? '–' : g.pct + '%') + pct + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
       }).join('') + '</tbody>';
       $('tbl').innerHTML = h;
       var mb = $('allMore'); mb.hidden = !!q || total <= 30; mb.textContent = allRows ? 'Show the first 30' : 'Show all ' + total + ' gauges';
@@ -281,7 +308,8 @@
     function gaugesFC() {
       return { type: 'FeatureCollection', features: G.filter(function (g) { return g.lat != null; }).map(function (g) {
         var s = status(g);
-        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2], p: g.pct == null ? 0 : Math.min(100, g.pct) },
+        var f = fcls(g);
+        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: g.pct == null ? 0 : Math.min(100, g.pct), f: f ? css(FLOOD[f][1]) : '' },
                  geometry: { type: 'Point', coordinates: [g.lng, g.lat] } }; }) };
     }
     function style() {
@@ -324,13 +352,13 @@
         paint: { 'circle-radius': ['+', r, 7], 'circle-color': ['get', 'c'], 'circle-opacity': 0.22 } });
       map.addLayer({ id: 'g', type: 'circle', source: 'g', layout: { 'circle-sort-key': ['-', 10, ['get', 'o']] },
         paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['*', r, 0.85], 9, ['*', r, 1.25]], 'circle-color': ['case', ['==', ['get', 's'], 'off'], 'rgba(0,0,0,0)', ['get', 'c']],
-                 'circle-stroke-color': ['case', ['==', ['get', 's'], 'off'], ['get', 'c'], ['boolean', ['feature-state', 'sel'], false], css('--text'), css('--surface')],
-                 'circle-stroke-width': ['case', ['boolean', ['feature-state', 'sel'], false], 3, 1.5] } });
+                 'circle-stroke-color': ['case', ['==', ['get', 's'], 'off'], ['get', 'c'], ['boolean', ['feature-state', 'sel'], false], css('--text'), ['!=', ['get', 'f'], ''], ['get', 'f'], css('--surface')],
+                 'circle-stroke-width': ['case', ['boolean', ['feature-state', 'sel'], false], 3, ['!=', ['get', 'f'], ''], 4, 1.5] } });
       var tip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
       map.on('mousemove', 'g', function (e) {
         map.getCanvas().style.cursor = 'pointer';
         var g = byId(e.features[0].properties.id); if (!g) return;
-        tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(g.rate))).addTo(map);
+        tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(g.rate)) + (g.q != null && !g.off_air ? '<br>Flow ' + fq(g.q) : '') + (fcls(g) ? '<br><b>' + FLOOD[fcls(g)][0] + '</b>' : '')).addTo(map);
       });
       map.on('mouseleave', 'g', function () { map.getCanvas().style.cursor = ''; tip.remove(); });
       map.on('click', 'g', function (e) { tip.remove(); pick(e.features[0].properties.id, false); });
@@ -338,7 +366,7 @@
     function byId(id) { for (var i = 0; i < G.length; i++) if (G[i].id === id) return G[i]; return null; }
     function drawKey() {
       $('key').innerHTML = ['fast', 'rise', 'steady', 'fall', 'tide', 'off'].map(function (k) {
-        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span style="color:var(--muted)">Bigger dot: closer to its record</span>';
+        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span style="color:var(--muted)">Bigger dot: closer to its record</span>';
     }
 
     // ---- one gauge: the numbers and a 7-day chart
@@ -352,21 +380,45 @@
       el.innerHTML = '<div class="hd"><h2>' + esc(g.river) + '<small>' + esc(g.name) + ' · gauge ' + g.id + '</small></h2><button class="x" type="button" aria-label="Close">×</button></div>'
         + '<div class="facts"><div><b>' + m2(g.lvl) + '</b><span>Level, ' + esc(when(g.at)) + '</span></div>'
         + '<div><b style="color:var(' + s[1] + ')">' + (g.off_air ? 'Off air' : cmh(g.rate)) + '</b><span>' + s[0] + (g.off_air ? '' : ' · last hour') + '</span></div>'
-        + '<div><b>' + (g.d24 == null ? '–' : cm(g.d24)) + '</b><span>Change in 24 hours</span></div></div>'
-        + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level over the last 7 days"></svg><div class="tipc" id="tipc" hidden></div></div>'
+        + '<div><b>' + (g.d24 == null ? '–' : cm(g.d24)) + '</b><span>Change in 24 hours</span></div>'
+        + '<div><b>' + (g.q == null || g.off_air ? '–' : (g.qx ? 'over ' : '') + fq(g.q)) + '</b><span>' + (g.q == null ? 'No flow rating' : 'Flow' + (g.dq != null && Math.abs(g.dq) >= 0.001 && !g.off_air ? ', ' + (g.dq > 0 ? '+' : '−') + fq(Math.abs(g.dq)) + ' in the hour' : ' (estimated)')) + '</span></div></div>'
+        + floodBox(g)
+        + (g.q != null ? '<div class="seg" role="group" aria-label="Chart"><button type="button" data-v="lvl" aria-pressed="' + (chartVar === 'lvl') + '">Level</button><button type="button" data-v="q" aria-pressed="' + (chartVar === 'q') + '">Flow</button></div>' : '')
+        + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level or flow over the last 7 days"></svg><div class="tipc" id="tipc" hidden></div></div>'
         + '<div class="more">' + (g.rec != null ? '<p>Record: <b>' + m2(g.rec) + '</b> (' + yearOf(g.recd) + ')' + (g.pct != null ? ', so it\'s at <b>' + g.pct + '%</b> of its record now.' : '.') + '</p>' : '')
         + (g.hi8 != null ? '<p>Highest in the last week: ' + m2(g.hi8) + '.</p>' : '')
+        + (g.q != null ? '<p>Flow is worked out from the level, using five years of the Bureau\'s measured levels and flows at this gauge' + (g.qx ? '; the level is above anything in those records, so treat it as a rough guide' : '') + '.</p>' : '')
         + (g.tidal ? '<p>This gauge rises and falls with the tide, so it isn\'t counted as rising.</p>' : '')
         + (g.note ? '<p>Gauge note: ' + esc(g.note) + '</p>' : '')
         + '<p><a href="https://kumina.water.wa.gov.au/waterinformation/wir/reports/publish/' + g.id + '/tel.htm" target="_blank" rel="noopener">DWER\'s page for this gauge</a></p></div>';
       el.hidden = false;
+      el.querySelectorAll('.seg button').forEach(function (b) { b.addEventListener('click', function () {
+        chartVar = b.getAttribute('data-v'); el.querySelectorAll('.seg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); chart(g); }); });
+      if (g.q == null) chartVar = 'lvl';
       el.querySelector('.x').addEventListener('click', function () { el.hidden = true; if (map && map.getSource('g')) map.setFeatureState({ source: 'g', id: +sel }, { sel: false }); sel = null; });
       chart(g);
       if (window.innerWidth <= 1000 && !fly) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
+    var chartVar = 'lvl', RT = null;
+    function floodBox(g) {
+      var f = g.fl; if (!f || f.minor == null) return '';
+      var c = fcls(g), t = c ? '<b class="cls" style="--fc:var(' + FLOOD[c][1] + ')">' + FLOOD[c][0] + '</b>: ' + m2(g.lvl) + ' is above the ' + c + ' flood level.'
+        : 'Below flood level: ' + m2(toMinor(g)) + ' under the minor flood level.';
+      var lv = ['minor', 'moderate', 'major'].filter(function (k) { return f[k] != null; }).map(function (k) {
+        return '<span class="' + (g.lvl >= f[k] ? 'on' : '') + '" style="--c:var(' + FLOOD[k][1] + ')">' + k[0].toUpperCase() + k.slice(1) + ' ' + m2(f[k]) + '</span>'; }).join('');
+      return '<div class="flood">' + t + '<div class="lv">' + lv + '</div><div style="color:var(--muted);font-size:11.5px;margin-top:5px">Flood levels from the Bureau of Meteorology (' + esc(f.bomname) + ')</div></div>';
+    }
     function loadHistory(cb) {
-      if (H) return cb();
-      fetch(DATA + 'rivers-history.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) { H = j || { h: {} }; cb(); }).catch(function () { H = { h: {} }; cb(); });
+      if (H && RT) return cb();
+      Promise.all([fetch(DATA + 'rivers-history.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
+                   fetch(DATA + 'rivers-ratings.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })])
+        .then(function (j) { H = j[0] || { h: {} }; RT = (j[1] && j[1].r) || {}; cb(); });
+    }
+    function flowAt(k, l) {   // the same rating as the data job: straight lines between the points, the last slope carried on above
+      if (!k || l == null) return null;
+      if (l <= k[0][0]) return l >= k[0][0] - 0.05 ? k[0][1] : 0;
+      for (var i = 1; i < k.length; i++) if (l <= k[i][0]) return k[i - 1][1] + (k[i][1] - k[i - 1][1]) * (l - k[i - 1][0]) / (k[i][0] - k[i - 1][0]);
+      var a = k[k.length - 2], b = k[k.length - 1], sl = b[0] > a[0] ? (b[1] - a[1]) / (b[0] - a[0]) : 0; return Math.max(b[1], b[1] + sl * (l - b[0]));
     }
     function chart(g) {
       var svg = $('chartSvg'); svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + css('--muted') + '" font-size="13">Loading the last 7 days…</text>';
@@ -375,17 +427,23 @@
         var h = H.h[g.id] || {}, now = Date.now(), from = now - 7 * 864e5;
         var pts = Object.keys(h).sort().map(function (k) { return [new Date(k + ':00+08:00').getTime(), h[k]]; }).filter(function (p) { return p[0] >= from; });
         if (g.at && !g.off_air) pts.push([new Date(g.at).getTime(), g.lvl]);
+        var isQ = chartVar === 'q' && RT[g.id];
+        if (isQ) pts = pts.map(function (p) { return [p[0], flowAt(RT[g.id], p[1])]; });
         if (pts.length < 2) { svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + css('--muted') + '" font-size="13">No recent readings to chart.</text>'; return; }
         var W = svg.clientWidth || 340, Hh = 190, L = 40, R = 8, T = 10, B = 24;
         var lo = Math.min.apply(null, pts.map(function (p) { return p[1]; })), hi = Math.max.apply(null, pts.map(function (p) { return p[1]; }));
-        var showRec = g.rec != null && g.rec <= hi + Math.max(0.3, (hi - lo) * 1.5);   // the record line, when it's close enough to read against
-        if (showRec) hi = Math.max(hi, g.rec);
-        var pad = Math.max(0.05, (hi - lo) * 0.12); lo -= pad; hi += pad;
+        var near = function (v) { return !isQ && v != null && v <= hi + Math.max(0.3, (hi - lo) * 1.5); };   // reference lines close enough to read against
+        var refs = [];
+        if (g.fl) ['minor', 'moderate', 'major'].forEach(function (k) { if (near(g.fl[k])) refs.push([g.fl[k], FLOOD[k][0].replace(' flood', '') + ' flood ' + m2(g.fl[k]), css(FLOOD[k][1])]); });
+        if (near(g.rec)) refs.push([g.rec, 'Record ' + m2(g.rec), css('--fast')]);
+        refs.forEach(function (r) { hi = Math.max(hi, r[0]); });
+        var pad = Math.max(isQ ? Math.max(0.001, hi * 0.05) : 0.05, (hi - lo) * 0.12); lo -= pad; hi += pad; if (isQ) lo = Math.max(lo, 0);
         var x = function (t) { return L + (t - from) / (now - from) * (W - L - R); }, y = function (v) { return T + (hi - v) / (hi - lo) * (Hh - T - B); };
-        var step = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5].filter(function (s) { return (hi - lo) / s <= 5; })[0] || 5, s = '';
+        var step = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].filter(function (s) { return (hi - lo) / s <= 5; })[0] || 10000, s = '';
+        s += '<text x="4" y="' + (T + 2) + '" font-size="10.5" fill="' + css('--muted') + '">' + (isQ ? 'm³/s' : 'm') + '</text>';
         for (var v = Math.ceil(lo / step) * step; v <= hi; v += step) {
           s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + css('--line') + '"/>'
-            + '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="' + css('--muted') + '">' + (+v.toFixed(2)) + '</text>';
+            + '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="' + css('--muted') + '">' + (+v.toFixed(3)) + '</text>';
         }
         for (var d = 0; d <= 7; d++) {
           var t = new Date(new Date(now - d * 864e5).toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' }) + 'T00:00:00+08:00').getTime();
@@ -393,8 +451,8 @@
           s += '<line x1="' + x(t) + '" x2="' + x(t) + '" y1="' + T + '" y2="' + (Hh - B) + '" stroke="' + css('--line') + '" stroke-dasharray="2 3"/>'
             + '<text x="' + (x(t) + 3) + '" y="' + (Hh - 8) + '" font-size="11" fill="' + css('--muted') + '">' + new Date(t + 6 * 36e5).toLocaleDateString('en-AU', { weekday: 'short', timeZone: 'Australia/Perth' }) + '</text>';
         }
-        if (showRec) s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(g.rec) + '" y2="' + y(g.rec) + '" stroke="' + css('--fast') + '" stroke-dasharray="5 4"/>'
-          + '<text x="' + (W - R - 2) + '" y="' + (y(g.rec) - 4) + '" text-anchor="end" font-size="11" fill="' + css('--fast') + '">Record ' + m2(g.rec) + '</text>';
+        refs.forEach(function (r) { s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(r[0]) + '" y2="' + y(r[0]) + '" stroke="' + r[2] + '" stroke-dasharray="5 4"/>'
+          + '<text x="' + (W - R - 2) + '" y="' + (y(r[0]) - 4) + '" text-anchor="end" font-size="11" fill="' + r[2] + '">' + r[1] + '</text>'; });
         var c = css(STATUS[status(g)][1] === '--steady' ? '--accent' : STATUS[status(g)][1]);
         var line = pts.map(function (p, i) { return (i ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1); }).join('');
         s += '<path d="' + line + ' L' + x(pts[pts.length - 1][0]).toFixed(1) + ' ' + (Hh - B) + ' L' + x(pts[0][0]).toFixed(1) + ' ' + (Hh - B) + 'Z" fill="' + c + '" opacity="0.12"/>'
@@ -408,7 +466,7 @@
           var best = pts[0]; pts.forEach(function (p) { if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p; });
           cx.setAttribute('x1', x(best[0])); cx.setAttribute('x2', x(best[0])); cx.setAttribute('visibility', 'visible');
           tipc.hidden = false; tipc.style.left = (x(best[0]) / W * 100) + '%';
-          tipc.textContent = m2(best[1]) + ' · ' + new Date(best[0]).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', timeZone: 'Australia/Perth' });
+          tipc.textContent = (isQ ? fq(best[1]) : m2(best[1])) + ' · ' + new Date(best[0]).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', timeZone: 'Australia/Perth' });
         };
         svg.onmousemove = move; svg.ontouchmove = move; svg.onmouseleave = function () { tipc.hidden = true; cx.setAttribute('visibility', 'hidden'); };
       });
@@ -438,7 +496,7 @@
         $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' gauges reporting';
         drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap(); }
-        else { H = null; if (map && map.getSource('g')) map.getSource('g').setData(gaugesFC()); if (sel) pick(sel, false); }
+        else { H = null; RT = null; if (map && map.getSource('g')) map.getSource('g').setData(gaugesFC()); if (sel) pick(sel, false); }
       });
     }
     load(true).catch(function () {
@@ -446,7 +504,7 @@
       $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now';
     });
     setInterval(function () { if (!document.hidden) load(false).catch(function () {}); }, 15 * 60 * 1000);
-    window.riverPick = function (id) { pick(id || (G.filter(function (g) { return (g.rate || 0) > 0 && !g.tidal; })[0] || G[0]).id, true); };   // for testing
+    window.riverPick = function (id) { pick(id || (byId('616011') ? '616011' : G[0].id), true); };   // for testing
   })();
   </script>
 </body>
