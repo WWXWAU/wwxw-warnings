@@ -322,10 +322,11 @@
       });
     }
     // Zoom to where the weather is "Decent" or better that day (all of WA if nowhere is)
-    function goodBounds() {
+    function goodBounds(min) {
+      min = min || 50;
       var g = D.grid, s = D.days[dayI].s, w = 999, e = -999, so = 99, no = -99;
       for (var j = 0; j < g.ny; j++) for (var i = 0; i < g.nx; i++) {
-        if (s[j * g.nx + i] < 50) continue;
+        if (s[j * g.nx + i] < min) continue;
         var lo = g.lng0 + i * g.d, la = g.lat0 + j * g.d;
         w = Math.min(w, lo); e = Math.max(e, lo); so = Math.min(so, la); no = Math.max(no, la);
       }
@@ -464,7 +465,8 @@
       g.fillStyle = '#9DCDD3'; g.font = F(500, 24); g.fillText(dayLong(D.days[dayI].date) + ' · West WX Watchers', 136, 112);
       // map: WA in band colours, clipped to the coast
       // framed like the live map: on the "Decent" and better areas (and the top five), not all of WA
-      var gb = goodBounds(), R5 = ranked().slice(0, 5);
+      var best70 = D.days[dayI].s.filter(function (v) { return v >= 70; }).length;
+      var gb = goodBounds(best70 >= 6 ? 70 : 50), R5 = ranked().slice(0, 5);   // the image: tighter, on the "Beaut" and better areas
       var L0 = gb[0][0], L1 = gb[1][0], la0 = gb[0][1], la1 = gb[1][1];
       R5.forEach(function (t) { L0 = Math.min(L0, t.lng - 0.8); L1 = Math.max(L1, t.lng + 0.8); la0 = Math.min(la0, t.lat - 0.8); la1 = Math.max(la1, t.lat + 0.8); });
       var x0 = 36, y0 = 166, mw = 560, mh = 790, T0 = mercY(la1), B0 = mercY(la0);
@@ -520,7 +522,7 @@
         g.fillStyle = light.text; g.font = F(600, 19); g.textAlign = 'center'; g.fillText(b[1], x + sw / 2, sy + 44); g.textAlign = 'left';
       });
       g.fillStyle = light.muted; g.font = F(400, 15); g.textAlign = 'center';
-      g.fillText('Forecasts: Bureau of Meteorology and Open-Meteo. A bit of fun, not a warning service.', S / 2, S - 12); g.textAlign = 'left';
+      g.textAlign = 'left';
       return c;
     }
     function saveImage() {
