@@ -390,14 +390,15 @@ def backfill(h, today, todo):
     end = (dt.date.fromisoformat(today) - dt.timedelta(days=1)).isoformat()
     if end < start: h['filled_to'] = end; h['filled_names'] = sorted(set(h.get('filled_names', [])) | set(names)); return
     got = 0
-    for i in range(0, len(names), 8):
-        chunk = names[i:i + 8]
+    names = names[:40]   # at most 40 towns a run, so a run stays short; the rest follow next run
+    for i in range(0, len(names), 4):
+        chunk = names[i:i + 4]
         q = {'latitude': ','.join('%.2f' % where[n][0] for n in chunk), 'longitude': ','.join('%.2f' % where[n][1] for n in chunk),
              'hourly': ','.join(HOURLY), 'timezone': 'Australia/Perth', 'start_date': start, 'end_date': end, 'wind_speed_unit': 'kmh'}
         url = 'https://historical-forecast-api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(q)
         for attempt in range(4):
             try:
-                d = json.loads(urllib.request.urlopen(url, timeout=180).read()); break
+                d = json.loads(urllib.request.urlopen(url, timeout=300).read()); break
             except Exception as e:  # noqa: BLE001
                 if attempt == 3: raise
                 log('  back-fill retry: %s' % e); time.sleep(10 * (attempt + 1))
@@ -414,6 +415,7 @@ def backfill(h, today, todo):
                 except Exception:  # noqa: BLE001
                     r = None
                 if r: h['days'].setdefault(day, {})[n] = [r['s'], r['tmax']]; got += 1
+        h['filled_names'] = sorted(set(h.get('filled_names', [])) | set(chunk))   # done, even if a later batch fails
         time.sleep(1)
     h['filled_to'] = end; h['filled_names'] = sorted(set(h.get('filled_names', [])) | set(names))
     log('Tally: back-filled %d town-days, %s to %s' % (got, start, end))
