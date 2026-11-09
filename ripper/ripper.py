@@ -183,6 +183,31 @@ def day_name(d, i):
     return 'today' if i == 0 else 'tomorrow' if i == 1 else 'on ' + dt.date.fromisoformat(d).strftime('%A')
 
 
+def setup_words(syn, south, d_i):
+    """Our own plain-English take on the weather pattern (never quoting the source)."""
+    low = syn.lower(); said = []
+    sent = [x.strip() for x in re.split(r'(?<=\.)\s+', low) if x.strip()]
+    def has(*w): return any(all(k in x for k in w) for x in sent)
+    if has('cold front') or has('front'):
+        said.append('a cold front brings cooler, showery weather to the south' + ('' if d_i == 0 else ' at some stage'))
+    if has('ridge') or has('high'):
+        said.append('high pressure is building over the south-west, which means settled, dry air and mostly light winds')
+    if has('trough', 'eastern') or has('trough', 'interior') or has('trough', 'inland'):
+        said.append('an inland trough sits further east, where it is hotter and more unsettled')
+    if has('west coast trough'):
+        said.append('a west coast trough is on the way, which usually means hotter days with easterly winds near the coast')
+    if has('low pressure', 'pilbara') or has('low pressure', 'north') or has('low', 'kimberley'):
+        said.append('low pressure over the north keeps it hot, humid and stormy up there')
+    if not said: return []
+    said = said[:3]
+    txt = 'The set-up: ' + '; '.join(said) + '.'
+    if south and 'high pressure' in txt:
+        txt += ' That is exactly what makes the south the place to be.'
+    elif not south and 'north' in txt:
+        txt += ' The pick spots sit clear of the worst of it.'
+    return [txt]
+
+
 def brief(towns, d_i, d, synoptic):
     """A short write-up of the day: the best towns and why, BoM's weather situation, and where to avoid."""
     R = sorted([t for t in towns if t['days'][d_i]], key=lambda t: -t['days'][d_i]['s'])
@@ -198,13 +223,7 @@ def brief(towns, d_i, d, synoptic):
         rest = R[1:4]
     behind = '%s, %s and %s are not far behind.' % tuple(t['n'] for t in rest)
     if synoptic and d_i <= 2:
-        syn = ' '.join(synoptic); low = syn.lower()
-        out.append("The Bureau's weather situation: " + syn)
-        south = a.get('lat', -30) < -28
-        if 'ridge' in low and south:
-            out.append('That high-pressure ridge is what keeps the south settled, dry and mild.')
-        elif 'trough' in low and not south:
-            out.append('Away from the trough, the air stays drier and storms keep clear.')
+        out += setup_words(' '.join(synoptic), a.get('lat', -30) < -28, d_i)
     out.append(behind)
     doc = [t for t in R[:8] if t['days'][d_i]['doctor']]
     if doc:
