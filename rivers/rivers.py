@@ -204,6 +204,8 @@ def flood_levels(G, out_dir, now):
             if f.get(k) is not None and lvl >= f[k]: c = k
         f['cls'] = c if not g['off_air'] else f.get('bcls')
     m = [g for g in G if g['fl']]
+    for g in m: log('  match: %-45s -> %s / %s  (BoM %s, DWER %.2f; minor %s)' % (g['fl']['bomname'], g['river'], g['name'], next((r['h'] for r in rows if r['bom'] == g['fl']['bom']), None), g['lvl'], g['fl'].get('minor')))
+    log('  BoM gauges not matched: %s' % ', '.join(r['name'] for r in rows if r['datum'] == 'LGH' and r['bom'] not in set(g['fl']['bom'] for g in m)))
     log('Matched to BoM flood gauges: %d (with heights: %d). Above minor now: %s' % (len(m), len([g for g in m if g['fl'].get('minor')]),
         ', '.join('%s %s (%s)' % (g['river'], g['name'], g['fl']['cls']) for g in m if g['fl'].get('cls') in ('minor', 'moderate', 'major')) or 'none'))
 
@@ -222,7 +224,7 @@ def rating_build(ids, out_dir, now):
         q = KIWIS + urllib.parse.urlencode({'request': 'getTimeseriesList', 'station_no': ','.join(ids), 'parametertype_name': par,
                                             'ts_name': 'DMQaQc.Merged.DailyMax.24HR,DMQaQc.Merged.DailyMin.24HR', 'returnfields': 'station_no,ts_id,ts_name'})
         try:
-            for no, ts, nm in json.loads(get(q, timeout=180))[1:]: want[(no, par[13:16], nm[15:18])] = ts   # (id, 'Lev'/'Dis', 'Max'/'Min')
+            for no, ts, nm in json.loads(get(q, timeout=180))[1:]: want[(no, par[13:16], 'Max' if 'DailyMax' in nm else 'Min')] = ts   # (id, 'Lev'/'Dis', 'Max'/'Min')
         except Exception as e:  # noqa: BLE001
             log('Rating series list not read (%s): %s' % (par, e)); return R
     vals = {}
