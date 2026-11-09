@@ -15,6 +15,7 @@ DWER = 'https://kumina.water.wa.gov.au/waterinformation'
 KIWIS = 'http://www.bom.gov.au/waterdata/services?service=kisters&type=queryServices&datasource=0&format=json&'
 AWST = dt.timezone(dt.timedelta(hours=8))
 KEEP_H = 8 * 24
+KNOWN_POS = {'B509440': [-31.9595, 115.8577]}   # Bureau gauges Water Data Online doesn't list (Barrack Street Jetty)
 TIDAL = {'616004', '616094', 'B509440'}   # known tide-affected gauges (Swan estuary at Guildford; below Kent Street Weir; Barrack Street Jetty), on top of the test below
 
 
@@ -239,16 +240,18 @@ def bom_gauges(rows, F, matched, pos, now):
         hr = [k for k in ts if k <= last - dt.timedelta(minutes=50)]
         rate = round(lvl - ser[hr[-1]], 3) if hr and (last - hr[-1]) <= dt.timedelta(hours=2) else None
         mm = re.match(r'(.*?) at (.*)', r['name']); river, place = (mm.group(1), mm.group(2)) if mm else (r['name'], '')
-        if sid not in pos:
+        if sid in KNOWN_POS: pos[sid] = KNOWN_POS[sid]
+        if not pos.get(sid):
             pos[sid] = []
             for term in [place, place.split('(')[0].strip(), ' '.join(place.split()[:2])]:
                 if not term: continue
                 q = KIWIS + urllib.parse.urlencode({'request': 'getStationList', 'station_name': '*' + term + '*', 'returnfields': 'station_name,station_no,station_latitude,station_longitude'})
                 try: res = json.loads(get(q, timeout=60, tries=2))[1:]
                 except Exception: res = []  # noqa: BLE001
-                rw = words(river)
-                res = [z for z in res if words(z[0]) & rw] or (res if len(res) == 1 else [])
-                if res and res[0][2]:
+                res = [z for z in res if z[2] and -36 < float(z[2]) < -13 and 112 < float(z[3]) < 130]   # in WA
+                exact = [z for z in res if z[0].strip().lower() == term.lower()]
+                res = exact or [z for z in res if words(z[0]) & words(river)] or res[:1]
+                if res:
                     pos[sid] = [round(float(res[0][2]), 5), round(float(res[0][3]), 5)]; break
         hourly = {}
         for k in ts: hourly[k.strftime('%Y-%m-%dT%H:00')] = ser[k]
