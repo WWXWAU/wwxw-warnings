@@ -267,6 +267,26 @@ def bom_gauges(rows, F, matched, pos, now):
     return [g for g in out if pos.get(g['id'])]
 
 
+# ---------------------------------------------------------------- roads closed or affected by flooding (Main Roads WA)
+MRWA_CLOSURES = 'https://services2.arcgis.com/cHGEnmsJ165IBJRM/arcgis/rest/services/WebEoc_RoadClosures/FeatureServer/4/query'
+
+
+def flood_roads(out_dir):
+    """Main Roads' road closures and warnings caused by flooding, as GeoJSON (CC BY 4.0, Commissioner of Main Roads)."""
+    q = MRWA_CLOSURES + '?' + urllib.parse.urlencode({'where': "IncidentTy = 'Flooding' AND publishExt = 'Yes'", 'outFields': 'Id,Location,ClosureTyp,Road,Region,Suburb,TrafficImp,EntryDate,UpdateDate',
+                                                     'outSR': 4326, 'f': 'geojson', 'maxAllowableOffset': 0.002, 'geometryPrecision': 4})
+    fc = json.loads(get(q, timeout=90))
+    feats = []
+    for f in fc.get('features', []):
+        p = f.get('properties', {})
+        feats.append({'type': 'Feature', 'geometry': f.get('geometry'), 'properties': {
+            'id': p.get('Id'), 'where': clean(p.get('Location') or ''), 'type': p.get('ClosureTyp') or '', 'road': p.get('Road') or '',
+            'region': p.get('Region') or '', 'note': clean(p.get('TrafficImp') or ''), 'updated': p.get('UpdateDate') or ''}})
+    out = {'type': 'FeatureCollection', 'features': feats}
+    json.dump(out, open(os.path.join(out_dir, 'rivers-roads.json'), 'w'), separators=(',', ':'))
+    log('Roads affected by flooding: %d (%s)' % (len(feats), '; '.join('%s: %s' % (f['properties']['type'], f['properties']['where'][:60]) for f in feats[:6])))
+
+
 # ---------------------------------------------------------------- rain near each gauge
 def rain_near(G, pos, now):
     """The nearest rain gauge (DWER telemetry or Bureau weather station) within 25 km of each river gauge."""
@@ -446,6 +466,10 @@ def main(out_dir):
             except Exception: g['age'] = None  # noqa: BLE001
             g['off_air'] = g['age'] is None or g['age'] > 48
         g['tidal'] = g['id'] in TIDAL or tidal([v for k, v in sorted(hh.items()) if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00')])
+    try: flood_roads(out_dir)
+    except Exception as e:  # noqa: BLE001
+        log('Flooded roads not read: %s' % e)
+        if not os.path.exists(os.path.join(out_dir, 'rivers-roads.json')): json.dump({'type': 'FeatureCollection', 'features': []}, open(os.path.join(out_dir, 'rivers-roads.json'), 'w'))
     try: rain_near(G, pos, now)
     except Exception as e:  # noqa: BLE001
         log('Rain skipped: %s' % e); [g.setdefault('rain', None) for g in G]
