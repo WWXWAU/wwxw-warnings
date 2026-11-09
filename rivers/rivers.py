@@ -137,7 +137,8 @@ STOP = {'river', 'brook', 'creek', 'at', 'the', 'rd', 'road', 'bridge', 'br', 'o
 
 
 def words(t):
-    return set(w for w in re.findall(r'[a-z]+', t.lower()) if w not in STOP and len(w) > 1)
+    ab = {'mt': 'mount', 'st': 'street', 'ck': 'creek', 'hwy': 'highway', 'nth': 'north', 'sth': 'south'}
+    return set(ab.get(w, w) for w in re.findall(r'[a-z]+', t.lower()) if ab.get(w, w) not in STOP and len(w) > 1)
 
 
 def ftp_get(name):
