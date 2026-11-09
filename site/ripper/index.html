@@ -418,7 +418,7 @@
       closePop(); if (tip) { tip.remove(); tip = null; }
       pop = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '240px', offset: 14 }).setLngLat([t.lng, t.lat])
         .setHTML('<b>' + esc(t.n) + '</b>: ' + b[1] + (r.precis ? '<br>' + esc(r.precis) : '') + '<br>' + r.tmax + '° top, ' + r.tmin + '° overnight'
-          + (r.pop != null ? '<br>Chance of rain ' + r.pop + '%' : '') + '<br>Wind about ' + r.wind + ' km/h' + (r.gust >= 45 ? ', gusts ' + r.gust : '')
+          + (r.pop != null ? '<br>Chance of rain ' + r.pop + '%' : '') + (r.rh != null ? '<br>Humidity about ' + r.rh + '% in the afternoon' : '') + '<br>Wind about ' + r.wind + ' km/h' + (r.gust >= 45 ? ', gusts ' + r.gust : '')
           + (r.notes.length ? '<br><span style="color:var(--muted)">' + esc(r.notes.join(', ')) + '</span>' : '')).addTo(map);
       pop.on('close', function () { pop = null; });
     }

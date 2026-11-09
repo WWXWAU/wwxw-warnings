@@ -309,7 +309,9 @@ def score_day(h, idx, coast_km, to_coast, bom=None):
     if flies: notes.append('Flies about')
     if eff >= 36: notes.append('Scorcher')
     elif eff < 18: notes.append('Cool')
-    return {'s': s, 'tmax': round(tmax), 'tmin': round(tmin), 'dp': round(dp), 'wind': round(wmean), 'gust': round(gmax),
+    es = lambda t: math.exp(17.625 * t / (243.04 + t))
+    rh = max(1, min(100, round(100 * es(dp) / es(peak))))   # afternoon humidity, at the day's top temperature
+    return {'s': s, 'tmax': round(tmax), 'tmin': round(tmin), 'dp': round(dp), 'rh': rh, 'wind': round(wmean), 'gust': round(gmax),
             'rain': round(rain, 1), 'icon': icon, 'doctor': doctor, 'notes': notes,
             'precis': (bom or {}).get('precis') or '', 'pop': (bom or {}).get('pop')}
 
@@ -378,15 +380,15 @@ def label_spot(ring):
     return bx or [round(sum(xs) / len(xs), 2), round(sum(ys) / len(ys), 2)]
 
 
-def backfill(h, today):
+def backfill(h, today, todo):
     """Start the tally from 1 Jan: the same score from Open-Meteo's archived model forecasts (no BoM words for past days)."""
     rings = wa_rings()
     coast = [(p[1], p[0]) for r in rings for p in r[::3] if p[0] < 128.95]
-    where = bom_coords(RANK)
-    names = [n for n in RANK if n in where]
+    where = {n: (la, lo) for n, la, lo in todo}
+    names = [n for n, _, _ in todo]
     start = today[:4] + '-01-01'
     end = (dt.date.fromisoformat(today) - dt.timedelta(days=1)).isoformat()
-    if end < start: h['filled_to'] = end; return
+    if end < start: h['filled_to'] = end; h['filled_names'] = sorted(set(h.get('filled_names', [])) | set(names)); return
     got = 0
     for i in range(0, len(names), 8):
         chunk = names[i:i + 8]
@@ -413,7 +415,7 @@ def backfill(h, today):
                     r = None
                 if r: h['days'].setdefault(day, {})[n] = [r['s'], r['tmax']]; got += 1
         time.sleep(1)
-    h['filled_to'] = end
+    h['filled_to'] = end; h['filled_names'] = sorted(set(h.get('filled_names', [])) | set(names))
     log('Tally: back-filled %d town-days, %s to %s' % (got, start, end))
 
 
@@ -425,9 +427,11 @@ def record_day(path, date, towns):
         h = json.load(open(path))
     except Exception:  # noqa: BLE001
         h = {'days': {}}
-    if not h.get('filled_to'):
+    want = [(t['n'], t['lat'], t['lng']) for t in towns]
+    todo = [w for w in want if w[0] not in set(h.get('filled_names', []))]
+    if todo:
         try:
-            backfill(h, date)
+            backfill(h, date, todo)
         except Exception as e:  # noqa: BLE001
             log('Tally: back-fill failed (%s); trying again next run' % e)
     if date != now.strftime('%Y-%m-%d') or (now.hour >= 12 and date in h['days']):
@@ -483,10 +487,13 @@ def main():
             s.append(int(max(0, min(100, round(r['s'] + num / den)))))
         days.append({'date': d, 's': s})
     towns = []
-    for n in RANK:
-        bn = next((b for b in places if norm(re.sub(r'\s+(MO|Airport|Aero|AWS|Mine)$', '', b)) == norm(n)), None)
-        if not bn: log('Ranked town not in the BoM file: ' + n); continue
+    seen = set()
+    for bn in places:   # every town in BoM's WA forecasts
+        n = re.sub(r'\s+(MO|Airport|Aero|AWS)$', '', bn).strip()
+        if norm(n) in seen: continue
+        seen.add(norm(n))
         towns.append({'n': n, 'lat': round(where[bn][0], 3), 'lng': round(where[bn][1], 3), 'days': [v[1] for v in pl[bn]]})
+    log('Towns ranked: %d' % len(towns))
     syn = fetch_synoptic()
     log('BoM situation: ' + ' | '.join(syn))
     for d_i, d in enumerate(dates):
