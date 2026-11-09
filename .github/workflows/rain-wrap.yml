@@ -1,0 +1,10 @@
+name: Rain wrap data
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  wrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python tools/rain_wrap.py
