@@ -275,13 +275,15 @@ def _h9_list(prefix, delim=True):
 def himawari_scans():
     """The newest full-disk scan folders (newest first)."""
     if 'folders' not in _H9:
-        now = dt.datetime.now(dt.timezone.utc); folders = []
+        at = os.environ.get('WARN_SAT_AT')   # e.g. 2026-11-09T14:30Z: the clouds at that time (examples of past warnings)
+        now = dt.datetime.fromisoformat(at.replace('Z', '+00:00')) if at else dt.datetime.now(dt.timezone.utc); folders = []
         try:
             for back in (0, 1):
                 day = (now - dt.timedelta(days=back)).strftime('%Y/%m/%d/')
                 folders += [f for f in _h9_list('AHI-L2-FLDK-ISatSS/' + day)[0] if f.rstrip('/').endswith('0')]
         except Exception as e:  # noqa: BLE001
             print('Himawari-9 list not read:', e)
+        if at: folders = [f for f in folders if f.rstrip('/')[-15:].replace('/', '') <= now.strftime('%Y%m%d%H%M')]
         _H9['folders'] = sorted(folders, reverse=True)[:4]
     return _H9['folders']
 

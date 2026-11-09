@@ -1,5 +1,9 @@
 name: Warning image previews
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      file: { required: false, default: 'data/test/sample-warning.json' }
+      sat_at: { required: false, default: '' }
 permissions:
   contents: write
 jobs:
@@ -11,7 +15,9 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -q pillow numpy h5py
-      - run: python warnimg.py data/test/sample-warning.json previews
+      - run: python warnimg.py "${{ inputs.file || 'data/test/sample-warning.json' }}" previews
+        env:
+          WARN_SAT_AT: ${{ inputs.sat_at }}
       - name: Save to the previews branch
         run: |
           cd previews
