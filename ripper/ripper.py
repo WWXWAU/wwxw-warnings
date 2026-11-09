@@ -5,13 +5,13 @@ West WX Watchers — Today's Ripper Weather: how good is each day's weather acro
 Hourly forecast from Open-Meteo (best-match models, Australia/Perth times) for a 0.5° grid over WA and the
 ranked towns. Each place and day gets a score 0-100 from the daytime hours (9 am-5 pm):
 
-  temperature   best when the (effective) top is 24-30 °C ("beach weather"); falls away either side
+  temperature   best when the (effective) top is 25-29 °C (24-30 still 94+, "beach weather"); falls away either side
   the Doctor    coastal places within 60 km of the sea: if an onshore breeze of 15+ km/h arrives by 3 pm on a
                 hot day and the heat stops climbing, the afternoon counts, not the morning peak
   humidity      sticky days (daytime dew point 16 °C+, e.g. a Broome build-up) lose points
-  wind          mean daytime wind over 20 km/h, and gusts over 60 km/h, lose points
+  wind          mean daytime wind over 15 km/h, and gusts of 45 / 60 km/h+, lose points
   rain, storms  daytime rain of 0.3 mm+ loses points; thunderstorms lose more
-  cloud         mostly cloudy days lose a little
+  cloud         cloud over 40% loses a little, overcast up to 30%
   flies         a rough "fly factor": inland, warm (22-35 °C), light winds (<12 km/h), not too dry or humid
 
 Bands: 0-29 Bit ordinary · 30-49 Not bad · 50-69 Decent · 70-84 Beaut · 85+ Bloody ripper.
@@ -128,17 +128,17 @@ def score_day(h, idx, coast_km, to_coast):
                 break
     # temperature: 1 for 24-30 °C, falling away either side
     t = eff
-    st = 1.0 if 24 <= t <= 30 else max(0.0, 1 - (24 - t) * 0.07) if t < 24 else max(0.0, 1 - (t - 30) * 0.09)
+    st = 1.0 if 25 <= t <= 29 else max(0.0, 1 - (25 - t) * 0.06) if t < 25 else max(0.0, 1 - (t - 29) * 0.09)   # 24-30 still scores 94+
     dp = sum(x for x in Dp if x is not None) / max(1, len([x for x in Dp if x is not None]))
     humid = 0.0 if dp < 16 else min(0.65, (dp - 16) * 0.075)   # dew point 24+ (a build-up day) loses most of it
     wmean = sum(x or 0 for x in W) / len(W); gmax = max(x or 0 for x in G)
-    windp = min(0.5, max(0.0, (wmean - 20) * 0.025)) + (0.15 if gmax >= 60 else 0)
+    windp = min(0.5, max(0.0, (wmean - 15) * 0.02)) + (0.15 if gmax >= 60 else 0.05 if gmax >= 45 else 0)
     rain = sum(x or 0 for x in P)
     storm = any(c is not None and c >= 95 for c in Code)
     rainp = 0.0 if rain < 0.3 else 0.3 if rain < 1 else 0.45 if rain < 5 else 0.6
     rainp += 0.1 if storm else 0
     cmean = sum(x or 0 for x in C) / len(C)
-    cloudp = max(0.0, (cmean - 60) / 40 * 0.25)
+    cloudp = max(0.0, (cmean - 40) / 60 * 0.3)
     flies = coast_km is not None and coast_km > 80 and 22 <= peak <= 35 and wmean < 12 and 2 <= dp <= 16 and rain < 1
     s = st * (1 - humid) * (1 - min(0.6, windp)) * (1 - min(0.7, rainp)) * (1 - cloudp) - (0.08 if flies else 0)
     s = int(round(max(0, min(1, s)) * 100))
@@ -158,6 +158,7 @@ def score_day(h, idx, coast_km, to_coast):
 
 def main():
     out_path = sys.argv[1] if len(sys.argv) > 1 else 'ripper.json'
+    os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
     rings = wa_rings()
     coast = [(p[1], p[0]) for r in rings for p in r[::3] if p[0] < 128.95]   # (lat, lng); the 129°E border is not coast
     def coast_info(la, lo):
