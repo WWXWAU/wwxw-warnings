@@ -15,7 +15,7 @@ DWER = 'https://kumina.water.wa.gov.au/waterinformation'
 KIWIS = 'http://www.bom.gov.au/waterdata/services?service=kisters&type=queryServices&datasource=0&format=json&'
 AWST = dt.timezone(dt.timedelta(hours=8))
 KEEP_H = 8 * 24
-TIDAL = {'616004', '616094'}   # known tide-affected gauges (Swan estuary at Guildford; below Kent Street Weir), on top of the test below
+TIDAL = {'616004', '616094', 'B509440'}   # known tide-affected gauges (Swan estuary at Guildford; below Kent Street Weir; Barrack Street Jetty), on top of the test below
 
 
 def log(*a):
@@ -208,6 +208,115 @@ def flood_levels(G, out_dir, now):
     log('  BoM gauges not matched: %s' % ', '.join(r['name'] for r in rows if r['datum'] == 'LGH' and r['bom'] not in set(g['fl']['bom'] for g in m)))
     log('Matched to BoM flood gauges: %d (with heights: %d). Above minor now: %s' % (len(m), len([g for g in m if g['fl'].get('minor')]),
         ', '.join('%s %s (%s)' % (g['river'], g['name'], g['fl']['cls']) for g in m if g['fl'].get('cls') in ('minor', 'moderate', 'major')) or 'none'))
+    return rows, F, set(g['fl']['bom'] for g in m)
+
+
+def flood_class(lvl, f):
+    c = 'below'
+    for k in ('minor', 'moderate', 'major'):
+        if f.get(k) is not None and lvl >= f[k]: c = k
+    return c
+
+
+def bom_gauges(rows, F, matched, pos, now):
+    """The Bureau's flood-warning gauges that DWER doesn't run (shires, Water Corporation and others): level, trend
+    and the last 7 days from each gauge's table page, every run; positions from Water Data Online by name."""
+    out = []
+    for r in rows:
+        if r['bom'] in matched: continue
+        sid = 'B' + r['bom']
+        try: t = get('http://www.bom.gov.au/fwo/%s/%s.%s.tbl.shtml' % (r['prod'], r['prod'], r['bom']), timeout=60, tries=2)
+        except Exception as e:  # noqa: BLE001
+            log('  BoM gauge %s not read: %s' % (r['name'], e)); continue
+        x = clean(t)
+        ser = {}
+        for d, v in re.findall(r'(\d\d/\d\d/\d{4} \d\d:\d\d)\s+(-?\d+\.\d+)', x):
+            ser[dt.datetime.strptime(d, '%d/%m/%Y %H:%M').replace(tzinfo=AWST)] = float(v)
+        lv = {k: num(v) for k, v in re.findall(r'(Minor|Moderate|Major):\s*([\d.]+)\s*m', x)}
+        if lv: F[r['bom']] = {'minor': lv.get('Minor'), 'moderate': lv.get('Moderate'), 'major': lv.get('Major'), 'read': now.strftime('%Y-%m-%d')}
+        if not ser: log('  BoM gauge %s: no readings' % r['name']); continue
+        ts = sorted(ser); last = ts[-1]; lvl = ser[last]
+        hr = [k for k in ts if k <= last - dt.timedelta(minutes=50)]
+        rate = round(lvl - ser[hr[-1]], 3) if hr and (last - hr[-1]) <= dt.timedelta(hours=2) else None
+        mm = re.match(r'(.*?) at (.*)', r['name']); river, place = (mm.group(1), mm.group(2)) if mm else (r['name'], '')
+        if sid not in pos:
+            pos[sid] = []
+            for term in [place, place.split('(')[0].strip(), ' '.join(place.split()[:2])]:
+                if not term: continue
+                q = KIWIS + urllib.parse.urlencode({'request': 'getStationList', 'station_name': '*' + term + '*', 'returnfields': 'station_name,station_no,station_latitude,station_longitude'})
+                try: res = json.loads(get(q, timeout=60, tries=2))[1:]
+                except Exception: res = []  # noqa: BLE001
+                rw = words(river)
+                res = [z for z in res if words(z[0]) & rw] or (res if len(res) == 1 else [])
+                if res and res[0][2]:
+                    pos[sid] = [round(float(res[0][2]), 5), round(float(res[0][3]), 5)]; break
+        hourly = {}
+        for k in ts: hourly[k.strftime('%Y-%m-%dT%H:00')] = ser[k]
+        f = F.get(r['bom'], {})
+        g = {'id': sid, 'river': river, 'name': place, 'at': last.isoformat(), 'lvl': round(lvl, 3), 'rate': rate,
+             'trend': 'Rising' if (rate or 0) >= 0.005 else 'Falling' if (rate or 0) <= -0.005 else 'Steady',
+             'rec': None, 'recd': None, 'off': None, 'cls': 'rowNORM', 'note': '', 'src': 'bom', 'prod': r['prod'], 'datum': r['datum'], 'hist': hourly,
+             'fl': {'bom': r['bom'], 'bomname': r['name'], 'minor': f.get('minor'), 'moderate': f.get('moderate'), 'major': f.get('major'), 'bcls': None}}
+        g['fl']['cls'] = flood_class(lvl, g['fl'])
+        out.append(g); time.sleep(0.3)
+    log('Bureau-only gauges added: %d (%s); no position: %s' % (len(out), ', '.join(g['river'] + ' at ' + g['name'] for g in out),
+        ', '.join(g['river'] + ' at ' + g['name'] for g in out if not pos.get(g['id'])) or 'none'))
+    return [g for g in out if pos.get(g['id'])]
+
+
+# ---------------------------------------------------------------- rain near each gauge
+def rain_near(G, pos, now):
+    """The nearest rain gauge (DWER telemetry or Bureau weather station) within 25 km of each river gauge."""
+    R = []
+    try:
+        t = get(DWER + '/telem/rain.cfm')
+        for row in re.findall(r'<tr class=\w+>(.*?)</tr>', t, re.S):
+            td = [clean(re.sub(r'<span.*?</span>', ' ', c, flags=re.S)) for c in re.findall(r'<td[^>]*>(.*?)</td>', row, re.S)]
+            if len(td) < 8 or not td[0].isdigit(): continue
+            try: at = dt.datetime.strptime(td[3], '%H:%M %d%b%Y').replace(tzinfo=AWST)
+            except Exception: continue  # noqa: BLE001
+            if now - at > dt.timedelta(hours=26): continue
+            nine = now.replace(hour=9, minute=0, second=0, microsecond=0)
+            if now < nine: nine -= dt.timedelta(days=1)
+            cur = at >= nine
+            R.append({'id': td[0], 'n': td[2], 'src': 'DWER', 's9': num(td[4]) if cur else None, 'to9': num(td[5]) if cur else None, 'd3': num(td[7])})
+    except Exception as e:  # noqa: BLE001
+        log('DWER rain not read: %s' % e)
+    need = [r['id'] for r in R if r['id'] not in pos]
+    for k in range(0, len(need), 100):
+        q = KIWIS + urllib.parse.urlencode({'request': 'getStationList', 'station_no': ','.join(need[k:k + 100]), 'returnfields': 'station_no,station_latitude,station_longitude'})
+        try:
+            for no, la, lo in json.loads(get(q))[1:]: pos[no] = [round(float(la), 5), round(float(lo), 5)]
+        except Exception as e:  # noqa: BLE001
+            log('Rain gauge positions not read: %s' % e)
+    for i in [r['id'] for r in R if r['id'] not in pos][:60]:          # not in Water Data Online: DWER's own site summary
+        try:
+            m = re.search(r'Latitude:\s*(-?\d+\.\d+).*?Longitude:\s*(-?\d+\.\d+)', get(DWER + '/wir/reports/publish/%s/sitesum.htm' % i, timeout=30, tries=1), re.S)
+            pos[i] = [round(float(m.group(1)), 5), round(float(m.group(2)), 5)] if m else []
+        except Exception: pos[i] = []  # noqa: BLE001
+    for r in R: r['ll'] = pos.get(r['id']) or None
+    try:
+        x = ftp_get('IDW60920.xml')
+        for st in re.findall(r'<station (.*?)</station>', x, re.S):
+            hd = dict(re.findall(r'([\w-]+)="([^"]*)"', st.split('>', 1)[0]))
+            s9 = re.search(r'type="rainfall">([\d.]+)<', st); to9 = re.search(r'type="rainfall_24hr">([\d.]+)<', st)
+            if s9 is None and to9 is None: continue
+            R.append({'id': 'BOM' + hd.get('bom-id', ''), 'n': hd.get('description', hd.get('stn-name', '')), 'src': 'BoM', 'll': [float(hd['lat']), float(hd['lon'])],
+                      's9': float(s9.group(1)) if s9 else None, 'to9': float(to9.group(1)) if to9 else None, 'd3': None})
+    except Exception as e:  # noqa: BLE001
+        log('BoM rain not read: %s' % e)
+    R = [r for r in R if r['ll']]
+    def km2(a, b):
+        return math.hypot((a[0] - b[0]) * 111.2, (a[1] - b[1]) * 111.2 * math.cos(math.radians(a[0])))
+    n = 0
+    for g in G:
+        g['rain'] = None
+        if g.get('lat') is None: continue
+        best = min(((km2((g['lat'], g['lng']), r['ll']), r) for r in R), key=lambda z: z[0], default=(None, None))
+        if best[1] and best[0] <= 25:
+            r = best[1]; g['rain'] = {'n': r['n'], 'src': r['src'], 'km': round(best[0], 1), 's9': r['s9'], 'to9': r['to9'], 'd3': r['d3']}; n += 1
+    wet = sorted([g for g in G if g['rain'] and (g['rain']['s9'] or 0) + (g['rain']['to9'] or 0) > 0], key=lambda g: -((g['rain']['s9'] or 0) + (g['rain']['to9'] or 0)))
+    log('Rain gauges: %d; river gauges with rain nearby: %d; wettest: %s' % (len(R), n, ', '.join('%s %s %s/%s mm' % (g['river'], g['name'], g['rain']['s9'], g['rain']['to9']) for g in wet[:4])))
 
 
 # ---------------------------------------------------------------- flow, from the level
@@ -289,19 +398,29 @@ def main(out_dir):
     G = read_dwer()
     if len(G) < 50: sys.exit('Too few gauges read from DWER (%d); not publishing.' % len(G))
     pos = sites([g['id'] for g in G], os.path.join(out_dir, 'rivers-sites.json'))
-    json.dump(pos, open(os.path.join(out_dir, 'rivers-sites.json'), 'w'), separators=(',', ':'), sort_keys=True)
+    for g in G:                                                           # reporting or not (also used to match the Bureau's gauges)
+        try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
+        except Exception: g['age'] = None  # noqa: BLE001
+        g['off_air'] = g['cls'] == 'rowGREY' or g['age'] is None or g['age'] > 48
+    try:
+        rows, F, matched = flood_levels(G, out_dir, now)
+        G += bom_gauges(rows, F, matched, pos, now)
+        json.dump(F, open(os.path.join(out_dir, 'rivers-flood.json'), 'w'), separators=(',', ':'), sort_keys=True)
+    except Exception as e:  # noqa: BLE001
+        log('Flood levels skipped: %s' % e); [g.setdefault('fl', None) for g in G]
     # the hourly record
     hp = os.path.join(out_dir, 'rivers-history.json')
     try: H = json.load(open(hp))
     except Exception: H = {'h': {}}  # noqa: BLE001
     cut = (now - dt.timedelta(hours=KEEP_H)).strftime('%Y-%m-%dT%H:00')
-    thin = [g['id'] for g in G if len([k for k in H['h'].get(g['id'], {}) if k >= cut]) < 24]   # gauges without a day of record yet
+    thin = [g['id'] for g in G if not g['id'].startswith('B') and len([k for k in H['h'].get(g['id'], {}) if k >= cut]) < 24]   # gauges without a day of record yet
     if thin and (not H.get('seeded') or H.get('seeded') < now.strftime('%Y-%m-%d')):
         for sid, hh in kiwis_history(thin).items():
             cur = H['h'].setdefault(sid, {})
             for k, v in hh.items(): cur.setdefault(k, v)
         H['seeded'] = now.strftime('%Y-%m-%d')
     for g in G:
+        if g.get('hist'): H['h'].setdefault(g['id'], {}).update(g.pop('hist')); continue   # a Bureau gauge: its own last 7 days
         if not g['at']: continue
         hk = g['at'][:13] + ':00'
         H['h'].setdefault(g['id'], {})[hk] = g['lvl']
@@ -319,14 +438,16 @@ def main(out_dir):
         g['d24'] = round(g['lvl'] - old[-1], 3) if old else None
         g['hi8'] = round(max(hh.values()), 3) if hh else g['lvl']
         g['pct'] = max(0, round(100 * g['lvl'] / g['rec'])) if g['rec'] and g['rec'] > 0.2 else None   # below the gauge's zero counts as 0%
-        try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
-        except Exception: g['age'] = None  # noqa: BLE001
-        g['off_air'] = g['cls'] == 'rowGREY' or g['age'] is None or g['age'] > 48       # not reporting
+        if g['id'].startswith('B'):
+            try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
+            except Exception: g['age'] = None  # noqa: BLE001
+            g['off_air'] = g['age'] is None or g['age'] > 48
         g['tidal'] = g['id'] in TIDAL or tidal([v for k, v in sorted(hh.items()) if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00')])
-    try: flood_levels(G, out_dir, now)
+    try: rain_near(G, pos, now)
     except Exception as e:  # noqa: BLE001
-        log('Flood levels skipped: %s' % e); [g.setdefault('fl', None) for g in G]
-    R = rating_build([g['id'] for g in G], out_dir, now)
+        log('Rain skipped: %s' % e); [g.setdefault('rain', None) for g in G]
+    json.dump(pos, open(os.path.join(out_dir, 'rivers-sites.json'), 'w'), separators=(',', ':'), sort_keys=True)
+    R = rating_build([g['id'] for g in G if not g['id'].startswith('B')], out_dir, now)
     for g in G:
         q, beyond = flow(R['r'].get(g['id']), g['lvl'])
         g['q'] = None if q is None else round(q, 3 if q < 1 else 2 if q < 10 else 1)
