@@ -24,10 +24,10 @@
   </script>
   <style>
     :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
-            --ocean: #D3E4E8; --land: #E7EEF0; --coast: #7E9AA3;
+            --ocean: #D6E6EA; --land: #F7FAFA; --coast: #7E9AA3;
             --b0: #B9C4C8; --b1: #A3D9D3; --b2: #48B6AC; --b3: #8FC95A; --b4: #F5B52E; color-scheme: light; }
     [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
-            --ocean: #0D1D23; --land: #1B3640; --coast: #4F717C; color-scheme: dark; }
+            --ocean: #0D1D23; --land: #22404B; --coast: #5D818C; color-scheme: dark; }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
     a { color: var(--accent); }
@@ -57,9 +57,10 @@
 
     /* Map + ranking */
     .main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 0 20px 20px; }
-    .mapwrap { position: relative; background: var(--ocean); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; min-height: 560px; }
+    .mapcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .mapwrap { position: relative; background: var(--ocean); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; height: clamp(560px, calc(100vh - 190px), 860px); }
     #map { position: absolute; inset: 0; }
-    .scale { position: absolute; left: 12px; right: 12px; bottom: 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; pointer-events: none; }
+    .scale { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
     .scale div { font-size: 11.5px; font-weight: 600; text-align: center; padding: 22px 2px 0; position: relative; color: var(--text); }
     .scale div::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 14px; background: var(--c); border-radius: 3px; }
     .scale div:first-child::before { border-radius: 7px 3px 3px 7px; } .scale div:last-child::before { border-radius: 3px 7px 7px 3px; }
@@ -95,6 +96,8 @@
     .mk b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--text);
             border: 3px solid var(--bandc); font-size: 13px; font-weight: 800; box-shadow: 0 1px 3px rgba(14,42,51,0.35); }
     .mk.top1 b { width: 32px; height: 32px; font-size: 15px; background: var(--bandc); color: #0E2A33; border-color: var(--surface); }
+    .mk.left { flex-direction: row-reverse; }
+    .mk.left span { margin-right: 26px; }
     .mk span { font-size: 12.5px; font-weight: 700; color: var(--text); text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); white-space: nowrap; }
     .mk.dot b { width: 11px; height: 11px; border-width: 2px; background: var(--bandc); border-color: var(--surface); }
     .mk.dot span { font-weight: 500; font-size: 11px; color: var(--muted); }
@@ -106,7 +109,7 @@
 
     @media (max-width: 900px) {
       .main { grid-template-columns: 1fr; padding: 0 12px 16px; }
-      .mapwrap { min-height: 0; height: 62vh; max-height: 560px; }
+      .mapwrap { height: 64vh; max-height: 600px; min-height: 380px; }
       .top { padding: 12px 12px 8px; }
       h1 { font-size: 20px; width: 100%; }
       .days { margin-left: 0; flex: 1; }
@@ -138,11 +141,13 @@
   </div>
 
   <div class="main">
-    <div class="mapwrap">
-      <div id="map" aria-label="Map of WA coloured by how good the weather is"></div>
-      <div class="stamp" id="stamp">Loading the forecast…</div>
-      <div class="scale" id="scale" aria-hidden="true"></div>
-      <div class="msg" id="msg" hidden></div>
+    <div class="mapcol">
+      <div class="mapwrap">
+        <div id="map" aria-label="Map of WA coloured by how good the weather is"></div>
+        <div class="stamp" id="stamp">Loading the forecast…</div>
+        <div class="msg" id="msg" hidden></div>
+      </div>
+      <div class="scale" id="scale" aria-label="Scale: bit ordinary, not bad, decent, beaut, bloody ripper"></div>
     </div>
     <div class="panel">
       <section class="pick" id="pick" aria-live="polite"></section>
@@ -155,7 +160,7 @@
       </details>
     </div>
   </div>
-  <div class="foot" id="foot">Forecast data from Open-Meteo, scored by West WX Watchers. A bit of fun, not a warning service: for warnings go to <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+  <div class="foot" id="foot">Forecast data from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), scored by West WX Watchers. A bit of fun, not a warning service: for warnings go to <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-array@3.2.4/dist/d3-array.min.js"></script>
@@ -234,7 +239,6 @@
         bounds: [[112.6, -35.3], [129.0, -13.6]], fitBoundsOptions: { padding: { top: 40, bottom: 56, left: 12, right: 12 } }, minZoom: 3, maxZoom: 9 });
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
-      map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Forecast: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>' }));
       map.on('load', function () {
         var wa = (GEO['Western Australia'] || []);
         var mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[90, -50], [150, -50], [150, 0], [90, 0], [90, -50]]].concat(wa.map(function (r) { return r.slice().reverse(); })) } };
@@ -255,12 +259,13 @@
             .setHTML('<b>' + b[1] + '</b><br><span style="color:var(--muted)">Score ' + s + ' out of 100 here</span>').addTo(map);
         });
         fit(); draw();
+        map.on('zoomend', placeLabels);
       });
     }
     function fit() {
       if (!map) return;
       var wide = window.innerWidth > 900;
-      map.fitBounds([[112.6, -35.3], [129.0, -13.6]], { padding: { top: 40, bottom: wide ? 60 : 50, left: 12, right: wide ? 56 : 48 }, duration: 0 });
+      map.fitBounds([[112.6, -35.3], [129.0, -13.6]], { padding: { top: 40, bottom: 14, left: 12, right: wide ? 56 : 48 }, duration: 0 });
     }
 
     // ---- the day's picture
@@ -283,11 +288,12 @@
         var rank = R.indexOf(t) + 1, r = t.days[dayI], b = band(r.s), el = document.createElement('div');
         el.className = 'mk' + (rank === 1 ? ' top1' : rank > 5 ? ' dot' : '');
         el.style.setProperty('--bandc', 'var(' + b[2] + ')');
-        el.innerHTML = '<b>' + (rank <= 5 ? rank : '') + '</b><span>' + esc(t.n) + '</span>';
+        el.innerHTML = '<b>' + (rank <= 5 ? rank : '') + '</b>' + (rank <= 5 ? '<span>' + esc(t.n) + '</span>' : '');
         el.title = t.n + ': ' + b[1] + ' (' + r.s + ')';
         el.addEventListener('click', function (ev) { ev.stopPropagation(); townPopup(t); });
         markers.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [-13, 0] }).setLngLat([t.lng, t.lat]).addTo(map));
       });
+      placeLabels();
       // pick of the day
       var top = R[0], tr = top.days[dayI], tb = band(tr.s);
       var pick = document.getElementById('pick');
@@ -308,6 +314,22 @@
         var t = D.towns.filter(function (x) { return x.n === b.getAttribute('data-n'); })[0]; if (t) { map.easeTo({ center: [t.lng, t.lat], zoom: Math.max(map.getZoom(), 5.2) }); townPopup(t); } }); });
       document.getElementById('moreBtn').addEventListener('click', function () { showAll = !showAll; draw(); });
       document.getElementById('title').textContent = dayI === 0 ? "Today's Ripper Weather" : 'Ripper Weather, ' + dayLong(D.days[dayI].date);
+    }
+    // Top-five names: keep them apart. Best-ranked first; a name that would overlap goes to the left, else hides.
+    function placeLabels() {
+      var boxes = [], R = ranked();
+      R.slice(0, 5).forEach(function (t) {
+        var m = markers.filter(function (mk) { return mk.getElement().title.indexOf(t.n + ':') === 0; })[0]; if (!m) return;
+        var el = m.getElement(), sp = el.querySelector('span'); if (!sp) return;
+        el.classList.remove('left'); sp.style.visibility = '';
+        var p = map.project([t.lng, t.lat]), w = sp.offsetWidth || t.n.length * 8, h = 18, dot = 16;
+        boxes.push([p.x - dot, p.y - dot, p.x + dot, p.y + dot]);   // the number badge itself
+        var right = [p.x + dot, p.y - h / 2, p.x + dot + w + 6, p.y + h / 2], left = [p.x - dot - w - 6, p.y - h / 2, p.x - dot, p.y + h / 2];
+        var hit = function (b) { return boxes.some(function (q) { return b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]; }); };
+        if (!hit(right)) boxes.push(right);
+        else if (!hit(left)) { el.classList.add('left'); boxes.push(left); }
+        else sp.style.visibility = 'hidden';
+      });
     }
     function townPopup(t) {
       var r = t.days[dayI], b = band(r.s);
