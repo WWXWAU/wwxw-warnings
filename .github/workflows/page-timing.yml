@@ -1,0 +1,19 @@
+name: Page timing
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  time:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Time the pages (3 tries each)
+        run: |
+          R=https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec
+          O=https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec
+          for u in https://westweatherwatchers.com/ https://westweatherwatchers.com/outlook/ https://westweatherwatchers.com/rainfall/ https://westweatherwatchers.com/obs/ \
+                   "$R" "$R?page=obs" "$O" "$O?page=riskjson"; do
+            for i in 1 2 3; do
+              curl -sL -o /tmp/body -w "first byte %{time_starttransfer}s  total %{time_total}s  size %{size_download}  code %{http_code}  $u\n" -m 90 "$u"
+            done
+            echo "  page mentions: $(grep -o 'unpkg.com[^"]*\|cdn[a-z.]*/[^"]*\|maps.googleapis.com[^"&]*\|fonts.googleapis.com[^"&]*\|script.google.com/macros/s/[A-Za-z0-9_-]\{8\}' /tmp/body | sort -u | head -8 | tr '\n' ' ')"
+          done
