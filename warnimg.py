@@ -395,6 +395,31 @@ def map_scale(item, box):
     _, _, span, md = _frame(item)
     return min((box[2] - box[0]) / span, (box[3] - box[1]) / md)
 
+# Severe thunderstorm warning areas drawn like the convective outlook's severe areas: its red fill and edge, with
+# each hazard hatched in the outlook's colours (damaging winds red ///, large hail purple \\\, heavy rain blue dots)
+OUT_SEV = ((224, 102, 102), (183, 28, 28))
+HZ_HATCH = {'W': (211, 47, 47), 'R': (21, 101, 192), 'H': (123, 31, 162)}
+
+
+def hatch_keys(item):
+    t = ' '.join(item.get('hazards') or []).lower()
+    return [k for k, w in (('W', 'wind'), ('H', 'hail'), ('R', 'rain')) if w in t]
+
+
+def hatch_mask(k, W, H, step, lw):
+    m = Image.new('L', (W, H), 0); d = ImageDraw.Draw(m)
+    if k == 'R':
+        r = max(2, lw * 1.05)
+        for j, y in enumerate(range(step // 2, H + step, step)):
+            for x in range((step // 2) * (j % 2), W + step, step):
+                d.ellipse([x - r, y - r, x + r, y + r], fill=255)
+    else:
+        for i in range(-H, W + H, step):
+            if k == 'W': d.line([(i, H), (i + H, 0)], fill=255, width=lw)        # ///
+            else: d.line([(i, 0), (i + H, H)], fill=255, width=lw)               # \\\
+    return m
+
+
 def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     """The warning area on WA, fitted to the area, inside box = (x0, y0, x1, y1) in drawing pixels.
     Returns a credit line for the imagery used ('' for none)."""
@@ -468,6 +493,9 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
                 if len(r) > 2: d.polygon(r, fill=st['land'] if name == 'Western Australia' else st['other'])
     m = _area_mask(polys, X, Y, ox, oy, W, H) if polys else None
     dark = style not in ('classic', 'light')
+    sev = 'Severe Thunderstorm' in item.get('type', '')
+    if m is not None and sev:   # the outlook's severe colours for the area (the chips and headings keep the warning colour)
+        col = OUT_SEV[0]
     if m is not None:
         if brand:
             # like the outlook's areas: a strong fill and a darker edge (a bright edge over dark maps)
@@ -475,7 +503,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
             e1 = m.filter(ImageFilter.FIND_EDGES)
             if style != 'light':
                 layer.paste(Image.new('RGBA', (W, H), (13, 29, 35, 255)), (0, 0), e1.filter(ImageFilter.MaxFilter(9)).point(lambda v: int(v * 0.6)))
-            ec = tuple(int(v * 0.68) for v in col) if style == 'light' else col
+            ec = (OUT_SEV[1] if sev else tuple(int(v * 0.68) for v in col)) if style == 'light' else col
             layer.paste(Image.new('RGBA', (W, H), ec + (255,)), (0, 0), e1.filter(ImageFilter.MaxFilter(5)))
         elif False:   # (the old flat area)
             layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * 0.55)))
@@ -497,6 +525,13 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
                 layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.point(lambda v: int(v * (0.30 if st['img'] else 0.40))))
             layer.paste(Image.new('RGBA', (W, H), (0, 0, 0, 255)), (0, 0), m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(11)).point(lambda v: int(v * 0.55)))
             layer.paste(Image.new('RGBA', (W, H), col + (255,)), (0, 0), m.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(7)))
+    if m is not None and sev:
+        hk = hatch_keys(item); step = int(17 * S); lw = max(2, int(2.4 * S))
+        for hz_k in hk:   # (not 'k': that's the map scale)
+            hm = ImageChops.multiply(m, hatch_mask(hz_k, W, H, step, lw))
+            if st['img']:   # a dark rim so the hatching reads over cloud imagery
+                layer.paste(Image.new('RGBA', (W, H), (8, 19, 29, 255)), (0, 0), hm.filter(ImageFilter.MaxFilter(3)).point(lambda v: int(v * 0.5)))
+            layer.paste(Image.new('RGBA', (W, H), HZ_HATCH[hz_k] + (255,)), (0, 0), hm.point(lambda v: int(v * 0.9)))
     # district lines, then coast and borders on top (semi-transparent on imagery)
     ov = Image.new('RGBA', (W, H), (0, 0, 0, 0)); od = ImageDraw.Draw(ov)
     for r in G['districts']:
