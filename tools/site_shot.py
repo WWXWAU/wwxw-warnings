@@ -30,8 +30,13 @@ async def run():
                     print('popups open after two clicks:', await pg.evaluate("document.querySelectorAll('.maplibregl-popup:not(.tip)').length"))
                     await pg.mouse.click(300, 600); await pg.wait_for_timeout(300)
                     print('popups after a map click:', await pg.evaluate("document.querySelectorAll('.maplibregl-popup:not(.tip)').length"))
-                await pg.click('#days button:nth-child(3)'); await pg.wait_for_timeout(1500)
-                await pg.screenshot(path='previews/desktop-day3.png')
+                if await pg.query_selector('#days button:nth-child(3)'):
+                    await pg.click('#days button:nth-child(3)'); await pg.wait_for_timeout(1500)
+                    await pg.screenshot(path='previews/desktop-day3.png')
+                if await pg.evaluate("typeof window.riverPick === 'function'"):
+                    await pg.evaluate("window.riverPick()"); await pg.wait_for_timeout(3500)
+                    await pg.screenshot(path='previews/desktop-detail.png')
+                    await pg.screenshot(path='previews/desktop-full.png', full_page=True)
             await ctx.close()
         await b.close()
 asyncio.run(run())
