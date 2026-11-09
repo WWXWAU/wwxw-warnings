@@ -1,10 +1,16 @@
 name: Page timing
 on: workflow_dispatch
 permissions:
-  contents: read
+  contents: write
 jobs:
   time:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python tools/page_weigh.py
+      - run: pip install -q playwright && python -m playwright install --with-deps chromium > /dev/null
+      - run: python tools/page_load.py
+      - name: Save screenshots to the previews branch
+        run: |
+          cd previews && git init -q -b previews && git add -A
+          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Page load screenshots"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" previews
