@@ -94,6 +94,11 @@
     .facts div { background: var(--bg); border-radius: 10px; padding: 7px 9px; }
     .facts b { display: block; font-size: 17px; }
     .facts span { font-size: 11.5px; color: var(--muted); }
+    .road { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 7px 16px; cursor: pointer; font-size: 13.5px; }
+    .road:hover { background: var(--bg); }
+    .road b { display: block; }
+    .road .t { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; color: #fff; background: var(--c); margin: 2px 0; }
+    .road small { display: block; color: var(--muted); font-size: 12px; }
     .rain { margin: 2px 0 8px; font-size: 13px; }
     .rain span { display: block; font-size: 11.5px; color: var(--muted); }
     .flood { margin: 4px 0 8px; padding: 9px 11px; border-radius: 10px; background: var(--bg); font-size: 13px; }
@@ -179,6 +184,7 @@
     <div class="panel">
       <section class="detail" id="detail" hidden aria-live="polite"></section>
       <section class="card" id="floodCard" hidden style="border-left:6px solid var(--moderate)"><h2>Above flood level</h2><div id="flooded"></div></section>
+      <section class="card" id="roadsCard" hidden style="border-left:6px solid var(--major)"><h2>Roads affected by flooding</h2><div id="roads"></div></section>
       <section class="card" id="risingCard"><h2 id="risingH">Rising now</h2><div id="rising"></div></section>
       <section class="card"><h2>Highest against their record</h2><div id="highest"></div></section>
     </div>
@@ -190,7 +196,7 @@
     <button class="more" id="allMore" type="button" hidden>Show all gauges</button>
   </section>
 
-  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, the Bureau's flood levels, and rain from DWER and Bureau gauges. Gauge positions, flow ratings and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, the Bureau's flood levels, and rain from DWER and Bureau gauges. Roads affected by flooding from <a href="https://www.mainroads.wa.gov.au/travelmap/" target="_blank" rel="noopener">Main Roads WA</a> (CC BY 4.0, Commissioner of Main Roads); check the Travel Map before you go. Gauge positions, flow ratings and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
@@ -199,6 +205,8 @@
     var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
     var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
     var $ = function (id) { return document.getElementById(id); };
+    var ROADS = { type: 'FeatureCollection', features: [] };
+    var roadClosed = function (f) { return /clos/i.test(f.properties.type) && !/open/i.test(f.properties.type); };
     var D = null, G = [], H = null, map = null, sel = null, sortBy = 'status', sortDir = 1, allRows = false;
 
     // ---- what each gauge is doing
@@ -222,7 +230,14 @@
     var toMinor = function (g) { return g.fl && g.fl.minor != null && !g.off_air ? g.fl.minor - g.lvl : null; };
 
     // ---- the state of the rivers (flood first)
+    function roadNote() {
+      var n = ROADS.features.length, c = ROADS.features.filter(roadClosed).length;
+      return n ? ' ' + (c ? c + (c === 1 ? ' road closed' : ' roads closed') + ' by flooding' + (n > c ? ', ' + (n - c) + ' open with caution' : '') : n + (n === 1 ? ' road' : ' roads') + ' open with caution after flooding') + '.' : '';
+    }
     function drawState() {
+      drawState0(); $('stSub').textContent += roadNote();
+    }
+    function drawState0() {
       var live = G.filter(function (g) { return !g.off_air && !g.tidal; });
       var fast = live.filter(function (g) { return status(g) === 'fast'; }), rise = live.filter(function (g) { return status(g) === 'rise'; });
       var n = fast.length + rise.length, el = $('state');
@@ -268,6 +283,13 @@
       }
       var P = live.filter(function (g) { return g.pct != null; }).sort(function (a, b) { return b.pct - a.pct; });
       $('highest').innerHTML = P.slice(0, 6).map(function (g) { return row(g, g.pct + '%', m2(g.lvl) + ' of ' + m2(g.rec) + ' (' + yearOf(g.recd) + ')'); }).join('');
+      $('roadsCard').hidden = !ROADS.features.length;
+      $('roads').innerHTML = ROADS.features.map(function (f, i) {
+        var p = f.properties, c = roadClosed(f) ? '--major' : '--rise';
+        return '<button class="road" type="button" data-i="' + i + '"><b>' + esc(p.road || p.where) + '</b><span class="t" style="--c:var(' + c + ')">' + esc(p.type) + '</span>'
+          + '<small>' + esc(p.where) + (p.note ? ' · ' + esc(p.note) : '') + '</small><small>Updated ' + esc(p.updated) + '</small></button>'; }).join('');
+      document.querySelectorAll('.road').forEach(function (b) { b.addEventListener('click', function () {
+        var f = ROADS.features[+b.getAttribute('data-i')], c = firstPt(f.geometry); if (c && map) map.easeTo({ center: c, zoom: 9, duration: 600 }); }); });
       document.querySelectorAll('.panel .g').forEach(function (b) { b.addEventListener('click', function () { pick(b.getAttribute('data-id'), true); }); });
     }
 
@@ -347,7 +369,18 @@
         var a = document.querySelector('.maplibregl-ctrl-attrib'); if (a) a.classList.remove('maplibregl-compact-show');   // start folded away
       });
     }
+    function firstPt(g) { if (!g) return null; var c = g.coordinates; while (c && Array.isArray(c[0])) c = c[0]; return c && c.length === 2 ? c : null; }
+    function roadPts() { return { type: 'FeatureCollection', features: ROADS.features.map(function (f) { var c = firstPt(f.geometry); return c ? { type: 'Feature', properties: { closed: roadClosed(f) ? 1 : 0, road: f.properties.road, type: f.properties.type, where: f.properties.where }, geometry: { type: 'Point', coordinates: c } } : null; }).filter(Boolean) }; }
     function addGauges() {
+      map.addSource('roads', { type: 'geojson', data: ROADS }); map.addSource('roadpts', { type: 'geojson', data: roadPts() });
+      map.addLayer({ id: 'roads', type: 'line', source: 'roads', paint: { 'line-color': ['case', ['all', ['in', 'los', ['get', 'type']], ['!', ['in', 'pen', ['get', 'type']]]], css('--major'), css('--rise')],
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 10, 5], 'line-dasharray': [2, 1.2] } });
+      map.addLayer({ id: 'roadpts', type: 'circle', source: 'roadpts', maxzoom: 8, paint: { 'circle-radius': 6, 'circle-color': ['case', ['==', ['get', 'closed'], 1], css('--major'), css('--rise')], 'circle-stroke-color': css('--surface'), 'circle-stroke-width': 2 } });
+      var rtip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
+      ['roads', 'roadpts'].forEach(function (l) {
+        map.on('mousemove', l, function (e) { var p = e.features[0].properties; map.getCanvas().style.cursor = 'pointer'; rtip.setLngLat(e.lngLat).setHTML('<b>' + esc(p.road || '') + '</b><br>' + esc(p.type) + '<br><span style="color:var(--muted)">' + esc(p.where) + '</span>').addTo(map); });
+        map.on('mouseleave', l, function () { map.getCanvas().style.cursor = ''; rtip.remove(); });
+      });
       map.addSource('g', { type: 'geojson', data: gaugesFC() });
       var r = ['interpolate', ['linear'], ['get', 'p'], 0, 5, 100, 12];
       map.addLayer({ id: 'g-halo', type: 'circle', source: 'g', filter: ['match', ['get', 's'], ['fast', 'rise'], true, false],
@@ -368,7 +401,7 @@
     function byId(id) { for (var i = 0; i < G.length; i++) if (G[i].id === id) return G[i]; return null; }
     function drawKey() {
       $('key').innerHTML = ['fast', 'rise', 'steady', 'fall', 'tide', 'off'].map(function (k) {
-        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span style="color:var(--muted)">Bigger dot: closer to its record</span>';
+        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span style="color:var(--muted)">Bigger dot: closer to its record</span>';
     }
 
     // ---- one gauge: the numbers and a 7-day chart
@@ -508,10 +541,13 @@
       bust = '?t=' + Math.floor(Date.now() / 300000);
       return fetch(DATA + 'rivers.json' + bust).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         D = j; G = D.gauges;
+        return fetch(DATA + 'rivers-roads.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+      }).then(function (rd) {
+        if (rd && rd.features) ROADS = rd;
         $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' gauges reporting';
         drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap(); }
-        else { H = null; RT = null; if (map && map.getSource('g')) map.getSource('g').setData(gaugesFC()); if (sel) pick(sel, false); }
+        else { H = null; RT = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('roads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
       });
     }
     load(true).catch(function () {
@@ -519,6 +555,7 @@
       $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now';
     });
     setInterval(function () { if (!document.hidden) load(false).catch(function () {}); }, 15 * 60 * 1000);
+    window.riverRoads = function (fc) { ROADS = fc; drawState(); drawLists(); if (map && map.getSource('roads')) { map.getSource('roads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } };   // for testing
     window.riverPick = function (id) { var w = G.filter(function (g) { return g.rain && g.rain.s9 > 1 && g.q != null; })[0]; pick(id || (w ? w.id : byId('616011') ? '616011' : G[0].id), true); };   // for testing
   })();
   </script>

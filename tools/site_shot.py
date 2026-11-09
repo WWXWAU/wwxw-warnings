@@ -33,6 +33,11 @@ async def run():
                 if await pg.query_selector('#days button:nth-child(3)'):
                     await pg.click('#days button:nth-child(3)'); await pg.wait_for_timeout(1500)
                     await pg.screenshot(path='previews/desktop-day3.png')
+                if await pg.evaluate("typeof window.riverRoads === 'function'"):   # a made-up flooded road, to see how it shows
+                    await pg.evaluate("""window.riverRoads({type:'FeatureCollection',features:[
+                      {type:'Feature',properties:{road:'Great Northern Hwy',type:'Road closes',where:'Great Northern Hwy at Fitzroy River (Willare Bridge) - Flooding',note:'Water over road. Road closed to all vehicles.',updated:'09/11/2026 21:00:00'},geometry:{type:'LineString',coordinates:[[123.60,-17.73],[123.70,-17.76],[123.85,-17.80]]}},
+                      {type:'Feature',properties:{road:'Gibb River Rd',type:'Road open with caution',where:'Gibb River Rd, Pentecost River crossing - Flooding',note:'Water over road, 4WD only.',updated:'09/11/2026 20:10:00'},geometry:{type:'LineString',coordinates:[[127.88,-15.78],[127.92,-15.80]]}}]})""")
+                    await pg.wait_for_timeout(1500); await pg.screenshot(path='previews/desktop-roads.png')
                 if await pg.evaluate("typeof window.riverPick === 'function'"):
                     await pg.evaluate("window.riverPick()"); await pg.wait_for_timeout(3500)
                     await pg.screenshot(path='previews/desktop-detail.png')
