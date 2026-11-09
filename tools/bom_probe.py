@@ -1,13 +1,11 @@
-"""Probe: BoM WA town forecasts (IDW14199 precis XML) - can we fetch it, how many places, which fields."""
-import urllib.request, re, collections
-for url in ('ftp://ftp.bom.gov.au/anon/gen/fwo/IDW14199.xml', 'https://reg.bom.gov.au/fwo/IDW14199.xml'):
+"""Probe: BoM WA state forecast (synoptic situation text)."""
+import urllib.request, re
+for pid in ('IDW12300', 'IDW12400', 'IDW10200'):
+    url = 'ftp://ftp.bom.gov.au/anon/gen/fwo/%s.xml' % pid
     try:
         x = urllib.request.urlopen(url, timeout=60).read().decode('utf-8', 'replace')
-        print('OK', url, len(x))
-        areas = re.findall(r'<area aac="([^"]+)" description="([^"]+)" type="location"', x)
-        print(len(areas), 'locations, e.g.', [a[1] for a in areas[:25]])
-        print('element types:', collections.Counter(re.findall(r'type="([a-z_]+)"', x)).most_common(20))
-        i = x.find('description="Perth"'); print(x[i:i+1800])
-        break
+        print('\nOK', pid, len(x), re.findall(r'<text type="([a-z_]+)"', x)[:20])
+        for m in re.finditer(r'<text type="(synoptic_situation|forecast)">(.*?)</text>', x, re.S):
+            print(' ', m.group(1), ':', re.sub(r'\s+', ' ', m.group(2))[:400]); 
     except Exception as e:
-        print('FAIL', url, e)
+        print('FAIL', pid, e)
