@@ -15,6 +15,7 @@ DWER = 'https://kumina.water.wa.gov.au/waterinformation'
 KIWIS = 'http://www.bom.gov.au/waterdata/services?service=kisters&type=queryServices&datasource=0&format=json&'
 AWST = dt.timezone(dt.timedelta(hours=8))
 KEEP_H = 8 * 24
+TIDAL = {'616004', '616094'}   # known tide-affected gauges (Swan estuary at Guildford; below Kent Street Weir), on top of the test below
 
 
 def log(*a):
@@ -113,6 +114,22 @@ def kiwis_history(ids, days=8):
     return out
 
 
+def tidal(v):
+    """A tide gauge (estuary, weir pool below a weir): the level swings up and down twice a day. Count the swings of
+    5 cm or more over the last three days (Perth tides are mostly once a day); three or more and the 'rising' is the tide, not a flood."""
+    if len(v) < 36: return False
+    swings, ext, up = 0, v[0], None
+    for x in v[1:]:
+        if up is None:
+            if abs(x - ext) >= 0.05: up = x > ext; ext = x
+            continue
+        if (up and x > ext) or (not up and x < ext): ext = x
+        elif abs(x - ext) >= 0.05: swings += 1; up = not up; ext = x
+    # and the tide rises about as slowly as it falls; a flood jumps up in an hour or two and drains away for days
+    ups = sum(1 for a, b in zip(v, v[1:]) if b - a >= 0.01); downs = sum(1 for a, b in zip(v, v[1:]) if a - b >= 0.01)
+    return swings >= 3 and ups >= 6 and downs >= 6 and 0.4 <= ups / downs <= 2.5
+
+
 def main(out_dir):
     os.makedirs(out_dir, exist_ok=True)
     now = dt.datetime.now(AWST)
@@ -151,9 +168,13 @@ def main(out_dir):
         g['pct'] = round(100 * g['lvl'] / g['rec']) if g['rec'] and g['rec'] > 0.2 else None
         try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
         except Exception: g['age'] = None  # noqa: BLE001
+        g['off_air'] = g['cls'] == 'rowGREY' or g['age'] is None or g['age'] > 48       # not reporting
+        g['tidal'] = g['id'] in TIDAL or tidal([v for k, v in sorted(hh.items()) if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00')])
     D = {'made': now.isoformat(timespec='minutes'), 'gauges': G}
     json.dump(D, open(os.path.join(out_dir, 'rivers.json'), 'w'), separators=(',', ':'))
-    rising = sorted([g for g in G if (g['rate'] or 0) > 0.005], key=lambda g: -(g['rate'] or 0))
+    rising = sorted([g for g in G if (g['rate'] or 0) > 0.005 and not g['tidal'] and not g['off_air']], key=lambda g: -(g['rate'] or 0))
+    log('Tidal: %s' % ', '.join(g['river'] + ' ' + g['name'] for g in G if g['tidal']))
+    log('Not reporting: %d' % len([g for g in G if g['off_air']]))
     log('Rising: %d. Fastest: %s' % (len(rising), ', '.join('%s %s %+.3f m/h' % (g['river'], g['name'], g['rate']) for g in rising[:5])))
     top = sorted([g for g in G if g['pct'] is not None], key=lambda g: -g['pct'])[:5]
     log('Highest vs record: %s' % ', '.join('%s %s %d%%' % (g['river'], g['name'], g['pct']) for g in top))
