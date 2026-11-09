@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Today's Ripper Weather — West WX Watchers</title>
-  <meta name="description" content="Where in WA has the best weather today and for the week ahead: towns ranked from bit ordinary to bloody ripper.">
+  <meta name="description" content="Where in WA has the best weather today and for the week ahead: towns ranked from bit ordinary to bloody ripper, from the Bureau's forecasts.">
   <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
   <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
   <meta property="og:type" content="website">
@@ -155,13 +155,13 @@
       <section class="list" id="list" aria-label="Towns ranked"></section>
       <details class="how">
         <summary>How the towns are rated</summary>
-        <p>Each day's daytime weather (9 am to 5 pm) is scored from the forecast. The best days top out at 25–29 °C, sunny, dry and with light winds.</p>
+        <p>Each day's daytime weather (9 am to 5 pm) is scored from the Bureau of Meteorology's town forecasts, with computer-model forecasts filling in wind, humidity and the sea breeze. The best days top out at 25–29 °C, sunny, dry and with light winds.</p>
         <p>Heat, cold, sticky humidity, wind, showers, storms and thick cloud take points off. On hot days, a coastal town gets credit when the sea breeze (the Doctor) is due by early afternoon and stops the heat climbing.</p>
         <p>Inland, warm and still days carry a rough fly warning and lose a few points.</p>
       </details>
     </div>
   </div>
-  <div class="foot" id="foot">Forecast data from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), scored by West WX Watchers. A bit of fun, not a warning service: for warnings go to <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+  <div class="foot" id="foot">Forecasts from the <a href="https://www.bom.gov.au/wa/forecasts/" target="_blank" rel="noopener">Bureau of Meteorology</a>, with wind, humidity and sea breeze from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), scored by West WX Watchers. A bit of fun, not a warning service: for warnings go to <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-array@3.2.4/dist/d3-array.min.js"></script>
@@ -274,9 +274,11 @@
       return D.towns.filter(function (t) { return t.days[dayI]; }).sort(function (a, b) { return b.days[dayI].s - a.days[dayI].s; });
     }
     function wxLine(r) { return '<span class="t">' + r.tmax + '°<small> / ' + r.tmin + '°</small></span>'; }
-    function noteText(r) {
-      var n = r.notes.slice();
-      if (!n.length) n.push(r.wind < 12 ? 'Light winds' : 'Breezy');
+    function noteText(r) {   // BoM's forecast words first, then our extras (the Doctor, sticky, windy, flies)
+      var n = [], p = (r.precis || '').replace(/\.$/, '');
+      if (p) n.push(p);
+      n = n.concat(r.notes);
+      if (n.length < 2) n.push(r.wind < 12 ? 'Light winds' : 'Breezy');
       return n.join(', ');
     }
     function draw() {
@@ -338,8 +340,8 @@
     function townPopup(t) {
       var r = t.days[dayI], b = band(r.s);
       new maplibregl.Popup({ closeButton: true, maxWidth: '240px', offset: 14 }).setLngLat([t.lng, t.lat])
-        .setHTML('<b>' + esc(t.n) + '</b>: ' + b[1] + '<br>' + r.tmax + '° top, ' + r.tmin + '° overnight<br>'
-          + 'Wind about ' + r.wind + ' km/h' + (r.gust >= 45 ? ', gusts ' + r.gust : '') + (r.rain >= 0.3 ? '<br>Rain ' + r.rain + ' mm' : '')
+        .setHTML('<b>' + esc(t.n) + '</b>: ' + b[1] + (r.precis ? '<br>' + esc(r.precis) : '') + '<br>' + r.tmax + '° top, ' + r.tmin + '° overnight'
+          + (r.pop != null ? '<br>Chance of rain ' + r.pop + '%' : '') + '<br>Wind about ' + r.wind + ' km/h' + (r.gust >= 45 ? ', gusts ' + r.gust : '')
           + (r.notes.length ? '<br><span style="color:var(--muted)">' + esc(r.notes.join(', ')) + '</span>' : '')).addTo(map);
     }
     function buildDays() {
