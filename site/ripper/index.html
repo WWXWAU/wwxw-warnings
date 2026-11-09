@@ -92,15 +92,16 @@
     .foot { padding: 0 20px 24px; font-size: 12px; color: var(--muted); }
 
     /* Map markers */
-    .mk { display: flex; align-items: center; gap: 5px; transform: translateY(-2px); cursor: pointer; }
+    .mk { position: relative; cursor: pointer; }
     .mk b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--text);
             border: 3px solid var(--bandc); font-size: 13px; font-weight: 800; box-shadow: 0 1px 3px rgba(14,42,51,0.35); }
     .mk.top1 b { width: 32px; height: 32px; font-size: 15px; background: var(--bandc); color: #0E2A33; border-color: var(--surface); }
-    .mk.left { flex-direction: row-reverse; }
-    .mk.left span { margin-right: 26px; }
-    .mk span { font-size: 12.5px; font-weight: 700; color: var(--text); text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); white-space: nowrap; }
     .mk.dot b { width: 11px; height: 11px; border-width: 2px; background: var(--bandc); border-color: var(--surface); }
-    .mk.dot span { font-weight: 500; font-size: 11px; color: var(--muted); }
+    .mk span { position: absolute; top: 50%; left: 100%; transform: translateY(-50%); margin-left: 5px; font-size: 12.5px; font-weight: 700; color: var(--text);
+               text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); white-space: nowrap; pointer-events: none; }
+    .mk.pl span { left: auto; right: 100%; margin: 0 5px 0 0; }
+    .mk.pb span { top: 100%; left: 50%; transform: translateX(-50%); margin: 1px 0 0; }
+    .mk.pt span { top: auto; bottom: 100%; left: 50%; transform: translateX(-50%); margin: 0 0 1px; }
     .maplibregl-popup-content { background: var(--surface); color: var(--text); border-radius: 12px; padding: 9px 12px; font: 13px/1.4 Lexend, system-ui, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
     .maplibregl-popup-tip { border-top-color: var(--surface) !important; border-bottom-color: var(--surface) !important; }
     .maplibregl-popup-close-button { color: var(--muted); font-size: 16px; }
@@ -291,7 +292,7 @@
         el.innerHTML = '<b>' + (rank <= 5 ? rank : '') + '</b>' + (rank <= 5 ? '<span>' + esc(t.n) + '</span>' : '');
         el.title = t.n + ': ' + b[1] + ' (' + r.s + ')';
         el.addEventListener('click', function (ev) { ev.stopPropagation(); townPopup(t); });
-        markers.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [-13, 0] }).setLngLat([t.lng, t.lat]).addTo(map));
+        markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([t.lng, t.lat]).addTo(map));
       });
       placeLabels();
       // pick of the day
@@ -318,20 +319,20 @@
     // Top-five names: keep them apart. Best-ranked first; a name that would overlap goes to the left, else hides.
     function placeLabels() {
       var R = ranked().slice(0, 5), items = [];
-      R.forEach(function (t) {
+      R.forEach(function (t, i) {
         var m = markers.filter(function (mk) { return mk.getElement().title.indexOf(t.n + ':') === 0; })[0]; if (!m) return;
         var el = m.getElement(), sp = el.querySelector('span'); if (!sp) return;
-        el.classList.remove('left'); sp.style.visibility = '';
-        items.push({ el: el, sp: sp, p: map.project([t.lng, t.lat]), w: sp.offsetWidth || t.n.length * 8 });
+        el.classList.remove('pl', 'pb', 'pt'); sp.style.visibility = '';
+        items.push({ el: el, sp: sp, p: map.project([t.lng, t.lat]), w: sp.offsetWidth || t.n.length * 8, r: i ? 14 : 17 });
       });
-      var boxes = items.map(function (it) { return [it.p.x - 15, it.p.y - 15, it.p.x + 15, it.p.y + 15]; });   // every badge first
+      var boxes = items.map(function (it) { return [it.p.x - it.r, it.p.y - it.r, it.p.x + it.r, it.p.y + it.r]; });   // every badge first
       var hit = function (b) { return boxes.some(function (q) { return b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]; }); };
-      items.forEach(function (it) {   // then each name, best-ranked first: right, else left, else hidden (the list has it)
-        var y0 = it.p.y - 9, y1 = it.p.y + 9;
-        var right = [it.p.x + 16, y0, it.p.x + 20 + it.w, y1], left = [it.p.x - 20 - it.w, y0, it.p.x - 16, y1];
-        if (!hit(right)) boxes.push(right);
-        else if (!hit(left)) { it.el.classList.add('left'); boxes.push(left); }
-        else it.sp.style.visibility = 'hidden';
+      items.forEach(function (it) {   // then each name, best-ranked first, on the first free side (else hidden: the list has it)
+        var x = it.p.x, y = it.p.y, r = it.r, w = it.w;
+        var opts = [['', [x + r + 3, y - 9, x + r + 7 + w, y + 9]], ['pl', [x - r - 7 - w, y - 9, x - r - 3, y + 9]],
+                    ['pb', [x - w / 2, y + r, x + w / 2, y + r + 18]], ['pt', [x - w / 2, y - r - 18, x + w / 2, y - r]]];
+        var ok = opts.filter(function (o) { return !hit(o[1]); })[0];
+        if (ok) { if (ok[0]) it.el.classList.add(ok[0]); boxes.push(ok[1]); } else it.sp.style.visibility = 'hidden';
       });
     }
     function townPopup(t) {
