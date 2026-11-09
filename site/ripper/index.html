@@ -52,6 +52,8 @@
     .days::-webkit-scrollbar { display: none; }
     .days button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500; cursor: pointer; }
     .days button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--onAccent); }
+    .savebtn { flex: none; height: 30px; border: 0; background: var(--accent); color: var(--onAccent); border-radius: 999px; padding: 0 14px; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .savebtn:disabled { opacity: 0.5; cursor: default; }
     .themebtn { flex: none; width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .themebtn svg { width: 16px; height: 16px; }
 
@@ -138,6 +140,7 @@
   <div class="top">
     <h1 id="title">Today's Ripper Weather</h1>
     <div class="days" id="days" role="group" aria-label="Choose a day"></div>
+    <button class="savebtn" id="saveBtn" type="button" disabled>Save image</button>
     <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
   </div>
 
@@ -163,6 +166,7 @@
   </div>
   <div class="foot" id="foot">Forecasts from the <a href="https://www.bom.gov.au/wa/forecasts/" target="_blank" rel="noopener">Bureau of Meteorology</a>, with wind, humidity and sea breeze from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), scored by West WX Watchers. A bit of fun, not a warning service: for warnings go to <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
+  <img id="imgIcon" src="../brand/wwxw-icon-192.png" alt="" hidden>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-array@3.2.4/dist/d3-array.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/d3-contour@4.0.2/dist/d3-contour.min.js"></script>
@@ -354,6 +358,104 @@
       document.getElementById('scale').innerHTML = BANDS.slice().reverse().map(function (b) { return '<div style="--c:var(' + b[2] + ')">' + b[1] + '</div>'; }).join('');
     }
 
+    // ---- a square 1080 x 1080 image of the selected day: map, top five, scale (for posting)
+    function mercY(lat) { return 180 / Math.PI * Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+    function wrapText(g, text, maxW) {
+      var words = text.split(' '), lines = [], cur = '';
+      words.forEach(function (w) { var t = cur ? cur + ' ' + w : w; if (g.measureText(t).width > maxW && cur) { lines.push(cur); cur = w; } else cur = t; });
+      if (cur) lines.push(cur); return lines;
+    }
+    function makeImage() {
+      var S = 1080, c = document.createElement('canvas'); c.width = c.height = S; var g = c.getContext('2d');
+      var col = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+      var light = { bg: '#EEF4F5', text: '#0E2A33', muted: '#4A6470', ocean: '#D6E6EA', land: '#F7FAFA', coast: '#7E9AA3' };
+      var F = function (w, px) { return w + ' ' + px + 'px Lexend, "Segoe UI", Arial, sans-serif'; };
+      g.fillStyle = light.bg; g.fillRect(0, 0, S, S);
+      // header
+      g.fillStyle = '#0E2A33'; g.fillRect(0, 0, S, 132); g.fillStyle = col('--b4'); g.fillRect(0, 132, S, 7);
+      var icon = document.getElementById('imgIcon');
+      if (icon && icon.complete && icon.naturalWidth) { g.save(); g.beginPath(); g.roundRect ? g.roundRect(40, 30, 72, 72, 14) : g.rect(40, 30, 72, 72); g.clip(); g.fillStyle = '#f8faf9'; g.fillRect(40, 30, 72, 72); g.drawImage(icon, 44, 34, 64, 64); g.restore(); }
+      g.fillStyle = '#FFFFFF'; g.font = F(800, 46); g.textBaseline = 'alphabetic';
+      g.fillText(dayI === 0 ? "Today's Ripper Weather" : 'Ripper Weather', 134, 76);
+      g.fillStyle = '#9DCDD3'; g.font = F(500, 24); g.fillText(dayLong(D.days[dayI].date) + ' · West WX Watchers', 136, 112);
+      // map: WA in band colours, clipped to the coast
+      var x0 = 36, y0 = 166, mw = 560, mh = 790, L0 = 112.6, L1 = 129.0, T0 = mercY(-13.6), B0 = mercY(-35.3);
+      var k = Math.min(mw / (L1 - L0), mh / (T0 - B0)), ox = x0 + (mw - (L1 - L0) * k) / 2;
+      var P = function (lng, lat) { return [ox + (lng - L0) * k, y0 + (T0 - mercY(lat)) * k]; };
+      g.save(); g.beginPath(); g.roundRect ? g.roundRect(x0 - 10, y0 - 12, mw + 20, mh + 24, 22) : g.rect(x0 - 10, y0 - 12, mw + 20, mh + 24); g.clip();
+      g.fillStyle = light.ocean; g.fillRect(x0 - 10, y0 - 12, mw + 20, mh + 24);
+      var ringPath = function (rings) { g.beginPath(); rings.forEach(function (r) { r.forEach(function (pt, i) { var q = P(pt[0], pt[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); }); };
+      ringPath((GEO['Northern Territory'] || []).concat(GEO['South Australia'] || [])); g.fillStyle = light.land; g.fill(); g.strokeStyle = light.coast; g.lineWidth = 1; g.stroke();
+      var wa = GEO['Western Australia'] || [];
+      g.save(); ringPath(wa); g.clip(); g.fillStyle = col('--b0'); g.fill();
+      bandsGeo(dayI).forEach(function (f) {
+        g.beginPath();
+        f.geometry.coordinates.forEach(function (poly) { poly.forEach(function (r) { r.forEach(function (pt, i) { var q = P(pt[0], pt[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); }); });
+        g.fillStyle = f.properties.c; g.fill('evenodd');
+      });
+      g.restore(); ringPath(wa); g.strokeStyle = light.coast; g.lineWidth = 1.5; g.stroke();
+      // the top five on the map (number badges; #1 drawn last, on top)
+      var R = ranked().slice(0, 5);
+      R.slice().reverse().forEach(function (t) {
+        var rk = R.indexOf(t) + 1, q = P(t.lng, t.lat), b = band(t.days[dayI].s), r = rk === 1 ? 22 : 18;
+        g.beginPath(); g.arc(q[0], q[1], r, 0, 7); g.fillStyle = rk === 1 ? col(b[2]) : '#FFFFFF'; g.fill();
+        g.lineWidth = 4; g.strokeStyle = rk === 1 ? '#FFFFFF' : col(b[2]); g.stroke();
+        g.fillStyle = '#0E2A33'; g.font = F(800, rk === 1 ? 24 : 20); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(rk, q[0], q[1] + 1);
+        g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+      });
+      g.restore();
+      // the top five list
+      var lx = 636, ly = 196;
+      g.fillStyle = light.text; g.font = F(700, 28); g.fillText(dayI === 0 ? 'Best spots today' : 'Best spots', lx, ly);
+      ly += 26;
+      R.forEach(function (t, i) {
+        var r = t.days[dayI], b = band(r.s), top = ly + i * 146;
+        g.fillStyle = '#FFFFFF'; g.beginPath(); g.roundRect ? g.roundRect(lx - 4, top, 412, 132, 18) : g.rect(lx - 4, top, 412, 132); g.fill();
+        g.fillStyle = col(b[2]); g.beginPath(); g.roundRect ? g.roundRect(lx - 4, top, 10, 132, [18, 0, 0, 18]) : g.rect(lx - 4, top, 10, 132); g.fill();
+        g.fillStyle = light.muted; g.font = F(800, 34); g.fillText(i + 1, lx + 20, top + 50);
+        g.fillStyle = light.text; g.font = F(800, i ? 30 : 34);
+        var name = t.n; while (g.measureText(name).width > 240 && name.length > 4) name = name.slice(0, -1);
+        g.fillText(name === t.n ? name : name + '…', lx + 62, top + 50);
+        g.font = F(700, 26); var tw = g.measureText(r.tmax + '°').width; g.fillText(r.tmax + '°', lx + 392 - tw, top + 50);
+        g.font = F(700, 20); var bw = g.measureText(b[1]).width + 28;
+        g.fillStyle = col(b[2]); g.beginPath(); g.roundRect ? g.roundRect(lx + 62, top + 68, bw, 32, 16) : g.rect(lx + 62, top + 68, bw, 32); g.fill();
+        g.fillStyle = '#0E2A33'; g.fillText(b[1], lx + 76, top + 91);
+        g.fillStyle = light.muted; g.font = F(400, 18);
+        var note = (r.precis || '').replace(/\.$/, '') || noteText(r);
+        var lines = wrapText(g, note, 400 - 62 - bw - 20); g.fillText(lines[0] + (lines.length > 1 ? '…' : ''), lx + 62 + bw + 12, top + 91);
+        if (r.doctor) { g.fillText('Doctor in about ' + (r.doctor < 12 ? r.doctor + ' am' : r.doctor === 12 ? '12 pm' : (r.doctor - 12) + ' pm'), lx + 62, top + 122); }
+      });
+      // scale and credit
+      var sy = 986, sw = (S - 72 - 4 * 6) / 5;
+      BANDS.slice().reverse().forEach(function (b, i) {
+        var x = 36 + i * (sw + 6);
+        g.fillStyle = col(b[2]); g.beginPath(); g.roundRect ? g.roundRect(x, sy, sw, 16, 6) : g.rect(x, sy, sw, 16); g.fill();
+        g.fillStyle = light.text; g.font = F(600, 19); g.textAlign = 'center'; g.fillText(b[1], x + sw / 2, sy + 44); g.textAlign = 'left';
+      });
+      g.fillStyle = light.muted; g.font = F(400, 15); g.textAlign = 'center';
+      g.fillText('Forecasts: Bureau of Meteorology and Open-Meteo. A bit of fun, not a warning service.', S / 2, S - 12); g.textAlign = 'left';
+      return c;
+    }
+    function saveImage() {
+      var btn = document.getElementById('saveBtn'); btn.disabled = true; btn.textContent = 'Making…';
+      (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
+        var c = makeImage(), name = 'ripper-weather-' + D.days[dayI].date + '.png';
+        c.toBlob(function (blob) {
+          btn.disabled = false; btn.textContent = 'Save image';
+          if (!blob) return;
+          var file = window.File ? new File([blob], name, { type: 'image/png' }) : null;
+          if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
+            navigator.share({ files: [file], title: "Today's Ripper Weather" }).catch(function () {});
+            return;
+          }
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+          document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+        }, 'image/png');
+      });
+    }
+    document.getElementById('saveBtn').addEventListener('click', saveImage);
+    window.ripperImage = function () { return makeImage().toDataURL('image/png'); };   // for testing
+
     // ---- theme button (shared with the rest of the site)
     var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
     var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
@@ -381,7 +483,7 @@
         D = res[0]; GEO = res[1];
         var made = new Date(D.made.replace('Z', ':00Z'));
         document.getElementById('stamp').textContent = 'Updated ' + made.toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' AWST';
-        buildDays(); initMap();
+        buildDays(); initMap(); document.getElementById('saveBtn').disabled = false;
         window.addEventListener('resize', function () { clearTimeout(window._rz); window._rz = setTimeout(fit, 200); });
       })
       .catch(function () {

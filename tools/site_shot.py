@@ -16,6 +16,11 @@ async def run():
             await pg.goto('http://127.0.0.1:8765/' + page); await pg.wait_for_timeout(5000)
             await pg.screenshot(path='previews/%s.png' % name, full_page=(name == 'phone'))
             if name == 'desktop':
+                if await pg.evaluate("typeof window.ripperImage === 'function'"):
+                    import base64
+                    await pg.evaluate("document.fonts.ready")
+                    data = await pg.evaluate("window.ripperImage()")
+                    open('previews/share-image.png', 'wb').write(base64.b64decode(data.split(',', 1)[1]))
                 await pg.click('#days button:nth-child(3)'); await pg.wait_for_timeout(1200)
                 await pg.screenshot(path='previews/desktop-day3.png')
             await ctx.close()
