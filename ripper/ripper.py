@@ -156,6 +156,33 @@ def score_day(h, idx, coast_km, to_coast):
             'rain': round(rain, 1), 'icon': icon, 'doctor': doctor, 'notes': notes}
 
 
+def simplify(ring, tol):
+    """Douglas-Peucker on a [lng, lat] ring (degrees)."""
+    if len(ring) < 4: return ring
+    keep = [False] * len(ring); keep[0] = keep[-1] = True; stack = [(0, len(ring) - 1)]
+    while stack:
+        a, b = stack.pop(); (x1, y1), (x2, y2) = ring[a], ring[b]; dmax, k = 0, -1
+        L = math.hypot(x2 - x1, y2 - y1)
+        for i in range(a + 1, b):
+            x0, y0 = ring[i]
+            d = (abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1) / L) if L > 1e-9 else math.hypot(x0 - x1, y0 - y1)   # closed ring: first = last
+            if d > dmax: dmax, k = d, i
+        if dmax > tol: keep[k] = True; stack += [(a, k), (k, b)]
+    return [[round(p[0], 3), round(p[1], 3)] for p, kk in zip(ring, keep) if kk]
+
+
+def write_geo(path):
+    """The page's map outlines: WA and the neighbouring states, simplified (drawn without map tiles)."""
+    g = json.load(open(os.path.join(ROOT, 'wxvideo', 'aus_states.json')))
+    out = {}
+    for name in ('Western Australia', 'Northern Territory', 'South Australia'):
+        gj = g[name]; polys = gj['coordinates'] if gj['type'] == 'MultiPolygon' else [gj['coordinates']]
+        rings = [simplify(p[0], 0.02) for p in polys]
+        out[name] = [r for r in rings if len(r) >= 4 and (max(x for x, _ in r) - min(x for x, _ in r)) > 0.08]
+    with open(path, 'w') as fh:
+        json.dump(out, fh, separators=(',', ':'))
+
+
 def main():
     out_path = sys.argv[1] if len(sys.argv) > 1 else 'ripper.json'
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
@@ -197,7 +224,8 @@ def main():
            'bands': [[t, n] for t, n in BANDS], 'days': days, 'towns': towns}
     with open(out_path, 'w') as fh:
         json.dump(out, fh, separators=(',', ':'))
-    log('Wrote %s (%.0f KB)' % (out_path, os.path.getsize(out_path) / 1024))
+    write_geo(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-geo.json'))
+    log('Wrote %s (%.0f KB) and the map outlines' % (out_path, os.path.getsize(out_path) / 1024))
 
 
 if __name__ == '__main__':
