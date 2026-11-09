@@ -188,6 +188,7 @@
         <p>Each day's daytime weather (9 am to 5 pm) is scored from the Bureau of Meteorology's town forecasts, with computer-model forecasts filling in wind, humidity and the sea breeze. The best days top out at 25–29 °C, sunny, dry and with light winds.</p>
         <p>Heat, cold, sticky humidity, wind, showers, storms and thick cloud take points off. On hot days, a coastal town gets credit when the sea breeze (the Doctor) is due by early afternoon and stops the heat climbing.</p>
         <p>Inland, warm and still days carry a rough fly warning and lose a few points.</p>
+        <p>The tally averages each town's rating for the month or year. From today on it uses the morning forecast for each day; days before 9 November 2026 are scored the same way from archived computer-model weather.</p>
       </details>
     </div>
   </div>
@@ -581,7 +582,8 @@
       document.getElementById('tallyList').innerHTML = L.map(function (t, i) {
         var b = band(Math.round(t.avg)), bits = [];
         if (t.top) bits.push('best in WA on ' + t.top + (t.top === 1 ? ' day' : ' days'));
-        bits.push(t.rip + (t.rip === 1 ? ' ripper day' : ' ripper days'));
+        if (t.rip) bits.push(t.rip + (t.rip === 1 ? ' ripper day' : ' ripper days'));
+        if (!bits.length) bits.push('steady all ' + (tallyP === 'm' ? 'month' : 'year'));
         return '<div class="trow" style="--bandc:var(' + b[2] + ')"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(t.n)
           + '<small>' + bits.join(' · ') + '</small></span><span class="bd" title="Average score ' + Math.round(t.avg) + '">' + b[1] + '</span></div>';
       }).join('');
