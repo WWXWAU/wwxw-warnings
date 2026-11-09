@@ -1,0 +1,29 @@
+name: Ripper weather
+# Today's Ripper Weather: scores for WA (today + 6 days) from Open-Meteo, four times a day.
+# Published to the site-data branch: https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/site-data/ripper.json
+on:
+  schedule:
+    - cron: '20 */6 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: ripper
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python ripper/ripper.py out/ripper.json
+      - name: Publish to the site-data branch
+        run: |
+          git fetch -q --depth 1 origin site-data 2>/dev/null || true
+          mkdir -p pub && cd pub && git init -q -b site-data
+          if git -C .. rev-parse -q --verify origin/site-data >/dev/null; then git -C .. archive origin/site-data | tar -x; fi
+          cp ../out/ripper.json . && git add -A
+          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Ripper weather"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" site-data
