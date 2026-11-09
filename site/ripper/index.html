@@ -139,9 +139,9 @@
   <nav class="tabs" aria-label="West WX Watchers">
     <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
     <a href="/">Home</a>
-    <a href="/outlook/">Convective Outlook</a>
     <a href="/rainfall/">Rainfall</a>
     <a href="/obs/">Live Obs</a>
+    <a href="/cyclones/">Cyclones</a>
     <a href="/ripper/" class="on" aria-current="page">Ripper Weather</a>
   </nav>
 
@@ -302,11 +302,11 @@
         fit(); draw();
       });
     }
-    // Zoom to where the weather is "Not bad" or better that day (all of WA if nowhere is)
+    // Zoom to where the weather is "Decent" or better that day (all of WA if nowhere is)
     function goodBounds() {
       var g = D.grid, s = D.days[dayI].s, w = 999, e = -999, so = 99, no = -99;
       for (var j = 0; j < g.ny; j++) for (var i = 0; i < g.nx; i++) {
-        if (s[j * g.nx + i] < 30) continue;
+        if (s[j * g.nx + i] < 50) continue;
         var lo = g.lng0 + i * g.d, la = g.lat0 + j * g.d;
         w = Math.min(w, lo); e = Math.max(e, lo); so = Math.min(so, la); no = Math.max(no, la);
       }
