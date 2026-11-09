@@ -1,0 +1,18 @@
+name: Live page check
+# Fetch a page from the live site and show its cache headers and whether it has a given piece of text.
+on:
+  workflow_dispatch:
+    inputs:
+      url: { required: true }
+      find: { required: true }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -sS -D h.txt -o p.html "${{ inputs.url }}?nocache=$(date +%s)"
+          curl -sS -D h2.txt -o p2.html "${{ inputs.url }}"
+          echo "--- headers (plain request)"; cat h2.txt
+          echo "--- size: $(wc -c < p2.html) bytes (plain), $(wc -c < p.html) bytes (cache-busted)"
+          echo "--- plain request has the new code: $(grep -c '${{ inputs.find }}' p2.html)"
+          echo "--- cache-busted request has the new code: $(grep -c '${{ inputs.find }}' p.html)"
