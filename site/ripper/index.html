@@ -571,6 +571,7 @@
         if (best) T[best].top++;
       });
       var L = Object.keys(T).map(function (n) { var t = T[n]; t.avg = t.sum / t.k; return t; })
+        .filter(function (t) { return t.k >= days.length * 0.6; })   // only towns with most of the days in (new towns join as they fill in)
         .sort(function (a, b) { return b.avg - a.avg || b.top - a.top; }).slice(0, 10);
       var mon = new Date(now + 'T12:00:00+08:00').toLocaleDateString('en-AU', { month: 'long', timeZone: 'Australia/Perth' });
       document.getElementById('tallyH').textContent = tallyP === 'm' ? 'Best towns in ' + mon : 'Best towns in ' + now.slice(0, 4);
