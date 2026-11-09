@@ -317,18 +317,21 @@
     }
     // Top-five names: keep them apart. Best-ranked first; a name that would overlap goes to the left, else hides.
     function placeLabels() {
-      var boxes = [], R = ranked();
-      R.slice(0, 5).forEach(function (t) {
+      var R = ranked().slice(0, 5), items = [];
+      R.forEach(function (t) {
         var m = markers.filter(function (mk) { return mk.getElement().title.indexOf(t.n + ':') === 0; })[0]; if (!m) return;
         var el = m.getElement(), sp = el.querySelector('span'); if (!sp) return;
         el.classList.remove('left'); sp.style.visibility = '';
-        var p = map.project([t.lng, t.lat]), w = sp.offsetWidth || t.n.length * 8, h = 18, dot = 16;
-        boxes.push([p.x - dot, p.y - dot, p.x + dot, p.y + dot]);   // the number badge itself
-        var right = [p.x + dot, p.y - h / 2, p.x + dot + w + 6, p.y + h / 2], left = [p.x - dot - w - 6, p.y - h / 2, p.x - dot, p.y + h / 2];
-        var hit = function (b) { return boxes.some(function (q) { return b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]; }); };
+        items.push({ el: el, sp: sp, p: map.project([t.lng, t.lat]), w: sp.offsetWidth || t.n.length * 8 });
+      });
+      var boxes = items.map(function (it) { return [it.p.x - 15, it.p.y - 15, it.p.x + 15, it.p.y + 15]; });   // every badge first
+      var hit = function (b) { return boxes.some(function (q) { return b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]; }); };
+      items.forEach(function (it) {   // then each name, best-ranked first: right, else left, else hidden (the list has it)
+        var y0 = it.p.y - 9, y1 = it.p.y + 9;
+        var right = [it.p.x + 16, y0, it.p.x + 20 + it.w, y1], left = [it.p.x - 20 - it.w, y0, it.p.x - 16, y1];
         if (!hit(right)) boxes.push(right);
-        else if (!hit(left)) { el.classList.add('left'); boxes.push(left); }
-        else sp.style.visibility = 'hidden';
+        else if (!hit(left)) { it.el.classList.add('left'); boxes.push(left); }
+        else it.sp.style.visibility = 'hidden';
       });
     }
     function townPopup(t) {
