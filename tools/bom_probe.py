@@ -1,11 +1,13 @@
-"""Probe: BoM WA state forecast (synoptic situation text)."""
+"""Probe: which BoM WA forecast file has the weather situation (synoptic) text."""
 import urllib.request, re
-for pid in ('IDW12300', 'IDW12400', 'IDW10200'):
-    url = 'ftp://ftp.bom.gov.au/anon/gen/fwo/%s.xml' % pid
+ls = urllib.request.urlopen('ftp://ftp.bom.gov.au/anon/gen/fwo/', timeout=60).read().decode('utf-8', 'replace')
+names = sorted(set(re.findall(r'(IDW1\d{4}\.xml)', ls)))
+print(len(names), 'WA forecast xml files')
+for n in names:
     try:
-        x = urllib.request.urlopen(url, timeout=60).read().decode('utf-8', 'replace')
-        print('\nOK', pid, len(x), re.findall(r'<text type="([a-z_]+)"', x)[:20])
-        for m in re.finditer(r'<text type="(synoptic_situation|forecast)">(.*?)</text>', x, re.S):
-            print(' ', m.group(1), ':', re.sub(r'\s+', ' ', m.group(2))[:400]); 
+        x = urllib.request.urlopen('ftp://ftp.bom.gov.au/anon/gen/fwo/' + n, timeout=60).read().decode('utf-8', 'replace')
     except Exception as e:
-        print('FAIL', pid, e)
+        continue
+    t = re.search(r'<text type="synoptic_situation">(.*?)</text>', x, re.S)
+    title = re.search(r'<product-type>|<title>([^<]*)', x)
+    if t: print(n, len(x), '|', re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', t.group(1)))[:500])
