@@ -196,14 +196,21 @@ def brief(towns, d_i, d, synoptic):
     else:
         out.append('%s is the pick of WA %s: %s, %d° with %s.' % (a['n'], day_name(d, d_i), sky, ra['tmax'], wind_words(ra['wind'])))
         rest = R[1:4]
-    out.append('%s, %s and %s are not far behind.' % tuple(t['n'] for t in rest))
+    behind = '%s, %s and %s are not far behind.' % tuple(t['n'] for t in rest)
+    if synoptic and d_i <= 2:
+        syn = ' '.join(synoptic); low = syn.lower()
+        out.append("The Bureau's weather situation: " + syn)
+        south = a.get('lat', -30) < -28
+        if 'ridge' in low and south:
+            out.append('That high-pressure ridge is what keeps the south settled, dry and mild.')
+        elif 'trough' in low and not south:
+            out.append('Away from the trough, the air stays drier and storms keep clear.')
+    out.append(behind)
     doc = [t for t in R[:8] if t['days'][d_i]['doctor']]
     if doc:
         h = doc[0]['days'][d_i]['doctor']
         out.append('On the coast the sea breeze should reach %s by about %s, taking the edge off the afternoon.'
                    % (doc[0]['n'], '%d am' % h if h < 12 else '12 pm' if h == 12 else '%d pm' % (h - 12)))
-    if synoptic and d_i <= 2:
-        out.append('The set-up, from the Bureau: ' + ' '.join(synoptic))
     worst = R[-1]; rw = worst['days'][d_i]; why = []
     if rw['tmax'] >= 36: why.append('%d° heat' % rw['tmax'])
     if 'Sticky' in rw['notes']: why.append('sticky air')
