@@ -372,12 +372,12 @@
     function firstPt(g) { if (!g) return null; var c = g.coordinates; while (c && Array.isArray(c[0])) c = c[0]; return c && c.length === 2 ? c : null; }
     function roadPts() { return { type: 'FeatureCollection', features: ROADS.features.map(function (f) { var c = firstPt(f.geometry); return c ? { type: 'Feature', properties: { closed: roadClosed(f) ? 1 : 0, road: f.properties.road, type: f.properties.type, where: f.properties.where }, geometry: { type: 'Point', coordinates: c } } : null; }).filter(Boolean) }; }
     function addGauges() {
-      map.addSource('roads', { type: 'geojson', data: ROADS }); map.addSource('roadpts', { type: 'geojson', data: roadPts() });
-      map.addLayer({ id: 'roads', type: 'line', source: 'roads', paint: { 'line-color': ['case', ['all', ['in', 'los', ['get', 'type']], ['!', ['in', 'pen', ['get', 'type']]]], css('--major'), css('--rise')],
+      map.addSource('froads', { type: 'geojson', data: ROADS }); map.addSource('roadpts', { type: 'geojson', data: roadPts() });
+      map.addLayer({ id: 'froads', type: 'line', source: 'froads', paint: { 'line-color': ['case', ['all', ['in', 'los', ['get', 'type']], ['!', ['in', 'pen', ['get', 'type']]]], css('--major'), css('--rise')],
         'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 10, 5], 'line-dasharray': [2, 1.2] } });
       map.addLayer({ id: 'roadpts', type: 'circle', source: 'roadpts', maxzoom: 8, paint: { 'circle-radius': 6, 'circle-color': ['case', ['==', ['get', 'closed'], 1], css('--major'), css('--rise')], 'circle-stroke-color': css('--surface'), 'circle-stroke-width': 2 } });
       var rtip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
-      ['roads', 'roadpts'].forEach(function (l) {
+      ['froads', 'roadpts'].forEach(function (l) {
         map.on('mousemove', l, function (e) { var p = e.features[0].properties; map.getCanvas().style.cursor = 'pointer'; rtip.setLngLat(e.lngLat).setHTML('<b>' + esc(p.road || '') + '</b><br>' + esc(p.type) + '<br><span style="color:var(--muted)">' + esc(p.where) + '</span>').addTo(map); });
         map.on('mouseleave', l, function () { map.getCanvas().style.cursor = ''; rtip.remove(); });
       });
@@ -547,7 +547,7 @@
         $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' gauges reporting';
         drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap(); }
-        else { H = null; RT = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('roads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
+        else { H = null; RT = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
       });
     }
     load(true).catch(function () {
@@ -555,7 +555,7 @@
       $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now';
     });
     setInterval(function () { if (!document.hidden) load(false).catch(function () {}); }, 15 * 60 * 1000);
-    window.riverRoads = function (fc) { ROADS = fc; drawState(); drawLists(); if (map && map.getSource('roads')) { map.getSource('roads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } };   // for testing
+    window.riverRoads = function (fc) { ROADS = fc; drawState(); drawLists(); if (map && map.getSource('froads')) { map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } };   // for testing
     window.riverPick = function (id) { var w = G.filter(function (g) { return g.rain && g.rain.s9 > 1 && g.q != null; })[0]; pick(id || (w ? w.id : byId('616011') ? '616011' : G[0].id), true); };   // for testing
   })();
   </script>
