@@ -82,6 +82,19 @@
     .brief p { margin: 0; font-size: 14px; line-height: 1.55; }
     .brief .copy { margin-top: 10px; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
     .brief .copy:focus-visible { outline: 2px solid var(--b2); outline-offset: 2px; }
+    .tally { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 0 8px; }
+    .tally .hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 6px; }
+    .tally h2 { font-size: 16px; margin: 0; }
+    .tally .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+    .tally .seg button { font: inherit; font-size: 12.5px; font-weight: 600; border: 0; background: none; color: var(--muted); padding: 4px 11px; border-radius: 999px; cursor: pointer; }
+    .tally .seg button[aria-pressed=true] { background: var(--accent); color: var(--onAccent); }
+    .tally .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .tally .sub { padding: 0 16px 4px; font-size: 12px; color: var(--muted); }
+    .trow { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 16px; }
+    .trow .rk { font-weight: 800; font-size: 15px; color: var(--muted); text-align: center; }
+    .trow .nm { font-weight: 700; font-size: 14.5px; min-width: 0; }
+    .trow .nm small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); }
+    .trow .bd { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--bandc); color: #0E2A33; white-space: nowrap; }
     .pick .t { font-weight: 700; font-size: 20px; } .pick .t small { font-weight: 500; color: var(--muted); font-size: 15px; }
 
     .list { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 6px 0; }
@@ -164,6 +177,12 @@
       <section class="pick" id="pick" aria-live="polite"></section>
       <section class="list" id="list" aria-label="Towns ranked"></section>
       <section class="brief" id="brief" hidden><h2 id="briefH">Why they're good</h2><p id="briefP"></p><button class="copy" id="copyBtn" type="button">Copy text</button></section>
+      <section class="tally" id="tally" hidden aria-label="Best towns tally">
+        <div class="hd"><h2 id="tallyH">Best towns this month</h2>
+          <div class="seg" role="group" aria-label="Period"><button type="button" data-p="m" aria-pressed="true">Month</button><button type="button" data-p="y" aria-pressed="false">Year</button></div></div>
+        <div class="sub" id="tallySub"></div>
+        <div id="tallyList"></div>
+      </section>
       <details class="how">
         <summary>How the towns are rated</summary>
         <p>Each day's daytime weather (9 am to 5 pm) is scored from the Bureau of Meteorology's town forecasts, with computer-model forecasts filling in wind, humidity and the sea breeze. The best days top out at 25–29 °C, sunny, dry and with light winds.</p>
@@ -537,6 +556,43 @@
     });
     setIcon();
 
+    // ---- the tally: which towns have had the best weather this month and this year
+    var H = null, tallyP = 'm';
+    function drawTally() {
+      if (!H || !H.days) return;
+      var now = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' });   // YYYY-MM-DD
+      var pre = tallyP === 'm' ? now.slice(0, 7) : now.slice(0, 4);
+      var days = Object.keys(H.days).filter(function (d) { return d.indexOf(pre) === 0 && d <= now; }).sort();
+      var T = {};
+      days.forEach(function (d) {
+        var day = H.days[d], names = Object.keys(day), best = null;
+        names.forEach(function (n) {
+          var t = T[n] = T[n] || { n: n, sum: 0, k: 0, top: 0, rip: 0 };
+          t.sum += day[n][0]; t.k++; if (day[n][0] >= 85) t.rip++;
+          if (!best || day[n][0] > day[best][0]) best = n;
+        });
+        if (best) T[best].top++;
+      });
+      var L = Object.keys(T).map(function (n) { var t = T[n]; t.avg = t.sum / t.k; return t; })
+        .sort(function (a, b) { return b.avg - a.avg || b.top - a.top; }).slice(0, 10);
+      var mon = new Date(now + 'T12:00:00+08:00').toLocaleDateString('en-AU', { month: 'long', timeZone: 'Australia/Perth' });
+      document.getElementById('tallyH').textContent = tallyP === 'm' ? 'Best towns in ' + mon : 'Best towns in ' + now.slice(0, 4);
+      document.getElementById('tallySub').textContent = days.length ? 'Average rating over ' + days.length + (days.length === 1 ? ' day' : ' days') + ', ' + dayShort(days[0]) + ' to ' + dayShort(days[days.length - 1]) : 'No days yet';
+      document.getElementById('tallyList').innerHTML = L.map(function (t, i) {
+        var b = band(Math.round(t.avg)), bits = [];
+        if (t.top) bits.push('best in WA on ' + t.top + (t.top === 1 ? ' day' : ' days'));
+        bits.push(t.rip + (t.rip === 1 ? ' ripper day' : ' ripper days'));
+        return '<div class="trow" style="--bandc:var(' + b[2] + ')"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(t.n)
+          + '<small>' + bits.join(' · ') + '</small></span><span class="bd" title="Average score ' + Math.round(t.avg) + '">' + b[1] + '</span></div>';
+      }).join('');
+      document.getElementById('tally').hidden = !L.length;
+    }
+    function dayShort(iso) { return new Date(iso + 'T12:00:00+08:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', timeZone: 'Australia/Perth' }); }
+    document.querySelectorAll('#tally .seg button').forEach(function (b) { b.addEventListener('click', function () {
+      tallyP = b.getAttribute('data-p');
+      document.querySelectorAll('#tally .seg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+      drawTally(); }); });
+
     // ---- load
     var bust = '?t=' + Math.floor(Date.now() / 600000);   // fresh every 10 minutes
     buildScale();
@@ -547,6 +603,7 @@
         var made = new Date(D.made.replace('Z', ':00Z'));
         document.getElementById('stamp').textContent = 'Updated ' + made.toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' AWST';
         buildDays(); initMap(); document.getElementById('saveBtn').disabled = false;
+        fetch(DATA + 'ripper-history.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).then(function (h) { H = h; drawTally(); }).catch(function () {});
         window.addEventListener('resize', function () { clearTimeout(window._rz); window._rz = setTimeout(fit, 200); });
       })
       .catch(function () {

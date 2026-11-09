@@ -378,6 +378,67 @@ def label_spot(ring):
     return bx or [round(sum(xs) / len(xs), 2), round(sum(ys) / len(ys), 2)]
 
 
+def backfill(h, today):
+    """Start the tally from 1 Jan: the same score from Open-Meteo's archived model forecasts (no BoM words for past days)."""
+    rings = wa_rings()
+    coast = [(p[1], p[0]) for r in rings for p in r[::3] if p[0] < 128.95]
+    where = bom_coords(RANK)
+    names = [n for n in RANK if n in where]
+    start = today[:4] + '-01-01'
+    end = (dt.date.fromisoformat(today) - dt.timedelta(days=1)).isoformat()
+    if end < start: h['filled_to'] = end; return
+    got = 0
+    for i in range(0, len(names), 8):
+        chunk = names[i:i + 8]
+        q = {'latitude': ','.join('%.2f' % where[n][0] for n in chunk), 'longitude': ','.join('%.2f' % where[n][1] for n in chunk),
+             'hourly': ','.join(HOURLY), 'timezone': 'Australia/Perth', 'start_date': start, 'end_date': end, 'wind_speed_unit': 'kmh'}
+        url = 'https://historical-forecast-api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(q)
+        for attempt in range(4):
+            try:
+                d = json.loads(urllib.request.urlopen(url, timeout=180).read()); break
+            except Exception as e:  # noqa: BLE001
+                if attempt == 3: raise
+                log('  back-fill retry: %s' % e); time.sleep(10 * (attempt + 1))
+        for n, x in zip(chunk, d if isinstance(d, list) else [d]):
+            hh = x['hourly']; la, lo = where[n]
+            best = min(coast, key=lambda c: (c[0] - la) ** 2 + ((c[1] - lo) * math.cos(math.radians(la))) ** 2)
+            ck, cb = km(la, lo, *best), bearing(la, lo, *best)
+            by = {}
+            for k, t in enumerate(hh['time']): by.setdefault(t[:10], []).append(k)
+            for day, idx in by.items():
+                if day in h['days'] and n in h['days'][day]: continue
+                try:
+                    r = score_day(hh, idx, ck, cb)
+                except Exception:  # noqa: BLE001
+                    r = None
+                if r: h['days'].setdefault(day, {})[n] = [r['s'], r['tmax']]; got += 1
+        time.sleep(1)
+    h['filled_to'] = end
+    log('Tally: back-filled %d town-days, %s to %s' % (got, start, end))
+
+
+def record_day(path, date, towns):
+    """The tally: each town's score for the day, kept from the morning runs (before noon AWST), when the
+    day's forecast is freshest and complete. ripper-history.json: {"days": {"2026-11-09": {"Northam": [score, top], ...}}}"""
+    now = dt.datetime.now(dt.timezone(dt.timedelta(hours=8)))
+    try:
+        h = json.load(open(path))
+    except Exception:  # noqa: BLE001
+        h = {'days': {}}
+    if not h.get('filled_to'):
+        try:
+            backfill(h, date)
+        except Exception as e:  # noqa: BLE001
+            log('Tally: back-fill failed (%s); trying again next run' % e)
+    if date != now.strftime('%Y-%m-%d') or (now.hour >= 12 and date in h['days']):
+        log('Tally: %s kept as it was' % date)
+    else:
+        h['days'][date] = {t['n']: [t['days'][0]['s'], t['days'][0]['tmax']] for t in towns if t['days'] and t['days'][0]}
+        log('Tally: recorded %s (%d towns, %d days kept)' % (date, len(h['days'][date]), len(h['days'])))
+    with open(path, 'w') as fh:
+        json.dump(h, fh, separators=(',', ':'), sort_keys=True)
+
+
 def main():
     out_path = sys.argv[1] if len(sys.argv) > 1 else 'ripper.json'
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
@@ -441,6 +502,7 @@ def main():
     with open(out_path, 'w') as fh:
         json.dump(out, fh, separators=(',', ':'))
     write_geo(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-geo.json'))
+    record_day(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-history.json'), dates[0], towns)
     log('Wrote %s (%.0f KB) and the map outlines' % (out_path, os.path.getsize(out_path) / 1024))
 
 

@@ -18,12 +18,16 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Bring in the tally so far
+        run: |
+          mkdir -p out
+          git fetch -q --depth 1 origin site-data 2>/dev/null && git show origin/site-data:ripper-history.json > out/ripper-history.json 2>/dev/null || rm -f out/ripper-history.json
       - run: python ripper/ripper.py out/ripper.json
       - name: Publish to the site-data branch
         run: |
           git fetch -q --depth 1 origin site-data 2>/dev/null || true
           mkdir -p pub && cd pub && git init -q -b site-data
           if git -C .. rev-parse -q --verify origin/site-data >/dev/null; then git -C .. archive origin/site-data | tar -x; fi
-          cp ../out/ripper.json ../out/ripper-geo.json . && git add -A
+          cp ../out/ripper.json ../out/ripper-geo.json ../out/ripper-history.json . && git add -A
           git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Ripper weather"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" site-data
