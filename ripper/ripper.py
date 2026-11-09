@@ -2,8 +2,14 @@
 """
 West WX Watchers — Today's Ripper Weather: how good is each day's weather across WA (today + 6 days).
 
-Hourly forecast from Open-Meteo (best-match models, Australia/Perth times) for a 0.5° grid over WA and the
-ranked towns. Each place and day gets a score 0-100 from the daytime hours (9 am-5 pm):
+A mix of two forecasts (9 Nov 2026):
+  BoM     the official town forecasts for 116 WA places (IDW14199, anonymous FTP): max, min, forecast words, icon,
+          chance of rain and rain range. These are what the page shows, and they drive temperature, rain and cloud.
+  model   Open-Meteo hourly forecasts (best-match models) at those places and on a 0.5° grid, for what BoM's file
+          lacks: wind, humidity, sea-breeze timing (the Doctor) and the fly factor.
+The map: the model grid's scores, nudged towards the BoM places' scores (inverse-distance, fading out by ~250 km).
+
+Each place and day gets a score 0-100 from the daytime hours (9 am-5 pm):
 
   temperature   best when the (effective) top is 25-29 °C (24-30 still 94+, "beach weather"); falls away either side
   the Doctor    coastal places within 60 km of the sea: if an onshore breeze of 15+ km/h arrives by 3 pm on a
@@ -24,6 +30,7 @@ import math
 import os
 import sys
 import time
+import re
 import urllib.parse
 import urllib.request
 
@@ -38,6 +45,16 @@ TOWNS = [('Perth', -31.95, 115.86), ('Mandurah', -32.53, 115.72), ('Bunbury', -3
          ('Karratha', -20.74, 116.85), ('Port Hedland', -20.31, 118.6), ('Broome', -17.96, 122.24),
          ('Kununurra', -15.78, 128.74), ('Newman', -23.36, 119.73), ('Kalgoorlie', -30.75, 121.47),
          ('Northam', -31.65, 116.67), ('Merredin', -31.48, 118.28)]
+BOM_URL = 'ftp://ftp.bom.gov.au/anon/gen/fwo/IDW14199.xml'
+# Towns ranked on the page (shown if BoM forecasts them); every BoM place still shapes the map
+RANK = ['Perth', 'Mandurah', 'Rockingham', 'Bunbury', 'Busselton', 'Margaret River', 'Collie', 'Denmark', 'Albany',
+        'Esperance', 'Hopetoun', 'Geraldton', 'Jurien Bay', 'Kalbarri', 'Carnarvon', 'Exmouth', 'Onslow', 'Karratha',
+        'Port Hedland', 'Broome', 'Derby', 'Kununurra', 'Halls Creek', 'Newman', 'Tom Price', 'Meekatharra',
+        'Kalgoorlie', 'Northam', 'Merredin', 'Narrogin', 'Katanning', 'Norseman']
+# BoM forecast icon codes
+BOM_ICON = {1: 'sun', 2: 'sun', 14: 'sun', 3: 'partly', 6: 'partly', 9: 'partly', 13: 'partly', 4: 'cloud', 10: 'cloud',
+            8: 'rain', 11: 'rain', 12: 'rain', 15: 'rain', 17: 'rain', 18: 'rain', 16: 'storm', 19: 'storm'}
+BOM_CLOUD = {'sun': 10, 'partly': 40, 'cloud': 85, 'rain': 80, 'storm': 70}
 HOURLY = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m',
           'cloud_cover', 'precipitation', 'weather_code']
 DAY_H = range(9, 18)          # 9 am - 5 pm
@@ -96,13 +113,58 @@ def fetch(points):
     return out
 
 
+# ---------------------------------------------------------------- BoM town forecasts
+def norm(s):
+    return re.sub(r'[^a-z0-9 ]', '', s.lower().replace('mt ', 'mount ').replace('&', 'and')).strip()
+
+
+def fetch_bom():
+    """{place name: {'date': {'tmax','tmin','precis','icon','pop','hi'}}} from BoM's WA town forecasts."""
+    for attempt in range(3):
+        try:
+            x = urllib.request.urlopen(BOM_URL, timeout=90).read().decode('utf-8', 'replace'); break
+        except Exception as e:  # noqa: BLE001
+            if attempt == 2: raise
+            log('  BoM retry: %s' % e); time.sleep(10)
+    out = {}
+    for m in re.finditer(r'<area aac="[^"]+" description="([^"]+)" type="location"[^>]*>(.*?)</area>', x, re.S):
+        name, body, days = m.group(1), m.group(2), {}
+        for f in re.finditer(r'<forecast-period[^>]*start-time-local="(\d{4}-\d\d-\d\d)[^"]*"[^>]*>(.*?)</forecast-period>', body, re.S):
+            b = f.group(2)
+            g = lambda pat: (re.search(pat, b) or [None, None])[1]
+            tx, tn, ic, pop, rng = (g(r'air_temperature_maximum[^>]*>(-?\d+)'), g(r'air_temperature_minimum[^>]*>(-?\d+)'),
+                                     g(r'forecast_icon_code">(\d+)'), g(r'probability_of_precipitation">(\d+)%'),
+                                     g(r'precipitation_range">([^<]+)'))
+            hi = re.findall(r'(\d+(?:\.\d+)?)', rng or '')
+            days[f.group(1)] = {'tmax': int(tx) if tx else None, 'tmin': int(tn) if tn else None,
+                                'precis': (g(r'type="precis">([^<]+)') or '').strip(), 'icon': BOM_ICON.get(int(ic), 'partly') if ic else None,
+                                'pop': int(pop) if pop else 0, 'hi': float(hi[-1]) if hi else 0.0}
+        out[name] = days
+    return out
+
+
+def bom_coords(names):
+    """(lat, lng) for BoM place names from the GeoNames WA places list (TOWNS as a backup)."""
+    P = json.load(open(os.path.join(ROOT, 'data', 'wa_places.json')))
+    T = {n: (la, lo) for n, la, lo in TOWNS}
+    out, miss = {}, []
+    for n in names:
+        k = norm(re.sub(r'\s+(MO|Airport|Aero|AWS|Mine)$', '', n))
+        if n in T: out[n] = T[n]
+        elif k in P: out[n] = (P[k][0], P[k][1])
+        else: miss.append(n)
+    if miss: log('BoM places not located (left out): ' + ', '.join(miss))
+    return out
+
+
 # ---------------------------------------------------------------- the score
 def band(s):
     return next(n for t, n in BANDS if s >= t)
 
 
-def score_day(h, idx, coast_km, to_coast):
-    """Score one place for one day. h = hourly dict, idx = the list indexes of that day's hours (0-23)."""
+def score_day(h, idx, coast_km, to_coast, bom=None):
+    """Score one place for one day. h = hourly dict, idx = the list indexes of that day's hours (0-23).
+    bom = BoM's forecast for that place and day, if any: its max, min, rain and sky replace the model's."""
     g = lambda k, i: h[k][i] if h[k][i] is not None else None
     day = [i for i in idx if int(h['time'][i][11:13]) in DAY_H]
     if len(day) < 6: return None
@@ -126,7 +188,10 @@ def score_day(h, idx, coast_km, to_coast):
                     doctor = hrs[k]
                     eff = 0.35 * before + 0.65 * (sum(after) / len(after))
                 break
-    # temperature: 1 for 24-30 °C, falling away either side
+    if bom and bom.get('tmax') is not None:   # BoM's max, lowered by the Doctor as much as the model's afternoon was
+        eff = bom['tmax'] - (peak - eff); tmax = bom['tmax']; peak = bom['tmax']
+    if bom and bom.get('tmin') is not None: tmin = bom['tmin']
+    # temperature: 1 for 25-29 °C, falling away either side
     t = eff
     st = 1.0 if 25 <= t <= 29 else max(0.0, 1 - (25 - t) * 0.06) if t < 25 else max(0.0, 1 - (t - 29) * 0.09)   # 24-30 still scores 94+
     dp = sum(x for x in Dp if x is not None) / max(1, len([x for x in Dp if x is not None]))
@@ -138,22 +203,31 @@ def score_day(h, idx, coast_km, to_coast):
     rainp = 0.0 if rain < 0.3 else 0.3 if rain < 1 else 0.45 if rain < 5 else 0.6
     rainp += 0.1 if storm else 0
     cmean = sum(x or 0 for x in C) / len(C)
+    if bom and bom.get('icon'):   # BoM's chance of rain, rain range and sky instead of the model's
+        pop = bom['pop']; storm = bom['icon'] == 'storm' or 'storm' in bom['precis'].lower()
+        rainp = 0.0 if pop < 20 else 0.1 if pop < 40 else 0.25 if pop < 60 else 0.4 if pop < 80 else 0.55
+        rainp += (0.05 if bom['hi'] >= 5 else 0) + (0.15 if storm else 0)
+        rain = bom['hi'] if pop >= 40 else 0.0
+        cmean = BOM_CLOUD[bom['icon']]
     cloudp = max(0.0, (cmean - 40) / 60 * 0.3)
     flies = coast_km is not None and coast_km > 80 and 22 <= peak <= 35 and wmean < 12 and 2 <= dp <= 16 and rain < 1
     s = st * (1 - humid) * (1 - min(0.6, windp)) * (1 - min(0.7, rainp)) * (1 - cloudp) - (0.08 if flies else 0)
     s = int(round(max(0, min(1, s)) * 100))
     icon = 'storm' if storm else 'rain' if rain >= 1 else 'cloud' if cmean > 70 else 'partly' if cmean > 35 else 'sun'
+    if bom and bom.get('icon'): icon = bom['icon']
     notes = []
     if doctor: notes.append('Doctor in about %s' % ('%d am' % doctor if doctor < 12 else '12 pm' if doctor == 12 else '%d pm' % (doctor - 12)))
     if humid >= 0.15: notes.append('Sticky')
     if windp >= 0.15: notes.append('Windy')
-    if storm: notes.append('Storms')
-    elif rain >= 1: notes.append('Showers')
+    if not bom:
+        if storm: notes.append('Storms')
+        elif rain >= 1: notes.append('Showers')
     if flies: notes.append('Flies about')
     if eff >= 36: notes.append('Scorcher')
     elif eff < 18: notes.append('Cool')
     return {'s': s, 'tmax': round(tmax), 'tmin': round(tmin), 'dp': round(dp), 'wind': round(wmean), 'gust': round(gmax),
-            'rain': round(rain, 1), 'icon': icon, 'doctor': doctor, 'notes': notes}
+            'rain': round(rain, 1), 'icon': icon, 'doctor': doctor, 'notes': notes,
+            'precis': (bom or {}).get('precis') or '', 'pop': (bom or {}).get('pop')}
 
 
 def simplify(ring, tol):
@@ -195,31 +269,47 @@ def main():
     grid = [(LAT0 + j * GRID_D, LNG0 + i * GRID_D) for j in range(ny) for i in range(nx)]
     inwa = [any(inside(lo, la, r) for r in rings) for la, lo in grid]
     pts = [p for p, w in zip(grid, inwa) if w]
-    log('Grid %dx%d, %d points in WA, %d towns' % (nx, ny, len(pts), len(TOWNS)))
+    bom = fetch_bom()
+    where = bom_coords(list(bom))
+    places = [n for n in bom if n in where]
+    log('Grid %dx%d, %d points in WA; BoM: %d places, %d located' % (nx, ny, len(pts), len(bom), len(places)))
     t0 = time.time()
-    hourly = fetch([(t[1], t[2]) for t in TOWNS] + pts)
-    log('Forecast fetched in %.0f s' % (time.time() - t0))
-    th, gh = hourly[:len(TOWNS)], hourly[len(TOWNS):]
-    dates = sorted({x[:10] for x in th[0]['time']})[:7]
-    by_date = {d: [i for i, x in enumerate(th[0]['time']) if x.startswith(d)] for d in dates}
+    hourly = fetch([where[n] for n in places] + pts)
+    log('Model forecast fetched in %.0f s' % (time.time() - t0))
+    ph, gh = hourly[:len(places)], hourly[len(places):]
+    dates = sorted({x[:10] for x in ph[0]['time']})[:7]
+    by_date = {d: [i for i, x in enumerate(ph[0]['time']) if x.startswith(d)] for d in dates}
     cinfo = [coast_info(la, lo) for la, lo in pts]
+    pinfo = {n: coast_info(*where[n]) for n in places}
+    # every BoM place, every day: the model-only score and the mixed (BoM) score; their difference nudges the map
+    pl = {n: [(score_day(h, by_date[d], *pinfo[n]), score_day(h, by_date[d], *pinfo[n], bom=bom[n].get(d))) for d in dates]
+          for n, h in zip(places, ph)}
     days = []
-    for d in dates:
+    for d_i, d in enumerate(dates):
         idx = by_date[d]; s = []; k = 0
-        for w in inwa:
+        resid = [(where[n][0], where[n][1], v[d_i][1]['s'] - v[d_i][0]['s']) for n, v in pl.items()
+                 if v[d_i][0] and v[d_i][1] and bom[n].get(d)]
+        for w, (la, lo) in zip(inwa, grid):
             if not w: s.append(-1); continue
             r = score_day(gh[k], idx, *cinfo[k]); k += 1
-            s.append(r['s'] if r else -1)
+            if not r: s.append(-1); continue
+            num = den = 0.0
+            for rla, rlo, dv in resid:
+                dk = km(la, lo, rla, rlo); wgt = 1.0 / (dk * dk + 400.0)
+                num += wgt * dv; den += wgt
+            den += 1.0 / (250.0 * 250.0)          # far from any BoM place the nudge fades to nothing
+            s.append(int(max(0, min(100, round(r['s'] + num / den)))))
         days.append({'date': d, 's': s})
     towns = []
-    for (n, la, lo), h in zip(TOWNS, th):
-        ck, cb = coast_info(la, lo)
-        towns.append({'n': n, 'lat': la, 'lng': lo, 'days': [score_day(h, by_date[d], ck, cb) for d in dates]})
+    for n in RANK:
+        bn = next((b for b in places if norm(re.sub(r'\s+(MO|Airport|Aero|AWS|Mine)$', '', b)) == norm(n)), None)
+        if not bn: log('Ranked town not in the BoM file: ' + n); continue
+        towns.append({'n': n, 'lat': round(where[bn][0], 3), 'lng': round(where[bn][1], 3), 'days': [v[1] for v in pl[bn]]})
     for d_i, d in enumerate(dates):
         ranked = sorted([t for t in towns if t['days'][d_i]], key=lambda t: -t['days'][d_i]['s'])
-        log('%s: ' % d + ', '.join('%s %d' % (t['n'], t['days'][d_i]['s']) for t in ranked[:6])
+        log('%s: ' % d + ', '.join('%s %d (%s°)' % (t['n'], t['days'][d_i]['s'], t['days'][d_i]['tmax']) for t in ranked[:6])
             + ' ... ' + ', '.join('%s %d' % (t['n'], t['days'][d_i]['s']) for t in ranked[-3:]))
-    out = {'made': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Open-Meteo (best-match models)',
+    out = {'made': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'source': 'BoM town forecasts + Open-Meteo',
            'grid': {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny},
            'bands': [[t, n] for t, n in BANDS], 'days': days, 'towns': towns}
     with open(out_path, 'w') as fh:
