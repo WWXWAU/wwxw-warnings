@@ -186,6 +186,7 @@
     var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
     var band = function (s) { for (var i = 0; i < BANDS.length; i++) if (s >= BANDS[i][0]) return BANDS[i]; return BANDS[4]; };
     var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var LBL = '#0E2A33', LBLM = '#3D5A66', HALO = 'rgba(255,255,255,0.85)';   // map labels sit on the light score colours in both themes
     var D = null, GEO = null, map = null, dayI = 0, markers = [], showAll = false;
 
     // ---- weather icons (simple line drawings)
@@ -270,18 +271,18 @@
         map.addLayer({ id: 'mask', type: 'fill', source: 'mask', paint: { 'fill-color': css('--ocean') } });
         map.addLayer({ id: 'roads', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 5,
           filter: ['all', ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false], ['within', WAG]],
-          paint: { 'line-color': css('--text'), 'line-opacity': 0.18, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 10, 1.6] } });
-        map.addLayer({ id: 'dist-line', type: 'line', source: 'dist', paint: { 'line-color': css('--text'), 'line-opacity': 0.35, 'line-width': 0.9, 'line-dasharray': [3, 2] } });
+          paint: { 'line-color': LBL, 'line-opacity': 0.18, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 10, 1.6] } });
+        map.addLayer({ id: 'dist-line', type: 'line', source: 'dist', paint: { 'line-color': LBL, 'line-opacity': 0.35, 'line-width': 0.9, 'line-dasharray': [3, 2] } });
         map.addLayer({ id: 'wa-line', type: 'line', source: 'wa', paint: { 'line-color': css('--coast'), 'line-width': 1.2 } });
         map.addLayer({ id: 'dist-lab', type: 'symbol', source: 'distlab', maxzoom: 7.5,
           layout: { 'text-field': ['get', 'n'], 'text-font': ['Noto Sans Italic'], 'text-size': ['interpolate', ['linear'], ['zoom'], 4, 10, 7, 13], 'text-max-width': 7, 'text-letter-spacing': 0.04, 'text-padding': 6 },
-          paint: { 'text-color': css('--muted'), 'text-halo-color': css('--surface'), 'text-halo-width': 1.2, 'text-opacity': 0.9 } });
+          paint: { 'text-color': LBLM, 'text-halo-color': HALO, 'text-halo-width': 1.2, 'text-opacity': 0.9 } });
         [['place-city', 'city', 3, 'Noto Sans Bold', 11], ['place-town', 'town', 4.6, 'Noto Sans Regular', 10], ['place-village', 'village', 7, 'Noto Sans Regular', 9.5]].forEach(function (L) {
           map.addLayer({ id: L[0], type: 'symbol', source: 'omt', 'source-layer': 'place', minzoom: L[2],
             filter: ['all', ['==', ['get', 'class'], L[1]], ['within', WAG]],
             layout: { 'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']], 'text-font': [L[3]], 'text-size': ['interpolate', ['linear'], ['zoom'], L[2], L[4], 10, L[4] + 3], 'text-padding': 3, 'text-max-width': 8,
                       'text-variable-anchor': ['top', 'bottom', 'left', 'right'], 'text-radial-offset': 0.5 },
-            paint: { 'text-color': css('--text'), 'text-halo-color': css('--surface'), 'text-halo-width': 1.2, 'text-opacity': 0.85 } });
+            paint: { 'text-color': LBL, 'text-halo-color': HALO, 'text-halo-width': 1.2, 'text-opacity': 0.85 } });
         });
         map.on('click', function (e) {   // a click on the map closes any open box; a second click shows the score there
           if (pop) { closePop(); return; }
@@ -291,13 +292,13 @@
             .setHTML('<b>' + b[1] + '</b><br><span style="color:var(--muted)">Score ' + s + ' out of 100 here</span>').addTo(map);
         });
         map.addSource('top5', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
-        map.addLayer({ id: 'top5-pad', type: 'symbol', source: 'top5',   // invisible: keeps other names off the numbered badges
-          layout: { 'text-field': 'OO', 'text-font': ['Noto Sans Bold'], 'text-size': 22, 'text-allow-overlap': true },
-          paint: { 'text-opacity': 0 } });
         map.addLayer({ id: 'top5', type: 'symbol', source: 'top5',
           layout: { 'text-field': ['get', 'n'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'symbol-sort-key': ['get', 'k'],
                     'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': 1.25, 'text-justify': 'auto', 'text-optional': false },
-          paint: { 'text-color': css('--text'), 'text-halo-color': css('--surface'), 'text-halo-width': 1.6 } });
+          paint: { 'text-color': LBL, 'text-halo-color': HALO, 'text-halo-width': 1.6 } });
+        map.addLayer({ id: 'top5-pad', type: 'symbol', source: 'top5',   // invisible: placed first: keeps names off the numbered badges
+          layout: { 'text-field': 'OO', 'text-font': ['Noto Sans Bold'], 'text-size': 22, 'text-allow-overlap': true },
+          paint: { 'text-opacity': 0 } });
         fit(); draw();
       });
     }
@@ -532,9 +533,7 @@
       if (map && map.getLayer('bg')) {
         map.setPaintProperty('bg', 'background-color', css('--ocean')); map.setPaintProperty('mask', 'fill-color', css('--ocean'));
         map.setPaintProperty('wa-line', 'line-color', css('--coast'));
-        ['roads', 'dist-line'].forEach(function (l) { map.setPaintProperty(l, 'line-color', css('--text')); });
-        ['dist-lab', 'place-city', 'place-town', 'place-village', 'top5'].forEach(function (l) {
-          map.setPaintProperty(l, 'text-color', css(l === 'dist-lab' ? '--muted' : '--text')); map.setPaintProperty(l, 'text-halo-color', css('--surface')); });
+
       }
     });
     setIcon();
