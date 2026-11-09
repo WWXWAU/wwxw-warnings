@@ -8,7 +8,7 @@ Every 15 minutes (GitHub Actions):
     Water Data Online's provisional level series (about a day behind, so it seeds the first week).
 Writes rivers.json (now) and rivers-history.json (the record) into the output folder.
 """
-import datetime as dt, json, os, re, sys, time, urllib.parse, urllib.request
+import bisect, datetime as dt, ftplib, io, json, math, os, re, sys, time, urllib.parse, urllib.request
 
 UA = {'User-Agent': 'Mozilla/5.0 (West WX Watchers river levels; westweatherwatchers.com)'}
 DWER = 'https://kumina.water.wa.gov.au/waterinformation'
@@ -130,6 +130,157 @@ def tidal(v):
     return swings >= 3 and ups >= 6 and downs >= 6 and 0.4 <= ups / downs <= 2.5
 
 
+# ---------------------------------------------------------------- the Bureau's flood levels
+BOM_RH = ['IDW604%02d.html' % i for i in range(8)]   # Latest River Heights, by basin group
+STOP = {'river', 'brook', 'creek', 'at', 'the', 'rd', 'road', 'bridge', 'br', 'of', 'and', 'downstream', 'upstream', 'd', 's', 'u', 'weir'}
+
+
+def words(t):
+    return set(w for w in re.findall(r'[a-z]+', t.lower()) if w not in STOP and len(w) > 1)
+
+
+def ftp_get(name):
+    f = ftplib.FTP('ftp.bom.gov.au', timeout=60); f.login(); f.cwd('/anon/gen/fwo')
+    b = io.BytesIO(); f.retrbinary('RETR ' + name, b.write); f.quit()
+    return b.getvalue().decode('utf-8', 'replace')
+
+
+def flood_levels(G, out_dir, now):
+    """Match DWER gauges to the Bureau's flood-warning gauges, with their minor / moderate / major flood heights.
+    The Bureau's current flood class comes from its river height tables every run; the heights (from each gauge's
+    page) are kept in rivers-flood.json and re-read weekly."""
+    path = os.path.join(out_dir, 'rivers-flood.json')
+    try: F = json.load(open(path))
+    except Exception: F = {}  # noqa: BLE001
+    rows = []
+    for name in BOM_RH:
+        try: t = ftp_get(name)
+        except Exception as e:  # noqa: BLE001
+            log('BoM river heights %s not read: %s' % (name, e)); continue
+        for r in re.findall(r'<tr>(.*?)</tr>', t, re.S):
+            c = [clean(x) for x in re.findall(r'<td[^>]*>(.*?)</td>', r, re.S)]
+            bid = re.search(r'IDW624\d\d\.(\d+)\.', r)
+            if len(c) < 8 or not bid: continue
+            rows.append({'bom': bid.group(1), 'prod': re.search(r'(IDW624\d\d)\.', r).group(1), 'name': c[0], 'h': num(c[3]) if c[3] else None, 'datum': c[4], 'cls': c[7]})
+    log('BoM flood-warning gauges: %d' % len(rows))
+    week = (now - dt.timedelta(days=7)).strftime('%Y-%m-%d')
+    for r in rows:
+        f = F.get(r['bom'])
+        if f and f.get('read', '') >= week: continue
+        try:
+            t = get('http://www.bom.gov.au/fwo/%s/%s.%s.tbl.shtml' % (r['prod'], r['prod'], r['bom']), timeout=60, tries=2)
+            x = clean(t)
+            lv = {k: num(v) for k, v in re.findall(r'(Minor|Moderate|Major):\s*([\d.]+)\s*m', x)}
+            F[r['bom']] = {'minor': lv.get('Minor'), 'moderate': lv.get('Moderate'), 'major': lv.get('Major'), 'read': now.strftime('%Y-%m-%d')}
+        except Exception as e:  # noqa: BLE001
+            log('  flood levels not read for %s: %s' % (r['name'], e))
+        time.sleep(0.3)
+    json.dump(F, open(path, 'w'), separators=(',', ':'), sort_keys=True)
+    # match: the same river and place words, and (when both are reporting) the same height to within 5 cm
+    for g in G: g['fl'] = None
+    used = set()
+    for r in rows:
+        if r['datum'] != 'LGH': continue
+        rw = words(r['name']); best, bs = None, 0
+        for g in G:
+            if g['id'] in used: continue
+            gw = words(g['river'] + ' ' + g['name'])
+            if not (rw & gw): continue
+            sc = len(rw & gw) / len(rw | gw)
+            if r['h'] is not None and not g['off_air']:
+                if abs(r['h'] - g['lvl']) <= 0.05: sc += 0.5
+                elif abs(r['h'] - g['lvl']) > 0.3: sc -= 0.5
+            if sc > bs: best, bs = g, sc
+        if best and bs >= 0.6:
+            used.add(best['id']); f = F.get(r['bom'], {})
+            mc = re.search(r'(Minor|Moderate|Major)', r['cls']); cls = mc.group(1).lower() if mc else 'below' if r['cls'].startswith('Below') else None
+            best['fl'] = {'bom': r['bom'], 'bomname': r['name'], 'minor': f.get('minor'), 'moderate': f.get('moderate'), 'major': f.get('major'), 'bcls': cls}
+    # the class from the live level and the heights (the Bureau's own class can lag the gauge)
+    for g in G:
+        f = g['fl']
+        if not f: continue
+        lvl = g['lvl']; c = 'below'
+        for k in ('minor', 'moderate', 'major'):
+            if f.get(k) is not None and lvl >= f[k]: c = k
+        f['cls'] = c if not g['off_air'] else f.get('bcls')
+    m = [g for g in G if g['fl']]
+    log('Matched to BoM flood gauges: %d (with heights: %d). Above minor now: %s' % (len(m), len([g for g in m if g['fl'].get('minor')]),
+        ', '.join('%s %s (%s)' % (g['river'], g['name'], g['fl']['cls']) for g in m if g['fl'].get('cls') in ('minor', 'moderate', 'major')) or 'none'))
+
+
+# ---------------------------------------------------------------- flow, from the level
+def rating_build(ids, out_dir, now):
+    """Each gauge's level-to-flow relationship, from the Bureau's daily highest and lowest level and flow over
+    five years (Water Data Online). Rebuilt weekly into rivers-ratings.json: {id: [[level, flow], ...]}."""
+    path = os.path.join(out_dir, 'rivers-ratings.json')
+    try: R = json.load(open(path))
+    except Exception: R = {'r': {}}  # noqa: BLE001
+    if R.get('built', '') >= (now - dt.timedelta(days=7)).strftime('%Y-%m-%d') and len(R['r']) > 100:
+        return R
+    want = {}
+    for par in ('Water Course Level', 'Water Course Discharge'):
+        q = KIWIS + urllib.parse.urlencode({'request': 'getTimeseriesList', 'station_no': ','.join(ids), 'parametertype_name': par,
+                                            'ts_name': 'DMQaQc.Merged.DailyMax.24HR,DMQaQc.Merged.DailyMin.24HR', 'returnfields': 'station_no,ts_id,ts_name'})
+        try:
+            for no, ts, nm in json.loads(get(q, timeout=180))[1:]: want[(no, par[13:16], nm[15:18])] = ts   # (id, 'Lev'/'Dis', 'Max'/'Min')
+        except Exception as e:  # noqa: BLE001
+            log('Rating series list not read (%s): %s' % (par, e)); return R
+    vals = {}
+    keys = list(want)
+    for k in range(0, len(keys), 20):
+        chunk = keys[k:k + 20]
+        q = KIWIS + urllib.parse.urlencode({'request': 'getTimeseriesValues', 'ts_id': ','.join(want[c] for c in chunk), 'period': 'P1826D', 'returnfields': 'Timestamp,Value'})
+        try: res = json.loads(get(q, timeout=300))
+        except Exception as e:  # noqa: BLE001
+            log('  rating values not read: %s' % e); continue
+        back = {v: kk for kk, v in want.items()}
+        for r in res:
+            kk = back.get(str(r.get('ts_id')))
+            if kk: vals[kk] = {ts[:10]: v for ts, v in r.get('data', []) if v is not None}
+        time.sleep(0.5)
+    built = 0
+    for sid in ids:
+        pts = []
+        for mm in ('Max', 'Min'):
+            L, Q = vals.get((sid, 'Lev', mm), {}), vals.get((sid, 'Dis', mm), {})
+            pts += [(L[d], Q[d]) for d in L if d in Q and Q[d] >= 0]
+        if len(pts) < 60: continue
+        pts.sort()
+        # bins of about equal count; the median flow in each; then made never to fall as the level rises
+        n = len(pts); nb = min(40, max(8, n // 25)); knots = []
+        for b in range(nb):
+            seg = pts[b * n // nb:(b + 1) * n // nb]
+            if not seg: continue
+            qs = sorted(q for _, q in seg)
+            knots.append([round(sum(l for l, _ in seg) / len(seg), 3), qs[len(qs) // 2]])
+        top = pts[-max(3, n // 200):]                                     # the highest few days pin the top of the curve
+        knots.append([round(sum(l for l, _ in top) / len(top), 3), sorted(q for _, q in top)[len(top) // 2]])
+        out = []
+        for l, q in sorted(knots):
+            if out and l <= out[-1][0] + 0.002: out[-1][1] = max(out[-1][1], q); continue
+            out.append([l, max(q, out[-1][1] if out else 0)])
+        if len(out) >= 4 and out[-1][1] > 0:
+            R['r'][sid] = [[l, round(q, 4)] for l, q in out]; built += 1
+    R['built'] = now.strftime('%Y-%m-%d')
+    json.dump(R, open(path, 'w'), separators=(',', ':'), sort_keys=True)
+    log('Flow ratings built: %d gauges' % built)
+    return R
+
+
+def flow(knots, lvl):
+    """Flow (m3/s) at a level from a gauge's rating; (flow, beyond) where beyond = above the highest level rated."""
+    if not knots or lvl is None: return None, False
+    ls = [k[0] for k in knots]
+    if lvl <= ls[0]: return knots[0][1] if lvl >= ls[0] - 0.05 else 0.0, False
+    i = bisect.bisect_left(ls, lvl)
+    if i >= len(knots):                                                   # above the curve: carry on along its last slope, flagged
+        (l1, q1), (l2, q2) = knots[-2], knots[-1]
+        s = (q2 - q1) / (l2 - l1) if l2 > l1 else 0
+        return max(q2, q2 + s * (lvl - l2)), True
+    (l1, q1), (l2, q2) = knots[i - 1], knots[i]
+    return q1 + (q2 - q1) * (lvl - l1) / (l2 - l1), False
+
+
 def main(out_dir):
     os.makedirs(out_dir, exist_ok=True)
     now = dt.datetime.now(AWST)
@@ -170,6 +321,18 @@ def main(out_dir):
         except Exception: g['age'] = None  # noqa: BLE001
         g['off_air'] = g['cls'] == 'rowGREY' or g['age'] is None or g['age'] > 48       # not reporting
         g['tidal'] = g['id'] in TIDAL or tidal([v for k, v in sorted(hh.items()) if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00')])
+    try: flood_levels(G, out_dir, now)
+    except Exception as e:  # noqa: BLE001
+        log('Flood levels skipped: %s' % e); [g.setdefault('fl', None) for g in G]
+    R = rating_build([g['id'] for g in G], out_dir, now)
+    for g in G:
+        q, beyond = flow(R['r'].get(g['id']), g['lvl'])
+        g['q'] = None if q is None else round(q, 3 if q < 1 else 2 if q < 10 else 1)
+        g['qx'] = beyond
+        if g['q'] is not None and g['rate'] is not None:                    # the flow an hour ago, for the change
+            q0, _ = flow(R['r'].get(g['id']), g['lvl'] - g['rate']); g['dq'] = round(g['q'] - q0, 3)
+    log('Flow estimated: %d gauges. Biggest: %s' % (len([g for g in G if g['q'] is not None]), ', '.join(
+        '%s %s %.1f m3/s' % (g['river'], g['name'], g['q']) for g in sorted([g for g in G if g['q'] is not None and not g['off_air']], key=lambda g: -g['q'])[:5])))
     D = {'made': now.isoformat(timespec='minutes'), 'gauges': G}
     json.dump(D, open(os.path.join(out_dir, 'rivers.json'), 'w'), separators=(',', ':'))
     rising = sorted([g for g in G if (g['rate'] or 0) > 0.005 and not g['tidal'] and not g['off_air']], key=lambda g: -(g['rate'] or 0))
