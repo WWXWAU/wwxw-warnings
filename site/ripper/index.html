@@ -77,6 +77,11 @@
     .pick .wx { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 15px; }
     .pick .wx svg { width: 38px; height: 38px; flex: none; }
     .pick .notes { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .brief { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px 16px; }
+    .brief h2 { font-size: 16px; margin: 0 0 6px; }
+    .brief p { margin: 0; font-size: 14px; line-height: 1.55; }
+    .brief .copy { margin-top: 10px; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
+    .brief .copy:focus-visible { outline: 2px solid var(--b2); outline-offset: 2px; }
     .pick .t { font-weight: 700; font-size: 20px; } .pick .t small { font-weight: 500; color: var(--muted); font-size: 15px; }
 
     .list { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 6px 0; }
@@ -156,6 +161,7 @@
     <div class="panel">
       <section class="pick" id="pick" aria-live="polite"></section>
       <section class="list" id="list" aria-label="Towns ranked"></section>
+      <section class="brief" id="brief" hidden><h2 id="briefH">Why they're good</h2><p id="briefP"></p><button class="copy" id="copyBtn" type="button">Copy text</button></section>
       <details class="how">
         <summary>How the towns are rated</summary>
         <p>Each day's daytime weather (9 am to 5 pm) is scored from the Bureau of Meteorology's town forecasts, with computer-model forecasts filling in wind, humidity and the sea breeze. The best days top out at 25–29 °C, sunny, dry and with light winds.</p>
@@ -320,8 +326,18 @@
       list.querySelectorAll('.row').forEach(function (b) { b.addEventListener('click', function () {
         var t = D.towns.filter(function (x) { return x.n === b.getAttribute('data-n'); })[0]; if (t) { map.easeTo({ center: [t.lng, t.lat], zoom: Math.max(map.getZoom(), 5.2) }); townPopup(t); } }); });
       document.getElementById('moreBtn').addEventListener('click', function () { showAll = !showAll; draw(); });
+      var bt = D.days[dayI].brief || '';
+      document.getElementById('brief').hidden = !bt;
+      document.getElementById('briefH').textContent = dayI === 0 ? "Why they're good today" : 'Why they\'re good, ' + dayLong(D.days[dayI].date);
+      document.getElementById('briefP').textContent = bt;
       document.getElementById('title').textContent = dayI === 0 ? "Today's Ripper Weather" : 'Ripper Weather, ' + dayLong(D.days[dayI].date);
     }
+    document.getElementById('copyBtn').addEventListener('click', function () {
+      var b = this, t = document.getElementById('briefH').textContent + '\n' + document.getElementById('briefP').textContent + '\n— West WX Watchers, Ripper Weather';
+      var done = function () { b.textContent = 'Copied'; setTimeout(function () { b.textContent = 'Copy text'; }, 1600); };
+      try { navigator.clipboard.writeText(t).then(done, function () { fallback(); }); } catch (e) { fallback(); }
+      function fallback() { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); done(); } catch (e) {} a.remove(); }
+    });
     // Top-five names: keep them apart. Best-ranked first; a name that would overlap goes to the left, else hides.
     function placeLabels() {
       var R = ranked().slice(0, 5), items = [];

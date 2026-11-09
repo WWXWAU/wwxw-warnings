@@ -46,6 +46,8 @@ TOWNS = [('Perth', -31.95, 115.86), ('Mandurah', -32.53, 115.72), ('Bunbury', -3
          ('Kununurra', -15.78, 128.74), ('Newman', -23.36, 119.73), ('Kalgoorlie', -30.75, 121.47),
          ('Northam', -31.65, 116.67), ('Merredin', -31.48, 118.28)]
 BOM_URL = 'ftp://ftp.bom.gov.au/anon/gen/fwo/IDW14199.xml'
+# BoM's weather situation (synoptic) text: the WA overview (north), then the south-west coastal waters
+BOM_SYN = ['ftp://ftp.bom.gov.au/anon/gen/fwo/IDW10100.xml', 'ftp://ftp.bom.gov.au/anon/gen/fwo/IDW11130.xml']
 # Towns ranked on the page (shown if BoM forecasts them); every BoM place still shapes the map
 RANK = ['Perth', 'Mandurah', 'Rockingham', 'Bunbury', 'Busselton', 'Margaret River', 'Collie', 'Denmark', 'Albany',
         'Esperance', 'Hopetoun', 'Geraldton', 'Jurien Bay', 'Kalbarri', 'Carnarvon', 'Exmouth', 'Onslow', 'Karratha',
@@ -155,6 +157,62 @@ def bom_coords(names):
         else: miss.append(n)
     if miss: log('BoM places not located (left out): ' + ', '.join(miss))
     return out
+
+
+def fetch_synoptic():
+    """BoM's weather situation sentences (deduplicated), or []."""
+    out = []
+    for u in BOM_SYN:
+        try:
+            x = urllib.request.urlopen(u, timeout=60).read().decode('utf-8', 'replace')
+            m = re.search(r'<text type="synoptic_situation">(.*?)</text>', x, re.S)
+            if m:
+                t = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', m.group(1))).strip().replace('. while', ', while')
+                if t and t not in out: out.append(t)
+        except Exception as e:  # noqa: BLE001
+            log('BoM situation not read (%s): %s' % (u.rsplit('/', 1)[-1], e))
+    return out
+
+
+# ---------------------------------------------------------------- the day in brief (for reports)
+def wind_words(w):
+    return 'light winds' if w < 12 else 'a gentle breeze' if w < 20 else 'a fresh breeze' if w < 30 else 'strong winds'
+
+
+def day_name(d, i):
+    return 'today' if i == 0 else 'tomorrow' if i == 1 else 'on ' + dt.date.fromisoformat(d).strftime('%A')
+
+
+def brief(towns, d_i, d, synoptic):
+    """A short write-up of the day: the best towns and why, BoM's weather situation, and where to avoid."""
+    R = sorted([t for t in towns if t['days'][d_i]], key=lambda t: -t['days'][d_i]['s'])
+    if len(R) < 5: return ''
+    a, b = R[0], R[1]; ra, rb = a['days'][d_i], b['days'][d_i]
+    sky = (ra['precis'] or 'fine').rstrip('.').lower()
+    out = []
+    if abs(ra['tmax'] - rb['tmax']) <= 2 and ra['s'] - rb['s'] <= 5:
+        out.append('%s and %s lead the way %s: %s, around %d° with %s.' % (a['n'], b['n'], day_name(d, d_i), sky, ra['tmax'], wind_words(ra['wind'])))
+        rest = R[2:5]
+    else:
+        out.append('%s is the pick of WA %s: %s, %d° with %s.' % (a['n'], day_name(d, d_i), sky, ra['tmax'], wind_words(ra['wind'])))
+        rest = R[1:4]
+    out.append('%s, %s and %s are not far behind.' % tuple(t['n'] for t in rest))
+    doc = [t for t in R[:8] if t['days'][d_i]['doctor']]
+    if doc:
+        h = doc[0]['days'][d_i]['doctor']
+        out.append('On the coast the sea breeze should reach %s by about %s, taking the edge off the afternoon.'
+                   % (doc[0]['n'], '%d am' % h if h < 12 else '12 pm' if h == 12 else '%d pm' % (h - 12)))
+    if synoptic and d_i <= 2:
+        out.append('The set-up, from the Bureau: ' + ' '.join(synoptic))
+    worst = R[-1]; rw = worst['days'][d_i]; why = []
+    if rw['tmax'] >= 36: why.append('%d° heat' % rw['tmax'])
+    if 'Sticky' in rw['notes']: why.append('sticky air')
+    if rw['icon'] in ('storm', 'rain') and rw.get('precis'): why.append(rw['precis'].rstrip('.').lower())
+    if 'Windy' in rw['notes']: why.append('strong winds')
+    if rw['tmax'] < 18: why.append('a cool %d°' % rw['tmax'])
+    if why:
+        out.append('Least appealing: %s, with %s.' % (worst['n'], ' and '.join(why[:2])))
+    return ' '.join(out)
 
 
 # ---------------------------------------------------------------- the score
@@ -305,6 +363,11 @@ def main():
         bn = next((b for b in places if norm(re.sub(r'\s+(MO|Airport|Aero|AWS|Mine)$', '', b)) == norm(n)), None)
         if not bn: log('Ranked town not in the BoM file: ' + n); continue
         towns.append({'n': n, 'lat': round(where[bn][0], 3), 'lng': round(where[bn][1], 3), 'days': [v[1] for v in pl[bn]]})
+    syn = fetch_synoptic()
+    log('BoM situation: ' + ' | '.join(syn))
+    for d_i, d in enumerate(dates):
+        days[d_i]['brief'] = brief(towns, d_i, d, syn)
+    log('Brief, day 1: ' + days[0]['brief'])
     for d_i, d in enumerate(dates):
         ranked = sorted([t for t in towns if t['days'][d_i]], key=lambda t: -t['days'][d_i]['s'])
         log('%s: ' % d + ', '.join('%s %d (%s°)' % (t['n'], t['days'][d_i]['s'], t['days'][d_i]['tmax']) for t in ranked[:6])
