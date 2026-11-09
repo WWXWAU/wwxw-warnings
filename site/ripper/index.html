@@ -290,8 +290,15 @@
           pop = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '220px' }).setLngLat(e.lngLat)
             .setHTML('<b>' + b[1] + '</b><br><span style="color:var(--muted)">Score ' + s + ' out of 100 here</span>').addTo(map);
         });
+        map.addSource('top5', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addLayer({ id: 'top5-pad', type: 'symbol', source: 'top5',   // invisible: keeps other names off the numbered badges
+          layout: { 'text-field': 'OO', 'text-font': ['Noto Sans Bold'], 'text-size': 22, 'text-allow-overlap': true },
+          paint: { 'text-opacity': 0 } });
+        map.addLayer({ id: 'top5', type: 'symbol', source: 'top5',
+          layout: { 'text-field': ['get', 'n'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'symbol-sort-key': ['get', 'k'],
+                    'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': 1.25, 'text-justify': 'auto', 'text-optional': false },
+          paint: { 'text-color': css('--text'), 'text-halo-color': css('--surface'), 'text-halo-width': 1.6 } });
         fit(); draw();
-        map.on('zoomend', placeLabels);
       });
     }
     // Zoom to where the weather is "Not bad" or better that day (all of WA if nowhere is)
@@ -336,14 +343,16 @@
         var rank = R.indexOf(t) + 1, r = t.days[dayI], b = band(r.s), el = document.createElement('div');
         el.className = 'mk' + (rank === 1 ? ' top1' : rank > 5 ? ' dot' : '');
         el.style.setProperty('--bandc', 'var(' + b[2] + ')');
-        el.innerHTML = '<b>' + (rank <= 5 ? rank : '') + '</b>' + (rank <= 5 ? '<span>' + esc(t.n) + '</span>' : '');
+        el.innerHTML = '<b>' + (rank <= 5 ? rank : '') + '</b>';
         el.dataset.n = t.n;
         el.setAttribute('aria-label', t.n + ': ' + b[1] + ', ' + r.tmax + '°');
         el.addEventListener('click', function (ev) { ev.stopPropagation(); townPopup(t); });
         hoverTip(t, el);
         markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([t.lng, t.lat]).addTo(map));
       });
-      placeLabels();
+      // the top-five names as map labels, so the map's own names and district names make room for them
+      map.getSource('top5').setData({ type: 'FeatureCollection', features: R.slice(0, 5).map(function (t, i) {
+        return { type: 'Feature', properties: { n: t.n, k: i }, geometry: { type: 'Point', coordinates: [t.lng, t.lat] } }; }) });
       // the map's own town names: skip the five we label ourselves
       var mine = ['literal', R.slice(0, 5).map(function (t) { return t.n; })];
       ['place-city', 'place-town', 'place-village'].forEach(function (l) {
@@ -382,25 +391,6 @@
       try { navigator.clipboard.writeText(t).then(done, function () { fallback(); }); } catch (e) { fallback(); }
       function fallback() { var a = document.createElement('textarea'); a.value = t; document.body.appendChild(a); a.select(); try { document.execCommand('copy'); done(); } catch (e) {} a.remove(); }
     });
-    // Top-five names: keep them apart. Best-ranked first; a name that would overlap goes to the left, else hides.
-    function placeLabels() {
-      var R = ranked().slice(0, 5), items = [];
-      R.forEach(function (t, i) {
-        var m = markers.filter(function (mk) { return mk.getElement().dataset.n === t.n; })[0]; if (!m) return;
-        var el = m.getElement(), sp = el.querySelector('span'); if (!sp) return;
-        el.classList.remove('pl', 'pb', 'pt'); sp.style.visibility = '';
-        items.push({ el: el, sp: sp, p: map.project([t.lng, t.lat]), w: sp.offsetWidth || t.n.length * 8, r: i ? 14 : 17 });
-      });
-      var boxes = items.map(function (it) { return [it.p.x - it.r, it.p.y - it.r, it.p.x + it.r, it.p.y + it.r]; });   // every badge first
-      var hit = function (b) { return boxes.some(function (q) { return b[0] < q[2] && b[2] > q[0] && b[1] < q[3] && b[3] > q[1]; }); };
-      items.forEach(function (it) {   // then each name, best-ranked first, on the first free side (else hidden: the list has it)
-        var x = it.p.x, y = it.p.y, r = it.r, w = it.w;
-        var opts = [['', [x + r + 3, y - 9, x + r + 7 + w, y + 9]], ['pl', [x - r - 7 - w, y - 9, x - r - 3, y + 9]],
-                    ['pb', [x - w / 2, y + r, x + w / 2, y + r + 18]], ['pt', [x - w / 2, y - r - 18, x + w / 2, y - r]]];
-        var ok = opts.filter(function (o) { return !hit(o[1]); })[0];
-        if (ok) { if (ok[0]) it.el.classList.add(ok[0]); boxes.push(ok[1]); } else it.sp.style.visibility = 'hidden';
-      });
-    }
     var pop = null, tip = null;
     function closePop() { if (pop) { pop.remove(); pop = null; } }
     function townPopup(t) {
@@ -543,7 +533,7 @@
         map.setPaintProperty('bg', 'background-color', css('--ocean')); map.setPaintProperty('mask', 'fill-color', css('--ocean'));
         map.setPaintProperty('wa-line', 'line-color', css('--coast'));
         ['roads', 'dist-line'].forEach(function (l) { map.setPaintProperty(l, 'line-color', css('--text')); });
-        ['dist-lab', 'place-city', 'place-town', 'place-village'].forEach(function (l) {
+        ['dist-lab', 'place-city', 'place-town', 'place-village', 'top5'].forEach(function (l) {
           map.setPaintProperty(l, 'text-color', css(l === 'dist-lab' ? '--muted' : '--text')); map.setPaintProperty(l, 'text-halo-color', css('--surface')); });
       }
     });
