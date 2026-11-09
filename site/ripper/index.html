@@ -103,6 +103,7 @@
     .mk b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--text);
             border: 3px solid var(--bandc); font-size: 13px; font-weight: 800; box-shadow: 0 1px 3px rgba(14,42,51,0.35); }
     .mk.top1 b { width: 32px; height: 32px; font-size: 15px; background: var(--bandc); color: #0E2A33; border-color: var(--surface); }
+    .mk.dot { padding: 7px; }   /* a bigger target to tap */
     .mk.dot b { width: 11px; height: 11px; border-width: 2px; background: var(--bandc); border-color: var(--surface); }
     .mk span { position: absolute; top: 50%; left: 100%; transform: translateY(-50%); margin-left: 5px; font-size: 12.5px; font-weight: 700; color: var(--text);
                text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); white-space: nowrap; pointer-events: none; }
@@ -111,6 +112,7 @@
     .mk.pt span { top: auto; bottom: 100%; left: 50%; transform: translateX(-50%); margin: 0 0 1px; }
     .maplibregl-popup-content { background: var(--surface); color: var(--text); border-radius: 12px; padding: 9px 12px; font: 13px/1.4 Lexend, system-ui, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
     .maplibregl-popup-tip { border-top-color: var(--surface) !important; border-bottom-color: var(--surface) !important; }
+    .tip .maplibregl-popup-content { padding: 5px 9px; font-size: 12.5px; pointer-events: none; }
     .maplibregl-popup-close-button { color: var(--muted); font-size: 16px; }
 
     .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
@@ -246,37 +248,68 @@
     }
     function initMap() {
       map = new maplibregl.Map({ container: 'map', attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
-        style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': css('--ocean') } }] },
+        style: { version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf', sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': css('--ocean') } }] },
         bounds: [[112.6, -35.3], [129.0, -13.6]], fitBoundsOptions: { padding: { top: 40, bottom: 56, left: 12, right: 12 } }, minZoom: 3, maxZoom: 9 });
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.on('load', function () {
-        var wa = (GEO['Western Australia'] || []);
+        var wa = (GEO['Western Australia'] || []), WAG = { type: 'MultiPolygon', coordinates: wa.map(function (r) { return [r]; }) };
         var mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[90, -50], [150, -50], [150, 0], [90, 0], [90, -50]]].concat(wa.map(function (r) { return r.slice().reverse(); })) } };
         map.addSource('wa', { type: 'geojson', data: ringsFC(['Western Australia']) });
         map.addSource('bands', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
         map.addSource('mask', { type: 'geojson', data: mask });
-        map.addSource('others', { type: 'geojson', data: ringsFC(['Northern Territory', 'South Australia']) });
+        var dists = (GEO.districts || []);
+        map.addSource('dist', { type: 'geojson', data: { type: 'FeatureCollection', features: dists.map(function (d) {
+          return { type: 'Feature', properties: { n: d.n }, geometry: { type: 'MultiLineString', coordinates: d.r } }; }) } });
+        map.addSource('distlab', { type: 'geojson', data: { type: 'FeatureCollection', features: dists.map(function (d) {
+          return { type: 'Feature', properties: { n: d.n }, geometry: { type: 'Point', coordinates: d.at } }; }) } });
+        map.addSource('omt', { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
         map.addLayer({ id: 'wa-fill', type: 'fill', source: 'wa', paint: { 'fill-color': css('--b0') } });
         map.addLayer({ id: 'bands', type: 'fill', source: 'bands', paint: { 'fill-color': ['get', 'c'], 'fill-antialias': false } });
         map.addLayer({ id: 'mask', type: 'fill', source: 'mask', paint: { 'fill-color': css('--ocean') } });
-        map.addLayer({ id: 'others', type: 'fill', source: 'others', paint: { 'fill-color': css('--land') } });
-        map.addLayer({ id: 'others-line', type: 'line', source: 'others', paint: { 'line-color': css('--coast'), 'line-width': 0.8, 'line-opacity': 0.6 } });
+        map.addLayer({ id: 'roads', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 5,
+          filter: ['all', ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false], ['within', WAG]],
+          paint: { 'line-color': css('--text'), 'line-opacity': 0.18, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 10, 1.6] } });
+        map.addLayer({ id: 'dist-line', type: 'line', source: 'dist', paint: { 'line-color': css('--text'), 'line-opacity': 0.35, 'line-width': 0.9, 'line-dasharray': [3, 2] } });
         map.addLayer({ id: 'wa-line', type: 'line', source: 'wa', paint: { 'line-color': css('--coast'), 'line-width': 1.2 } });
-        map.on('click', function (e) {
+        map.addLayer({ id: 'dist-lab', type: 'symbol', source: 'distlab', maxzoom: 7.5,
+          layout: { 'text-field': ['get', 'n'], 'text-font': ['Noto Sans Italic'], 'text-size': ['interpolate', ['linear'], ['zoom'], 4, 10, 7, 13], 'text-max-width': 7, 'text-letter-spacing': 0.04, 'text-padding': 6 },
+          paint: { 'text-color': css('--muted'), 'text-halo-color': css('--surface'), 'text-halo-width': 1.2, 'text-opacity': 0.9 } });
+        [['place-city', 'city', 3, 'Noto Sans Bold', 11], ['place-town', 'town', 4.6, 'Noto Sans Regular', 10], ['place-village', 'village', 7, 'Noto Sans Regular', 9.5]].forEach(function (L) {
+          map.addLayer({ id: L[0], type: 'symbol', source: 'omt', 'source-layer': 'place', minzoom: L[2],
+            filter: ['all', ['==', ['get', 'class'], L[1]], ['within', WAG]],
+            layout: { 'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']], 'text-font': [L[3]], 'text-size': ['interpolate', ['linear'], ['zoom'], L[2], L[4], 10, L[4] + 3], 'text-padding': 3, 'text-max-width': 8,
+                      'text-variable-anchor': ['top', 'bottom', 'left', 'right'], 'text-radial-offset': 0.5 },
+            paint: { 'text-color': css('--text'), 'text-halo-color': css('--surface'), 'text-halo-width': 1.2, 'text-opacity': 0.85 } });
+        });
+        map.on('click', function (e) {   // a click on the map closes any open box; a second click shows the score there
+          if (pop) { closePop(); return; }
           var s = scoreAt(e.lngLat.lng, e.lngLat.lat); if (s < 0) return;
           var b = band(s);
-          new maplibregl.Popup({ closeButton: true, maxWidth: '220px' }).setLngLat(e.lngLat)
+          pop = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '220px' }).setLngLat(e.lngLat)
             .setHTML('<b>' + b[1] + '</b><br><span style="color:var(--muted)">Score ' + s + ' out of 100 here</span>').addTo(map);
         });
         fit(); draw();
         map.on('zoomend', placeLabels);
       });
     }
-    function fit() {
-      if (!map) return;
+    // Zoom to where the weather is "Not bad" or better that day (all of WA if nowhere is)
+    function goodBounds() {
+      var g = D.grid, s = D.days[dayI].s, w = 999, e = -999, so = 99, no = -99;
+      for (var j = 0; j < g.ny; j++) for (var i = 0; i < g.nx; i++) {
+        if (s[j * g.nx + i] < 30) continue;
+        var lo = g.lng0 + i * g.d, la = g.lat0 + j * g.d;
+        w = Math.min(w, lo); e = Math.max(e, lo); so = Math.min(so, la); no = Math.max(no, la);
+      }
+      if (w > e) return [[112.6, -35.3], [129.0, -13.6]];
+      w -= 0.6; e += 0.6; so -= 0.6; no += 0.6;
+      var cx = (w + e) / 2, cy = (so + no) / 2, hw = Math.max(3, (e - w) / 2), hh = Math.max(2.5, (no - so) / 2);   // not too tight
+      return [[Math.max(112.6, cx - hw), Math.max(-35.3, cy - hh)], [Math.min(129.0, cx + hw), Math.min(-13.6, cy + hh)]];
+    }
+    function fit(animate) {
+      if (!map || !D) return;
       var wide = window.innerWidth > 900;
-      map.fitBounds([[112.6, -35.3], [129.0, -13.6]], { padding: { top: 40, bottom: 14, left: 12, right: wide ? 56 : 48 }, duration: 0 });
+      map.fitBounds(goodBounds(), { padding: { top: 44, bottom: 20, left: 20, right: wide ? 60 : 52 }, duration: animate ? 700 : 0, maxZoom: 7.5 });
     }
 
     // ---- the day's picture
@@ -294,6 +327,7 @@
     function draw() {
       if (!D || !map || !map.getSource('bands')) return;
       map.getSource('bands').setData({ type: 'FeatureCollection', features: bandsGeo(dayI) });
+      closePop(); if (tip) { tip.remove(); tip = null; }
       var R = ranked();
       // markers: numbered top five, small dots for the rest
       markers.forEach(function (m) { m.remove(); }); markers = [];
@@ -302,11 +336,20 @@
         el.className = 'mk' + (rank === 1 ? ' top1' : rank > 5 ? ' dot' : '');
         el.style.setProperty('--bandc', 'var(' + b[2] + ')');
         el.innerHTML = '<b>' + (rank <= 5 ? rank : '') + '</b>' + (rank <= 5 ? '<span>' + esc(t.n) + '</span>' : '');
-        el.title = t.n + ': ' + b[1] + ' (' + r.s + ')';
+        el.dataset.n = t.n;
+        el.setAttribute('aria-label', t.n + ': ' + b[1] + ', ' + r.tmax + '°');
         el.addEventListener('click', function (ev) { ev.stopPropagation(); townPopup(t); });
+        hoverTip(t, el);
         markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([t.lng, t.lat]).addTo(map));
       });
       placeLabels();
+      // the map's own town names: skip the five we label ourselves
+      var mine = ['literal', R.slice(0, 5).map(function (t) { return t.n; })];
+      ['place-city', 'place-town', 'place-village'].forEach(function (l) {
+        if (!map.getLayer(l)) return;
+        var f = map.getFilter(l).filter(function (x) { return !(x[0] === '!' ); });
+        map.setFilter(l, f.concat([['!', ['in', ['coalesce', ['get', 'name:en'], ['get', 'name']], mine]]]));
+      });
       // pick of the day
       var top = R[0], tr = top.days[dayI], tb = band(tr.s);
       var pick = document.getElementById('pick');
@@ -342,7 +385,7 @@
     function placeLabels() {
       var R = ranked().slice(0, 5), items = [];
       R.forEach(function (t, i) {
-        var m = markers.filter(function (mk) { return mk.getElement().title.indexOf(t.n + ':') === 0; })[0]; if (!m) return;
+        var m = markers.filter(function (mk) { return mk.getElement().dataset.n === t.n; })[0]; if (!m) return;
         var el = m.getElement(), sp = el.querySelector('span'); if (!sp) return;
         el.classList.remove('pl', 'pb', 'pt'); sp.style.visibility = '';
         items.push({ el: el, sp: sp, p: map.project([t.lng, t.lat]), w: sp.offsetWidth || t.n.length * 8, r: i ? 14 : 17 });
@@ -357,18 +400,32 @@
         if (ok) { if (ok[0]) it.el.classList.add(ok[0]); boxes.push(ok[1]); } else it.sp.style.visibility = 'hidden';
       });
     }
+    var pop = null, tip = null;
+    function closePop() { if (pop) { pop.remove(); pop = null; } }
     function townPopup(t) {
       var r = t.days[dayI], b = band(r.s);
-      new maplibregl.Popup({ closeButton: true, maxWidth: '240px', offset: 14 }).setLngLat([t.lng, t.lat])
+      closePop(); if (tip) { tip.remove(); tip = null; }
+      pop = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '240px', offset: 14 }).setLngLat([t.lng, t.lat])
         .setHTML('<b>' + esc(t.n) + '</b>: ' + b[1] + (r.precis ? '<br>' + esc(r.precis) : '') + '<br>' + r.tmax + '° top, ' + r.tmin + '° overnight'
           + (r.pop != null ? '<br>Chance of rain ' + r.pop + '%' : '') + '<br>Wind about ' + r.wind + ' km/h' + (r.gust >= 45 ? ', gusts ' + r.gust : '')
           + (r.notes.length ? '<br><span style="color:var(--muted)">' + esc(r.notes.join(', ')) + '</span>' : '')).addTo(map);
+      pop.on('close', function () { pop = null; });
+    }
+    // 5: hover a town for its top and overnight temps (mouse only; a tap opens the full box)
+    function hoverTip(t, el) {
+      if (!window.matchMedia('(hover: hover)').matches) return;
+      el.addEventListener('mouseenter', function () {
+        if (pop) return; var r = t.days[dayI];
+        tip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 12, className: 'tip' }).setLngLat([t.lng, t.lat])
+          .setHTML('<b>' + esc(t.n) + '</b> ' + r.tmax + '°<span style="color:var(--muted)"> / ' + r.tmin + '°</span>').addTo(map);
+      });
+      el.addEventListener('mouseleave', function () { if (tip) { tip.remove(); tip = null; } });
     }
     function buildDays() {
       var el = document.getElementById('days');
       el.innerHTML = D.days.map(function (d, i) { return '<button type="button" aria-pressed="' + (i === dayI) + '" data-i="' + i + '">' + dayLabel(d.date, i) + '</button>'; }).join('');
       el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
-        dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); }); });
+        dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); fit(true); }); });
     }
     function buildScale() {
       document.getElementById('scale').innerHTML = BANDS.slice().reverse().map(function (b) { return '<div style="--c:var(' + b[2] + ')">' + b[1] + '</div>'; }).join('');
@@ -401,7 +458,6 @@
       g.save(); g.beginPath(); g.roundRect ? g.roundRect(x0 - 10, y0 - 12, mw + 20, mh + 24, 22) : g.rect(x0 - 10, y0 - 12, mw + 20, mh + 24); g.clip();
       g.fillStyle = light.ocean; g.fillRect(x0 - 10, y0 - 12, mw + 20, mh + 24);
       var ringPath = function (rings) { g.beginPath(); rings.forEach(function (r) { r.forEach(function (pt, i) { var q = P(pt[0], pt[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); }); };
-      ringPath((GEO['Northern Territory'] || []).concat(GEO['South Australia'] || [])); g.fillStyle = light.land; g.fill(); g.strokeStyle = light.coast; g.lineWidth = 1; g.stroke();
       var wa = GEO['Western Australia'] || [];
       g.save(); ringPath(wa); g.clip(); g.fillStyle = col('--b0'); g.fill();
       bandsGeo(dayI).forEach(function (f) {
@@ -484,8 +540,10 @@
       setIcon();
       if (map && map.getLayer('bg')) {
         map.setPaintProperty('bg', 'background-color', css('--ocean')); map.setPaintProperty('mask', 'fill-color', css('--ocean'));
-        map.setPaintProperty('others', 'fill-color', css('--land'));
-        map.setPaintProperty('wa-line', 'line-color', css('--coast')); map.setPaintProperty('others-line', 'line-color', css('--coast'));
+        map.setPaintProperty('wa-line', 'line-color', css('--coast'));
+        ['roads', 'dist-line'].forEach(function (l) { map.setPaintProperty(l, 'line-color', css('--text')); });
+        ['dist-lab', 'place-city', 'place-town', 'place-village'].forEach(function (l) {
+          map.setPaintProperty(l, 'text-color', css(l === 'dist-lab' ? '--muted' : '--text')); map.setPaintProperty(l, 'text-halo-color', css('--surface')); });
       }
     });
     setIcon();

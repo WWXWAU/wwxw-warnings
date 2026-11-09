@@ -337,8 +337,45 @@ def write_geo(path):
         gj = g[name]; polys = gj['coordinates'] if gj['type'] == 'MultiPolygon' else [gj['coordinates']]
         rings = [simplify(p[0], 0.02) for p in polys]
         out[name] = [r for r in rings if len(r) >= 4 and (max(x for x, _ in r) - min(x for x, _ in r)) > 0.08]
+    # BoM forecast districts (as on the other pages): simplified boundaries and a label spot well inside each
+    try:
+        dd = json.load(open(os.path.join(ROOT, 'data', 'districts.json')))['districts']
+        out['districts'] = []
+        for d in dd:
+            rings = [simplify(r, 0.03) for r in d['rings']]
+            rings = [r for r in rings if len(r) >= 4]
+            if not rings: continue
+            big = max(rings, key=lambda r: (max(x for x, _ in r) - min(x for x, _ in r)) * (max(y for _, y in r) - min(y for _, y in r)))
+            out['districts'].append({'n': d['name'], 'r': rings, 'at': label_spot(big)})
+    except Exception as e:  # noqa: BLE001
+        log('Districts not added: %s' % e)
     with open(path, 'w') as fh:
         json.dump(out, fh, separators=(',', ':'))
+
+
+def label_spot(ring):
+    """A point well inside a ring: of a 24 x 24 sample, the inside point furthest from the edge."""
+    xs = [x for x, _ in ring]; ys = [y for _, y in ring]
+    def inside(x, y):
+        c = False
+        for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+            if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1) + x1: c = not c
+        return c
+    def edge(x, y):
+        best = 1e9
+        for (x1, y1), (x2, y2) in zip(ring, ring[1:] + ring[:1]):
+            dx, dy = x2 - x1, y2 - y1; L = dx * dx + dy * dy
+            t = 0 if L == 0 else max(0, min(1, ((x - x1) * dx + (y - y1) * dy) / L))
+            best = min(best, math.hypot(x - x1 - t * dx, y - y1 - t * dy))
+        return best
+    bx = None; bd = -1
+    for i in range(24):
+        for j in range(24):
+            x = min(xs) + (i + 0.5) * (max(xs) - min(xs)) / 24; y = min(ys) + (j + 0.5) * (max(ys) - min(ys)) / 24
+            if inside(x, y):
+                d = edge(x, y)
+                if d > bd: bd, bx = d, [round(x, 2), round(y, 2)]
+    return bx or [round(sum(xs) / len(xs), 2), round(sum(ys) / len(ys), 2)]
 
 
 def main():
