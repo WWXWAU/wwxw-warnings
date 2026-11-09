@@ -526,11 +526,7 @@
         c.toBlob(function (blob) {
           btn.disabled = false; btn.textContent = 'Save image';
           if (!blob) return;
-          var file = window.File ? new File([blob], name, { type: 'image/png' }) : null;
-          if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
-            navigator.share({ files: [file], title: "Today's Ripper Weather" }).catch(function () {});
-            return;
-          }
+          // straight to a download on every device (phones too), not the share-to-apps menu
           var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
           document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
         }, 'image/png');
