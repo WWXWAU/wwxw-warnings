@@ -463,9 +463,13 @@
       g.fillText(dayI === 0 ? "Today's Ripper Weather" : 'Ripper Weather', 134, 76);
       g.fillStyle = '#9DCDD3'; g.font = F(500, 24); g.fillText(dayLong(D.days[dayI].date) + ' · West WX Watchers', 136, 112);
       // map: WA in band colours, clipped to the coast
-      var x0 = 36, y0 = 166, mw = 560, mh = 790, L0 = 112.6, L1 = 129.0, T0 = mercY(-13.6), B0 = mercY(-35.3);
-      var k = Math.min(mw / (L1 - L0), mh / (T0 - B0)), ox = x0 + (mw - (L1 - L0) * k) / 2;
-      var P = function (lng, lat) { return [ox + (lng - L0) * k, y0 + (T0 - mercY(lat)) * k]; };
+      // framed like the live map: on the "Decent" and better areas (and the top five), not all of WA
+      var gb = goodBounds(), R5 = ranked().slice(0, 5);
+      var L0 = gb[0][0], L1 = gb[1][0], la0 = gb[0][1], la1 = gb[1][1];
+      R5.forEach(function (t) { L0 = Math.min(L0, t.lng - 0.8); L1 = Math.max(L1, t.lng + 0.8); la0 = Math.min(la0, t.lat - 0.8); la1 = Math.max(la1, t.lat + 0.8); });
+      var x0 = 36, y0 = 166, mw = 560, mh = 790, T0 = mercY(la1), B0 = mercY(la0);
+      var k = Math.min(mw / (L1 - L0), mh / (T0 - B0)), ox = x0 + (mw - (L1 - L0) * k) / 2, oy = y0 + (mh - (T0 - B0) * k) / 2;
+      var P = function (lng, lat) { return [ox + (lng - L0) * k, oy + (T0 - mercY(lat)) * k]; };
       g.save(); g.beginPath(); g.roundRect ? g.roundRect(x0 - 10, y0 - 12, mw + 20, mh + 24, 22) : g.rect(x0 - 10, y0 - 12, mw + 20, mh + 24); g.clip();
       g.fillStyle = light.ocean; g.fillRect(x0 - 10, y0 - 12, mw + 20, mh + 24);
       var ringPath = function (rings) { g.beginPath(); rings.forEach(function (r) { r.forEach(function (pt, i) { var q = P(pt[0], pt[1]); i ? g.lineTo(q[0], q[1]) : g.moveTo(q[0], q[1]); }); g.closePath(); }); };
