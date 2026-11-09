@@ -92,7 +92,7 @@
     .foot { padding: 0 20px 24px; font-size: 12px; color: var(--muted); }
 
     /* Map markers */
-    .mk { position: relative; cursor: pointer; }
+    .mk { cursor: pointer; }   /* the map library positions the marker; names are placed relative to it */
     .mk b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--text);
             border: 3px solid var(--bandc); font-size: 13px; font-weight: 800; box-shadow: 0 1px 3px rgba(14,42,51,0.35); }
     .mk.top1 b { width: 32px; height: 32px; font-size: 15px; background: var(--bandc); color: #0E2A33; border-color: var(--surface); }
