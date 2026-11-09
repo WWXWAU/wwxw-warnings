@@ -94,6 +94,8 @@
     .facts div { background: var(--bg); border-radius: 10px; padding: 7px 9px; }
     .facts b { display: block; font-size: 17px; }
     .facts span { font-size: 11.5px; color: var(--muted); }
+    .rain { margin: 2px 0 8px; font-size: 13px; }
+    .rain span { display: block; font-size: 11.5px; color: var(--muted); }
     .flood { margin: 4px 0 8px; padding: 9px 11px; border-radius: 10px; background: var(--bg); font-size: 13px; }
     .flood b.cls { color: var(--fc, var(--text)); }
     .flood .lv { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
@@ -188,7 +190,7 @@
     <button class="more" id="allMore" type="button" hidden>Show all gauges</button>
   </section>
 
-  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Gauge positions and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, the Bureau's flood levels, and rain from DWER and Bureau gauges. Gauge positions, flow ratings and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
@@ -358,7 +360,7 @@
       map.on('mousemove', 'g', function (e) {
         map.getCanvas().style.cursor = 'pointer';
         var g = byId(e.features[0].properties.id); if (!g) return;
-        tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(g.rate)) + (g.q != null && !g.off_air ? '<br>Flow ' + fq(g.q) : '') + (fcls(g) ? '<br><b>' + FLOOD[fcls(g)][0] + '</b>' : '')).addTo(map);
+        tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(g.rate)) + (g.q != null && !g.off_air ? '<br>Flow ' + fq(g.q) : '') + (g.rain && (g.rain.s9 || g.rain.to9) ? '<br>Rain nearby ' + mm((g.rain.s9 || 0) + (g.rain.to9 || 0)) + ' since 9 am yesterday' : '') + (fcls(g) ? '<br><b>' + FLOOD[fcls(g)][0] + '</b>' : '')).addTo(map);
       });
       map.on('mouseleave', 'g', function () { map.getCanvas().style.cursor = ''; tip.remove(); });
       map.on('click', 'g', function (e) { tip.remove(); pick(e.features[0].properties.id, false); });
@@ -377,11 +379,13 @@
       if (fly && map && g.lat != null) map.easeTo({ center: [g.lng, g.lat], zoom: Math.max(map.getZoom(), 8), duration: 600 });
       var s = STATUS[status(g)], el = $('detail');
       el.style.setProperty('--c', 'var(' + s[1] + ')');
-      el.innerHTML = '<div class="hd"><h2>' + esc(g.river) + '<small>' + esc(g.name) + ' · gauge ' + g.id + '</small></h2><button class="x" type="button" aria-label="Close">×</button></div>'
+      var bom = g.src === 'bom', gid = bom ? 'Bureau gauge ' + g.id.slice(1) : 'gauge ' + g.id;
+      el.innerHTML = '<div class="hd"><h2>' + esc(g.river) + '<small>' + esc(g.name) + ' · ' + gid + '</small></h2><button class="x" type="button" aria-label="Close">×</button></div>'
         + '<div class="facts"><div><b>' + m2(g.lvl) + '</b><span>Level, ' + esc(when(g.at)) + '</span></div>'
         + '<div><b style="color:var(' + s[1] + ')">' + (g.off_air ? 'Off air' : cmh(g.rate)) + '</b><span>' + s[0] + (g.off_air ? '' : ' · last hour') + '</span></div>'
         + '<div><b>' + (g.d24 == null ? '–' : cm(g.d24)) + '</b><span>Change in 24 hours</span></div>'
         + '<div><b>' + (g.q == null || g.off_air ? '–' : (g.qx ? 'over ' : '') + fq(g.q)) + '</b><span>' + (g.q == null ? 'No flow rating' : 'Flow' + (g.dq != null && Math.abs(g.dq) >= 0.001 && !g.off_air ? ', ' + (g.dq > 0 ? '+' : '−') + fq(Math.abs(g.dq)) + ' in the hour' : ' (estimated)')) + '</span></div></div>'
+        + rainLine(g)
         + floodBox(g)
         + (g.q != null ? '<div class="seg" role="group" aria-label="Chart"><button type="button" data-v="lvl" aria-pressed="' + (chartVar === 'lvl') + '">Level</button><button type="button" data-v="q" aria-pressed="' + (chartVar === 'q') + '">Flow</button></div>' : '')
         + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level or flow over the last 7 days"></svg><div class="tipc" id="tipc" hidden></div></div>'
@@ -390,7 +394,9 @@
         + (g.q != null ? '<p>Flow is worked out from the level, using five years of the Bureau\'s measured levels and flows at this gauge' + (g.qx ? '; the level is above anything in those records, so treat it as a rough guide' : '') + '.</p>' : '')
         + (g.tidal ? '<p>This gauge rises and falls with the tide, so it isn\'t counted as rising.</p>' : '')
         + (g.note ? '<p>Gauge note: ' + esc(g.note) + '</p>' : '')
-        + '<p><a href="https://kumina.water.wa.gov.au/waterinformation/wir/reports/publish/' + g.id + '/tel.htm" target="_blank" rel="noopener">DWER\'s page for this gauge</a></p></div>';
+        + (bom ? '<p>One of the Bureau of Meteorology\'s flood-warning gauges (run by another agency, read from the Bureau). Its readings stop between floods at some sites.</p>'
+               + '<p><a href="https://www.bom.gov.au/fwo/' + g.prod + '/' + g.prod + '.' + g.id.slice(1) + '.plt.shtml" target="_blank" rel="noopener">The Bureau\'s page for this gauge</a></p></div>'
+               : '<p><a href="https://kumina.water.wa.gov.au/waterinformation/wir/reports/publish/' + g.id + '/tel.htm" target="_blank" rel="noopener">DWER\'s page for this gauge</a></p></div>');
       el.hidden = false;
       el.querySelectorAll('.seg button').forEach(function (b) { b.addEventListener('click', function () {
         chartVar = b.getAttribute('data-v'); el.querySelectorAll('.seg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); chart(g); }); });
@@ -400,6 +406,16 @@
       if (window.innerWidth <= 1000 && !fly) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     var chartVar = 'lvl', RT = null;
+    var mm = function (v) { return v == null ? null : (v >= 10 ? Math.round(v) : +v.toFixed(1)) + ' mm'; };
+    function rainLine(g) {   // the nearest rain gauge, within 25 km
+      var r = g.rain; if (!r) return '';
+      var bits = [];
+      if (r.s9 != null) bits.push('<b>' + mm(r.s9) + '</b> since 9 am');
+      if (r.to9 != null) bits.push(mm(r.to9) + ' in the 24 hours to 9 am');
+      if (r.d3 != null) bits.push(mm(r.d3) + ' over 3 days');
+      if (!bits.length) return '';
+      return '<div class="rain">Rain nearby: ' + bits.join(' · ') + '<span>' + esc(r.n) + (r.km >= 1 ? ', ' + Math.round(r.km) + ' km away' : ', at the gauge') + ' (' + (r.src === 'BoM' ? 'Bureau' : 'DWER') + ')</span></div>';
+    }
     function floodBox(g) {
       var f = g.fl; if (!f || f.minor == null) return '';
       var c = fcls(g), t = c ? '<b class="cls" style="--fc:var(' + FLOOD[c][1] + ')">' + FLOOD[c][0] + '</b>: ' + m2(g.lvl) + ' is above the ' + c + ' flood level.'
@@ -503,7 +519,7 @@
       $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now';
     });
     setInterval(function () { if (!document.hidden) load(false).catch(function () {}); }, 15 * 60 * 1000);
-    window.riverPick = function (id) { pick(id || (byId('616011') ? '616011' : G[0].id), true); };   // for testing
+    window.riverPick = function (id) { var w = G.filter(function (g) { return g.rain && g.rain.s9 > 1 && g.q != null; })[0]; pick(id || (w ? w.id : byId('616011') ? '616011' : G[0].id), true); };   // for testing
   })();
   </script>
 </body>
