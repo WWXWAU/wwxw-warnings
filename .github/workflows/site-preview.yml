@@ -1,0 +1,21 @@
+name: Site page preview
+on:
+  workflow_dispatch:
+    inputs:
+      page:
+        description: 'Page in this repo to screenshot'
+        default: 'site/ripper/index.html'
+permissions:
+  contents: write
+jobs:
+  shot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q playwright && python -m playwright install --with-deps chromium > /dev/null
+      - run: python tools/site_shot.py "${{ inputs.page }}"
+      - name: Save to the previews branch
+        run: |
+          cd previews && git init -q -b previews && git add -A
+          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Site preview"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" previews

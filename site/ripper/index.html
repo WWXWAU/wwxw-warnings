@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="preconnect" href="https://raw.githubusercontent.com">
+  <link rel="preconnect" href="https://unpkg.com">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>Today's Ripper Weather — West WX Watchers</title>
+  <meta name="description" content="Where in WA has the best weather today and for the week ahead: towns ranked from bit ordinary to bloody ripper.">
+  <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
+  <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="West WX Watchers">
+  <meta property="og:title" content="Today's Ripper Weather — where WA's best weather is">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <script>
+  // Theme: saved choice (shared with the rest of the site), else the device setting. Set before anything draws.
+  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <style>
+    :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
+            --ocean: #D3E4E8; --land: #E7EEF0; --coast: #7E9AA3;
+            --b0: #B9C4C8; --b1: #A3D9D3; --b2: #48B6AC; --b3: #8FC95A; --b4: #F5B52E; color-scheme: light; }
+    [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
+            --ocean: #0D1D23; --land: #1B3640; --coast: #4F717C; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
+    a { color: var(--accent); }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+    /* Site tabs (as the other pages) */
+    .tabs { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; background: var(--surface);
+            border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs .brand { display: flex; align-items: center; margin-right: 6px; flex-shrink: 0; }
+    .tabs .brand img { width: 26px; height: 26px; border-radius: 6px; }
+    .tabs a:not(.brand) { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 5px 13px; border-radius: 999px; flex-shrink: 0; }
+    .tabs a:not(.brand):hover { color: var(--text); background: var(--bg); }
+    .tabs a.on { color: var(--onAccent); background: var(--accent); }
+    [data-theme=dark] .tabs .brand img { background: #f8faf9; padding: 2px; }
+
+    /* Title and days */
+    .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 14px 20px 10px; }
+    h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+    .days { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-left: auto; }
+    .days::-webkit-scrollbar { display: none; }
+    .days button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .days button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--onAccent); }
+    .themebtn { flex: none; width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .themebtn svg { width: 16px; height: 16px; }
+
+    /* Map + ranking */
+    .main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 0 20px 20px; }
+    .mapwrap { position: relative; background: var(--ocean); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; min-height: 560px; }
+    #map { position: absolute; inset: 0; }
+    .scale { position: absolute; left: 12px; right: 12px; bottom: 12px; display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; pointer-events: none; }
+    .scale div { font-size: 11.5px; font-weight: 600; text-align: center; padding: 22px 2px 0; position: relative; color: var(--text); }
+    .scale div::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 14px; background: var(--c); border-radius: 3px; }
+    .scale div:first-child::before { border-radius: 7px 3px 3px 7px; } .scale div:last-child::before { border-radius: 3px 7px 7px 3px; }
+    .stamp { position: absolute; left: 12px; top: 10px; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+
+    .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .pick { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 16px; position: relative; overflow: hidden; }
+    .pick::after { content: ""; position: absolute; inset: 0 0 auto 0; height: 6px; background: var(--bandc, var(--b2)); }
+    .pick .lead { font-size: 13px; color: var(--muted); }
+    .pick .town { font-size: 34px; font-weight: 800; line-height: 1.05; margin: 4px 0 8px; letter-spacing: -0.02em; }
+    .pick .bandname { display: inline-block; font-size: 20px; font-weight: 800; padding: 3px 12px 4px; border-radius: 10px; background: var(--bandc); color: #0E2A33; }
+    .pick .wx { display: flex; align-items: center; gap: 12px; margin-top: 12px; font-size: 15px; }
+    .pick .wx svg { width: 38px; height: 38px; flex: none; }
+    .pick .notes { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    .pick .t { font-weight: 700; font-size: 20px; } .pick .t small { font-weight: 500; color: var(--muted); font-size: 15px; }
+
+    .list { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 6px 0; }
+    .row { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto 30px; align-items: center; gap: 10px; padding: 8px 16px; border: 0; background: none; width: 100%; text-align: left; cursor: pointer; }
+    .row:hover { background: var(--bg); }
+    .row .rk { font-weight: 800; font-size: 15px; color: var(--muted); text-align: center; }
+    .row .nm { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row .nm small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .row .bd { font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--bandc); color: #0E2A33; white-space: nowrap; }
+    .row svg { width: 26px; height: 26px; }
+    .more { border: 0; background: none; color: var(--accent); font-weight: 600; font-size: 13px; padding: 8px 16px 6px; cursor: pointer; }
+    details.how { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 16px; font-size: 13px; color: var(--muted); }
+    details.how summary { cursor: pointer; color: var(--text); font-weight: 600; }
+    details.how p { margin: 8px 0 0; }
+    .foot { padding: 0 20px 24px; font-size: 12px; color: var(--muted); }
+
+    /* Map markers */
+    .mk { display: flex; align-items: center; gap: 5px; transform: translateY(-2px); cursor: pointer; }
+    .mk b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--surface); color: var(--text);
+            border: 3px solid var(--bandc); font-size: 13px; font-weight: 800; box-shadow: 0 1px 3px rgba(14,42,51,0.35); }
+    .mk.top1 b { width: 32px; height: 32px; font-size: 15px; background: var(--bandc); color: #0E2A33; border-color: var(--surface); }
+    .mk span { font-size: 12.5px; font-weight: 700; color: var(--text); text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface), 0 0 2px var(--surface); white-space: nowrap; }
+    .mk.dot b { width: 11px; height: 11px; border-width: 2px; background: var(--bandc); border-color: var(--surface); }
+    .mk.dot span { font-weight: 500; font-size: 11px; color: var(--muted); }
+    .maplibregl-popup-content { background: var(--surface); color: var(--text); border-radius: 12px; padding: 9px 12px; font: 13px/1.4 Lexend, system-ui, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+    .maplibregl-popup-tip { border-top-color: var(--surface) !important; border-bottom-color: var(--surface) !important; }
+    .maplibregl-popup-close-button { color: var(--muted); font-size: 16px; }
+
+    .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
+
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; padding: 0 12px 16px; }
+      .mapwrap { min-height: 0; height: 62vh; max-height: 560px; }
+      .top { padding: 12px 12px 8px; }
+      h1 { font-size: 20px; width: 100%; }
+      .days { margin-left: 0; flex: 1; }
+      .pick .town { font-size: 30px; }
+      .foot { padding: 0 12px 20px; }
+      .scale div { font-size: 10px; padding-top: 18px; } .scale div::before { height: 11px; }
+    }
+    @media (max-width: 600px) {
+      .tabs { height: 30px; padding: 0 5px; gap: 2px; }
+      .tabs .brand img { width: 18px; height: 18px; padding: 1px; border-radius: 4px; }
+      .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="tabs" aria-label="West WX Watchers">
+    <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
+    <a href="/">Home</a>
+    <a href="/outlook/">Convective Outlook</a>
+    <a href="/rainfall/">Rainfall</a>
+    <a href="/obs/">Live Obs</a>
+    <a href="/ripper/" class="on" aria-current="page">Ripper Weather</a>
+  </nav>
+
+  <div class="top">
+    <h1 id="title">Today's Ripper Weather</h1>
+    <div class="days" id="days" role="group" aria-label="Choose a day"></div>
+    <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
+  </div>
+
+  <div class="main">
+    <div class="mapwrap">
+      <div id="map" aria-label="Map of WA coloured by how good the weather is"></div>
+      <div class="stamp" id="stamp">Loading the forecast…</div>
+      <div class="scale" id="scale" aria-hidden="true"></div>
+      <div class="msg" id="msg" hidden></div>
+    </div>
+    <div class="panel">
+      <section class="pick" id="pick" aria-live="polite"></section>
+      <section class="list" id="list" aria-label="Towns ranked"></section>
+      <details class="how">
+        <summary>How the towns are rated</summary>
+        <p>Each day's daytime weather (9 am to 5 pm) is scored from the forecast. The best days top out at 25–29 °C, sunny, dry and with light winds.</p>
+        <p>Heat, cold, sticky humidity, wind, showers, storms and thick cloud take points off. On hot days, a coastal town gets credit when the sea breeze (the Doctor) is due by early afternoon and stops the heat climbing.</p>
+        <p>Inland, warm and still days carry a rough fly warning and lose a few points.</p>
+      </details>
+    </div>
+  </div>
+  <div class="foot" id="foot">Forecast data from Open-Meteo, scored by West WX Watchers. A bit of fun, not a warning service: for warnings go to <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-array@3.2.4/dist/d3-array.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3-contour@4.0.2/dist/d3-contour.min.js"></script>
+  <script>
+  (function () {
+    var DATA = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/site-data/';
+    var BANDS = [[85, 'Bloody ripper', '--b4'], [70, 'Beaut', '--b3'], [50, 'Decent', '--b2'], [30, 'Not bad', '--b1'], [0, 'Bit ordinary', '--b0']];
+    var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+    var band = function (s) { for (var i = 0; i < BANDS.length; i++) if (s >= BANDS[i][0]) return BANDS[i]; return BANDS[4]; };
+    var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var D = null, GEO = null, map = null, dayI = 0, markers = [], showAll = false;
+
+    // ---- weather icons (simple line drawings)
+    var ICON = {
+      sun: '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="7.5" fill="#F5B52E"/><g stroke="#F5B52E" stroke-width="2.6" stroke-linecap="round"><path d="M20 4v5M20 31v5M4 20h5M31 20h5M8.7 8.7l3.5 3.5M27.8 27.8l3.5 3.5M8.7 31.3l3.5-3.5M27.8 12.2l3.5-3.5"/></g></svg>',
+      partly: '<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="15" cy="15" r="6.5" fill="#F5B52E"/><g stroke="#F5B52E" stroke-width="2.4" stroke-linecap="round"><path d="M15 2.5v4M2.5 15h4M6 6l2.8 2.8M24 6l-2.8 2.8"/></g><path d="M13 32h17a6 6 0 0 0 0-12 8 8 0 0 0-15 2.5A4.8 4.8 0 0 0 13 32z" fill="#A9BCC2"/></svg>',
+      cloud: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 31h19a7 7 0 0 0 0-14 9 9 0 0 0-17 3A5.5 5.5 0 0 0 10 31z" fill="#8FA4AB"/></svg>',
+      rain: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 25h19a7 7 0 0 0 0-14 9 9 0 0 0-17 3A5.5 5.5 0 0 0 10 25z" fill="#8FA4AB"/><g stroke="#1565C0" stroke-width="2.6" stroke-linecap="round"><path d="M13 29l-2 5M20 29l-2 5M27 29l-2 5"/></g></svg>',
+      storm: '<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 24h19a7 7 0 0 0 0-14 9 9 0 0 0-17 3A5.5 5.5 0 0 0 10 24z" fill="#6E8790"/><path d="M21 22l-5 8h5l-3 7 8-10h-5l3-5z" fill="#F5B52E"/></svg>'
+    };
+
+    // ---- days
+    var dayLabel = function (iso, i) {
+      var d = new Date(iso + 'T12:00:00+08:00');
+      var wd = d.toLocaleDateString('en-AU', { weekday: 'short', timeZone: 'Australia/Perth' });
+      return i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : wd + ' ' + d.toLocaleDateString('en-AU', { day: 'numeric', timeZone: 'Australia/Perth' });
+    };
+    var dayLong = function (iso) {
+      return new Date(iso + 'T12:00:00+08:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Australia/Perth' });
+    };
+
+    // ---- the score field: fill outside-WA cells from their neighbours, smooth-upsample, contour into bands
+    function bandsGeo(day) {
+      var g = D.grid, nx = g.nx, ny = g.ny, s = D.days[day].s.slice();
+      for (var pass = 0; pass < 3; pass++) {   // spread values a few cells past the coast so the coastline fills cleanly
+        var t = s.slice();
+        for (var j = 0; j < ny; j++) for (var i = 0; i < nx; i++) {
+          var k = j * nx + i; if (s[k] >= 0) continue;
+          var sum = 0, n = 0;
+          for (var dj = -1; dj <= 1; dj++) for (var di = -1; di <= 1; di++) {
+            var jj = j + dj, ii = i + di; if (jj < 0 || ii < 0 || jj >= ny || ii >= nx) continue;
+            var v = s[jj * nx + ii]; if (v >= 0) { sum += v; n++; }
+          }
+          if (n) t[k] = sum / n;
+        }
+        s = t;
+      }
+      var K = 4, W = (nx - 1) * K + 1, H = (ny - 1) * K + 1, up = new Float64Array(W * H);
+      for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+        var fx = x / K, fy = y / K, i0 = Math.min(nx - 2, Math.floor(fx)), j0 = Math.min(ny - 2, Math.floor(fy)), ax = fx - i0, ay = fy - j0;
+        var q = function (ii, jj) { var v = s[jj * nx + ii]; return v >= 0 ? v : 0; };
+        up[y * W + x] = (q(i0, j0) * (1 - ax) + q(i0 + 1, j0) * ax) * (1 - ay) + (q(i0, j0 + 1) * (1 - ax) + q(i0 + 1, j0 + 1) * ax) * ay;
+      }
+      var lev = [30, 50, 70, 85], cs = d3.contours().size([W, H]).thresholds(lev)(up);
+      var toLL = function (p) { return [g.lng0 + (p[0] - 0.5) / K * g.d, g.lat0 + (p[1] - 0.5) / K * g.d]; };
+      return cs.map(function (c, idx) {
+        return { type: 'Feature', properties: { c: css(BANDS[3 - idx][2]) },
+                 geometry: { type: 'MultiPolygon', coordinates: c.coordinates.map(function (poly) { return poly.map(function (r) { return r.map(toLL); }); }) } };
+      });
+    }
+    function scoreAt(lng, lat) {
+      var g = D.grid, i = Math.round((lng - g.lng0) / g.d), j = Math.round((lat - g.lat0) / g.d);
+      if (i < 0 || j < 0 || i >= g.nx || j >= g.ny) return -1;
+      return D.days[dayI].s[j * g.nx + i];
+    }
+
+    // ---- map
+    function ringsFC(names) {
+      return { type: 'FeatureCollection', features: names.map(function (n) {
+        return { type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: (GEO[n] || []).map(function (r) { return [r]; }) } }; }) };
+    }
+    function initMap() {
+      map = new maplibregl.Map({ container: 'map', attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
+        style: { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': css('--ocean') } }] },
+        bounds: [[112.6, -35.3], [129.0, -13.6]], fitBoundsOptions: { padding: { top: 40, bottom: 56, left: 12, right: 12 } }, minZoom: 3, maxZoom: 9 });
+      map.touchZoomRotate.disableRotation();
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Forecast: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>' }));
+      map.on('load', function () {
+        var wa = (GEO['Western Australia'] || []);
+        var mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[90, -50], [150, -50], [150, 0], [90, 0], [90, -50]]].concat(wa.map(function (r) { return r.slice().reverse(); })) } };
+        map.addSource('wa', { type: 'geojson', data: ringsFC(['Western Australia']) });
+        map.addSource('bands', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+        map.addSource('mask', { type: 'geojson', data: mask });
+        map.addSource('others', { type: 'geojson', data: ringsFC(['Northern Territory', 'South Australia']) });
+        map.addLayer({ id: 'wa-fill', type: 'fill', source: 'wa', paint: { 'fill-color': css('--b0') } });
+        map.addLayer({ id: 'bands', type: 'fill', source: 'bands', paint: { 'fill-color': ['get', 'c'], 'fill-antialias': false } });
+        map.addLayer({ id: 'mask', type: 'fill', source: 'mask', paint: { 'fill-color': css('--ocean') } });
+        map.addLayer({ id: 'others', type: 'fill', source: 'others', paint: { 'fill-color': css('--land') } });
+        map.addLayer({ id: 'others-line', type: 'line', source: 'others', paint: { 'line-color': css('--coast'), 'line-width': 0.8, 'line-opacity': 0.6 } });
+        map.addLayer({ id: 'wa-line', type: 'line', source: 'wa', paint: { 'line-color': css('--coast'), 'line-width': 1.2 } });
+        map.on('click', function (e) {
+          var s = scoreAt(e.lngLat.lng, e.lngLat.lat); if (s < 0) return;
+          var b = band(s);
+          new maplibregl.Popup({ closeButton: true, maxWidth: '220px' }).setLngLat(e.lngLat)
+            .setHTML('<b>' + b[1] + '</b><br><span style="color:var(--muted)">Score ' + s + ' out of 100 here</span>').addTo(map);
+        });
+        fit(); draw();
+      });
+    }
+    function fit() {
+      if (!map) return;
+      var wide = window.innerWidth > 900;
+      map.fitBounds([[112.6, -35.3], [129.0, -13.6]], { padding: { top: 40, bottom: wide ? 60 : 50, left: 12, right: wide ? 56 : 48 }, duration: 0 });
+    }
+
+    // ---- the day's picture
+    function ranked() {
+      return D.towns.filter(function (t) { return t.days[dayI]; }).sort(function (a, b) { return b.days[dayI].s - a.days[dayI].s; });
+    }
+    function wxLine(r) { return '<span class="t">' + r.tmax + '°<small> / ' + r.tmin + '°</small></span>'; }
+    function noteText(r) {
+      var n = r.notes.slice();
+      if (!n.length) n.push(r.wind < 12 ? 'Light winds' : 'Breezy');
+      return n.join(', ');
+    }
+    function draw() {
+      if (!D || !map || !map.getSource('bands')) return;
+      map.getSource('bands').setData({ type: 'FeatureCollection', features: bandsGeo(dayI) });
+      var R = ranked();
+      // markers: numbered top five, small dots for the rest
+      markers.forEach(function (m) { m.remove(); }); markers = [];
+      R.slice().reverse().forEach(function (t) {
+        var rank = R.indexOf(t) + 1, r = t.days[dayI], b = band(r.s), el = document.createElement('div');
+        el.className = 'mk' + (rank === 1 ? ' top1' : rank > 5 ? ' dot' : '');
+        el.style.setProperty('--bandc', 'var(' + b[2] + ')');
+        el.innerHTML = '<b>' + (rank <= 5 ? rank : '') + '</b><span>' + esc(t.n) + '</span>';
+        el.title = t.n + ': ' + b[1] + ' (' + r.s + ')';
+        el.addEventListener('click', function (ev) { ev.stopPropagation(); townPopup(t); });
+        markers.push(new maplibregl.Marker({ element: el, anchor: 'left', offset: [-13, 0] }).setLngLat([t.lng, t.lat]).addTo(map));
+      });
+      // pick of the day
+      var top = R[0], tr = top.days[dayI], tb = band(tr.s);
+      var pick = document.getElementById('pick');
+      pick.style.setProperty('--bandc', 'var(' + tb[2] + ')');
+      pick.innerHTML = '<div class="lead">' + (dayI === 0 ? 'Best spot in WA today' : 'Best spot on ' + dayLong(D.days[dayI].date)) + '</div>'
+        + '<div class="town">' + esc(top.n) + '</div><span class="bandname">' + tb[1] + '</span>'
+        + '<div class="wx">' + ICON[tr.icon] + '<div>' + wxLine(tr) + '<div class="notes">' + esc(noteText(tr)) + '</div></div></div>';
+      // the list
+      var n = showAll ? R.length : 6;
+      var h = R.slice(1, n).map(function (t, i) {
+        var r = t.days[dayI], b = band(r.s);
+        return '<button class="row" type="button" data-n="' + esc(t.n) + '" style="--bandc:var(' + b[2] + ')"><span class="rk">' + (i + 2) + '</span>'
+          + '<span class="nm">' + esc(t.n) + '<small>' + r.tmax + '° · ' + esc(noteText(r)) + '</small></span><span class="bd">' + b[1] + '</span>' + ICON[r.icon] + '</button>';
+      }).join('');
+      h += '<button class="more" type="button" id="moreBtn">' + (showAll ? 'Show the top six' : 'Show all ' + R.length + ' towns') + '</button>';
+      var list = document.getElementById('list'); list.innerHTML = h;
+      list.querySelectorAll('.row').forEach(function (b) { b.addEventListener('click', function () {
+        var t = D.towns.filter(function (x) { return x.n === b.getAttribute('data-n'); })[0]; if (t) { map.easeTo({ center: [t.lng, t.lat], zoom: Math.max(map.getZoom(), 5.2) }); townPopup(t); } }); });
+      document.getElementById('moreBtn').addEventListener('click', function () { showAll = !showAll; draw(); });
+      document.getElementById('title').textContent = dayI === 0 ? "Today's Ripper Weather" : 'Ripper Weather, ' + dayLong(D.days[dayI].date);
+    }
+    function townPopup(t) {
+      var r = t.days[dayI], b = band(r.s);
+      new maplibregl.Popup({ closeButton: true, maxWidth: '240px', offset: 14 }).setLngLat([t.lng, t.lat])
+        .setHTML('<b>' + esc(t.n) + '</b>: ' + b[1] + '<br>' + r.tmax + '° top, ' + r.tmin + '° overnight<br>'
+          + 'Wind about ' + r.wind + ' km/h' + (r.gust >= 45 ? ', gusts ' + r.gust : '') + (r.rain >= 0.3 ? '<br>Rain ' + r.rain + ' mm' : '')
+          + (r.notes.length ? '<br><span style="color:var(--muted)">' + esc(r.notes.join(', ')) + '</span>' : '')).addTo(map);
+    }
+    function buildDays() {
+      var el = document.getElementById('days');
+      el.innerHTML = D.days.map(function (d, i) { return '<button type="button" aria-pressed="' + (i === dayI) + '" data-i="' + i + '">' + dayLabel(d.date, i) + '</button>'; }).join('');
+      el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
+        dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); }); });
+    }
+    function buildScale() {
+      document.getElementById('scale').innerHTML = BANDS.slice().reverse().map(function (b) { return '<div style="--c:var(' + b[2] + ')">' + b[1] + '</div>'; }).join('');
+    }
+
+    // ---- theme button (shared with the rest of the site)
+    var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+    var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
+    var tb = document.getElementById('themeBtn');
+    var setIcon = function () { tb.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON;
+      var m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', document.documentElement.getAttribute('data-theme') === 'dark' ? '#10232A' : '#FFFFFF'); };
+    tb.addEventListener('click', function () {
+      var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('wwxw-theme', t); } catch (e) {}
+      setIcon();
+      if (map && map.getLayer('bg')) {
+        map.setPaintProperty('bg', 'background-color', css('--ocean')); map.setPaintProperty('mask', 'fill-color', css('--ocean'));
+        map.setPaintProperty('others', 'fill-color', css('--land'));
+        map.setPaintProperty('wa-line', 'line-color', css('--coast')); map.setPaintProperty('others-line', 'line-color', css('--coast'));
+      }
+    });
+    setIcon();
+
+    // ---- load
+    var bust = '?t=' + Math.floor(Date.now() / 600000);   // fresh every 10 minutes
+    buildScale();
+    Promise.all([fetch(DATA + 'ripper.json' + bust).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }),
+                 fetch(DATA + 'ripper-geo.json' + bust).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })])
+      .then(function (res) {
+        D = res[0]; GEO = res[1];
+        var made = new Date(D.made.replace('Z', ':00Z'));
+        document.getElementById('stamp').textContent = 'Updated ' + made.toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' AWST';
+        buildDays(); initMap();
+        window.addEventListener('resize', function () { clearTimeout(window._rz); window._rz = setTimeout(fit, 200); });
+      })
+      .catch(function () {
+        var m = document.getElementById('msg'); m.hidden = false;
+        m.textContent = 'The forecast didn’t load. Check your connection and refresh the page.';
+        document.getElementById('stamp').hidden = true;
+      });
+  })();
+  </script>
+</body>
+</html>
