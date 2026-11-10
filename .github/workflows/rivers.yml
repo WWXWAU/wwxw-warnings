@@ -1,18 +1,20 @@
 name: River levels
-# WA river levels from DWER's telemetered gauges, every 15 minutes, for the River Levels page.
-# GitHub only starts scheduled runs about once an hour, so each run keeps going for most of the hour and
-# refreshes every 15 minutes itself. Published to its own branch:
-# https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/river-data/rivers.json
+# WA river levels from DWER's telemetered gauges, for the River Levels page.
+# Each run watches DWER's table for about 55 minutes: it checks every 2 minutes and rebuilds as soon as DWER posts
+# new readings (and at least every 15 minutes), then starts the next run itself, so there's no wait for GitHub's
+# (often late) scheduler. The half-hourly schedule only restarts the chain if it has stopped.
+# Published to its own branch: https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/river-data/rivers.json
 on:
   schedule:
-    - cron: '7 * * * *'
+    - cron: '7,37 * * * *'
   workflow_dispatch:
     inputs:
       once:
-        description: 'Run once only (no 15-minute loop)'
+        description: 'Run once only (no loop, no next run)'
         default: 'false'
 permissions:
   contents: write
+  actions: write
 concurrency:
   group: rivers
   cancel-in-progress: false
@@ -25,28 +27,42 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Every 15 minutes, for most of the hour
+      - name: Watch DWER and rebuild on new readings
         env:
           ONCE: ${{ inputs.once }}
+          EVENT: ${{ github.event_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           FILES="rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json"
-          start=$(date +%s)
-          for cycle in 1 2 3 4; do
-            t0=$(date +%s)
-            rm -rf out pub && mkdir -p out
-            if git fetch -q --depth 1 origin river-data 2>/dev/null; then
-              for f in $FILES; do git show FETCH_HEAD:$f > out/$f 2>/dev/null || rm -f out/$f; done
+          # a scheduled run is only a backstop: skip it if the river data was published in the last 20 minutes
+          if [ "$EVENT" = "schedule" ] && git fetch -q --depth 1 origin river-data 2>/dev/null; then
+            last=$(git log -1 --format=%ct FETCH_HEAD); age=$(( $(date +%s) - last ))
+            if [ $age -lt 1200 ]; then echo "Chain is running (data $age s old); nothing to do."; exit 0; fi
+          fi
+          stamp() { curl -s --max-time 40 https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm | grep -o 'latest record in this table was at [0-9:]* [0-9A-Z-]*' | head -1; }
+          start=$(date +%s); seen=""; built=0
+          while :; do
+            now=$(date +%s); s=$(stamp)
+            if [ -n "$s" ] && [ "$s" != "$seen" ] || [ $(( now - built )) -ge 900 ]; then
+              echo "== $(date -u +%H:%M) UTC: DWER says '$s'"
+              rm -rf out pub && mkdir -p out
+              if git fetch -q --depth 1 origin river-data 2>/dev/null; then
+                for f in $FILES; do git show FETCH_HEAD:$f > out/$f 2>/dev/null || rm -f out/$f; done
+              fi
+              if python rivers/rivers.py out; then
+                mkdir -p pub && ( cd pub && git init -q -b river-data && cp ../out/rivers.json $(for f in $FILES; do echo ../out/$f; done) . && git add -A \
+                  && git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "River levels" \
+                  && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" river-data ) || echo "Publish failed"
+                [ -n "$s" ] && seen="$s"
+              else
+                echo "River levels run failed"
+              fi
+              built=$(date +%s)
             fi
-            if python rivers/rivers.py out; then
-              mkdir -p pub && ( cd pub && git init -q -b river-data && cp ../out/rivers.json $(for f in $FILES; do echo ../out/$f; done) . && git add -A \
-                && git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "River levels" \
-                && git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" river-data ) || echo "Publish failed (cycle $cycle)"
-            else
-              echo "River levels run failed (cycle $cycle)"
-            fi
-            [ "$ONCE" = "true" ] && break
-            next=$(( t0 + 900 ))
-            # stop before the next hour's run is due to start
-            [ $(( next - start )) -gt 3000 ] && break
-            now=$(date +%s); [ $next -gt $now ] && sleep $(( next - now ))
+            [ "$ONCE" = "true" ] && exit 0
+            [ $(( $(date +%s) - start )) -ge 3240 ] && break     # about 54 minutes
+            sleep 120
           done
+          # start the next run (a dispatch from this token does start a new run)
+          curl -s -X POST -H "Authorization: Bearer ${GH_TOKEN}" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/rivers.yml/dispatches" -d '{"ref":"main"}' && echo "Next run started"
