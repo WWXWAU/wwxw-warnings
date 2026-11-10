@@ -707,8 +707,6 @@
       c.fillStyle = IMG.muted; c.font = FONT(400, 21); c.fillText('WA River Levels · ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }), 152, 128);
       c.fillStyle = IMG.text; c.font = FONT(800, 46); c.fillText(fit(c, title, 936), 72, 212);
       if (sub) { c.fillStyle = IMG.muted; c.font = FONT(500, 25); c.fillText(fit(c, sub, 936), 72, 252); }
-      c.fillStyle = IMG.muted; c.font = FONT(400, 19);
-      c.fillText('westweatherwatchers.com/rivers · DWER and Bureau of Meteorology gauges (provisional)', 72, 1010);
       return [cv, c, sub ? 290 : 250];
     }
     function listImage(title, note, L, val, subOf) {
@@ -732,7 +730,7 @@
       if (src) { var pick3 = function (k) { var v = src[k]; return v == null ? null : u ? v[0] : v; };
         if (pick3('to9') != null) { upT = mm(pick3('to9')); upL += (u ? ' (avg)' : '') + ', 24 h to 9 am'; }
         else if (pick3('d3') != null) { upT = mm(pick3('d3')); upL += (u ? ' (avg)' : '') + ', 3 days'; } }
-      var tiles = [[m2(g.lvl), 'Level, ' + when(g.at)], [g.off_air ? 'Off air' : cmh(rr(g)), STATUS[status(g)][0] + ', per hour'], [g.q == null ? '–' : fq(g.q), 'Flow (DWER)'],
+      var tiles = [[m2(g.lvl), 'Level, ' + when(g.at)], [g.off_air ? 'Off air' : cmh(rr(g)), STATUS[status(g)][0] + ', per hour'], [g.q == null ? '–' : fq(g.q), 'Flow'],
                    [k ? m2(k[0]) : '–', 'Highest ' + PERS[PER][1].replace('in the ', '')], [riseOf(g) != null ? cm(riseOf(g)) : '–', 'Rise ' + PERS[PER][1].replace('in the ', '')], [upT, upL]];
       tiles.forEach(function (t, i) {
         var x = 72 + (i % 3) * 316, yy = y + Math.floor(i / 3) * 112;
