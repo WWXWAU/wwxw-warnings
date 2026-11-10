@@ -1,23 +1,22 @@
-"""Probe 9: Main Roads travel map layers (water level / floodway gauges?)."""
-import json, re, sys
+"""Probe 10: DWER station pages — discharge (m3/s), recent series, and the rain gauge list."""
+import re, sys
 sys.path.insert(0, 'rivers'); import rivers as RV
-def J(u):
-    try: return json.loads(RV.get(u, 90, 2))
-    except Exception as e: print('FAILED', u, e); return {}
-for s in ['TravelInformation', 'Apps/TravelMap', 'Overlay']:
-    j = J('https://gisservices.mainroads.wa.gov.au/arcgis/rest/services/%s/MapServer?f=json' % s)
-    print(s, [(l['id'], l['name']) for l in j.get('layers', [])])
-B = 'https://travelmap.mainroads.wa.gov.au'
-for u in [B + '/Home/Map', B + '/']:
-    t = RV.get(u, 60, 1); print('\n==', u, len(t))
-    js = sorted(set(re.findall(r'src="([^"]+\.js[^"]*)"', t))); print('scripts', js)
-    for s in js:
-        if s.startswith('http') and 'travelmap' not in s: continue
-        try: c = RV.get(s if s.startswith('http') else B + s, 60, 1)
-        except Exception as e: print('fail', s, e); continue
-        hits = sorted(set(re.findall(r'["\'](/[A-Za-z]+/[A-Za-z]+[^"\']{0,60})["\']', c)))
-        print('  ', s, len(c), [h for h in hits if re.search(r'(?i)api|get|flood|water|gauge|level|camera|incident|closure', h)][:80])
-        for m in re.finditer(r'(?i)(water ?level|gauge|floodway)', c):
-            print('     ...', c[max(0, m.start() - 150):m.end() + 150].replace('\n', ' ')[:300]); break
-services2 = J('https://services2.arcgis.com/cHGEnmsJ165IBJRM/ArcGIS/rest/services?f=json')
-print('services2 water/flood/gauge:', [s['name'] for s in services2.get('services', []) if re.search(r'(?i)flood|water|gauge|level|river|creek|weather|camera', s['name'])])
+B = RV.DWER
+t = RV.get(B + '/telem/stage.cfm')
+print('stage.cfm', len(t))
+print('header:', [RV.clean(x) for x in re.findall(r'<th[^>]*>(.*?)</th>', t, re.S)][:20])
+rows = re.findall(r'<tr class=(\w+)>(.*?)</tr>', t, re.S)
+for cls, row in rows[:2]:
+    print(cls, row[:1500].replace('\n', ' '))
+links = sorted(set(re.findall(r'href="([^"]+)"', t)))
+print('links:', links[:80])
+sid = re.search(r'publish/(\d+)/', t).group(1)
+for u in [l for l in links if sid in l][:6]:
+    full = u if u.startswith('http') else (B + '/telem/' + u if not u.startswith('/') else 'https://kumina.water.wa.gov.au' + u)
+    try: c = RV.get(full, 60, 1)
+    except Exception as e: print('fail', full, e); continue
+    print('\n==', full, len(c)); print(RV.clean(c)[:2500])
+    print('sub-links:', sorted(set(re.findall(r'(?:href|src)="([^"]+)"', c)))[:60])
+for u in ['/telem/flow.cfm', '/telem/discharge.cfm', '/telem/index.cfm', '/telem/', '/telem/rain.cfm']:
+    try: c = RV.get(B + u, 60, 1); print('\n==', u, len(c)); print(RV.clean(c)[:1500]); print('links', sorted(set(re.findall(r'href="([^"]+)"', c)))[:60])
+    except Exception as e: print('fail', u, e)
