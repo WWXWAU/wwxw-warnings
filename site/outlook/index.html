@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://script.google.com">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-QM9S50DJLZ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-QM9S50DJLZ');
+</script>
+  <meta name="robots" content="noindex, nofollow">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d1a">
+  <title>West WX Watchers — Convective Outlook</title>
+  <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
+  <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600&display=swap">
+  <script>
+  // Theme (Coastal): saved choice, else the device setting. Set before anything draws.
+  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t); window.WWXW_THEME = t; })();
+  </script>
+  <style>
+    :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF; color-scheme: light; }
+    [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D; color-scheme: dark; }
+
+    html, body { margin: 0; height: 100%; background: var(--bg); overflow: hidden; }
+    body { display: flex; flex-direction: column; box-sizing: border-box;
+           padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+           font: 14px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; color: var(--text); }
+    /* Site tabs */
+    .tabs { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; background: var(--surface);
+            border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; flex-shrink: 0; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs .brand { display: flex; align-items: center; margin-right: 6px; flex-shrink: 0; }
+    .tabs .brand img { width: 26px; height: 26px; border-radius: 6px; }
+    .tabs a:not(.brand) { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap;
+                          padding: 5px 13px; border-radius: 999px; flex-shrink: 0; }
+    .tabs a:not(.brand):hover { color: var(--text); background: var(--bg); }
+    .tabs a.on { color: var(--onAccent); background: var(--accent); }
+    .tabs a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .frame { position: relative; flex: 1; min-height: 0; }
+    /* Shown underneath until the page has loaded */
+    .loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+               gap: 10px; color: var(--muted); text-align: center; padding: 24px; background: var(--bg); }
+    .loading img { width: 84px; height: 84px; border-radius: 18px; }
+    .loading strong { color: var(--text); font-size: 17px; font-weight: 600; }
+    .loading a { color: var(--accent); }
+    iframe { position: relative; display: block; border: 0; width: 100%; height: 100%; background: transparent; }
+    @media (max-width: 600px) {
+      .tabs { height: 30px; padding: 0 5px; gap: 2px; }
+      .tabs .brand { margin-right: 3px; }
+      .tabs .brand img { width: 18px; height: 18px; padding: 1px; border-radius: 4px; }
+      .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; }
+    }
+    /* Live BoM warning banner (severe thunderstorms and tropical cyclones) */
+    .wbanner { display: none; flex-shrink: 0; background: #5a1414; border-bottom: 1px solid #c62828; color: #ffe3e3;
+               font: 600 12.5px/1.4 "Segoe UI", system-ui, Arial, sans-serif; padding: 5px 12px; }
+    .wbanner.cyc { background: #3d1b5e; border-bottom-color: #8e44c9; }
+    .wbanner .wb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .wbanner .wb-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wbanner a { color: #fff; text-decoration: underline; }
+    .wbanner .wb-src { opacity: 0.75; font-weight: 400; }
+    .wbanner .wb-more { margin-left: auto; flex: none; background: none; border: 1px solid rgba(255,255,255,0.45); color: #fff;
+                        border-radius: 4px; font: inherit; font-size: 11px; padding: 1px 7px; cursor: pointer; }
+    .wbanner ul { margin: 4px 0 2px 22px; padding: 0; font-weight: 500; }
+    .wbanner li { margin: 2px 0; }
+    @media (max-width: 600px) { .wbanner { font-size: 11px; padding: 4px 8px; } }
+    [data-theme=dark] .tabs .brand img, [data-theme=dark] .loading img { background: #f8faf9; padding: 2px; }
+    [data-theme=dark] .loading img { padding: 8px; }
+  </style>
+</head>
+<body>
+  <nav class="tabs" aria-label="West WX Watchers">
+      <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
+      <a href="/">Home</a>
+      <a href="/outlook/" class="on" aria-current="page">Convective Outlook</a>
+      <a href="/rainfall/">Rainfall</a>
+      <a href="/obs/">Live Obs</a>
+  </nav>
+  <div class="wbanner" id="wbanner" role="alert" aria-live="polite"></div>
+  <script>
+  (function () {   // current BoM severe thunderstorm and tropical cyclone warnings for WA
+    var U = 'https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec?page=warnings', el = document.getElementById('wbanner');
+    var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var item = function (w) { return '<a href="' + esc(w.link) + '" target="_blank" rel="noopener">' + esc(w.title) + '</a>'; };
+    function show(d) {
+      var it = (d && d.items) || [];
+      if (!it.length) { el.style.display = 'none'; return; }
+      el.className = 'wbanner' + (it.some(function (w) { return w.type === 'cyclone'; }) ? ' cyc' : '');
+      var h = '<div class="wb-row"><span aria-hidden="true">&#9888;</span><span class="wb-t"><span class="wb-src">BoM: </span>' + item(it[0]) + '</span>';
+      if (it.length > 1) {
+        h += '<button class="wb-more" type="button" onclick="var l=this.parentNode.nextSibling;l.hidden=!l.hidden;this.textContent=l.hidden?\'+' + (it.length - 1) + ' more\':\'less\';">+' + (it.length - 1) + ' more</button></div>';
+        h += '<ul hidden>' + it.slice(1).map(function (w) { return '<li>' + item(w) + '</li>'; }).join('') + '</ul>';
+      } else { h += '</div>'; }
+      el.innerHTML = h; el.style.display = 'block';
+    }
+    function load() { fetch(U, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(show).catch(function () {}); }
+    load(); setInterval(load, 300000);
+  })();
+  </script>
+  <div class="frame">
+    <div class="loading">
+      <img src="../brand/wwxw-icon-192.png" alt="">
+      <strong>West WX Watchers</strong>
+      <span>Loading the convective outlook…</span>
+    </div>
+    <iframe id="app" data-src="https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec" title="West WX Watchers convective outlook" allow="fullscreen; geolocation" allowfullscreen></iframe>
+  </div>
+  <!-- PIN access (PinGate.gs in the outlook project): asks for the PIN, keeps a 6-month pass, loads the page with it -->
+  <div id="wwxwPin" style="position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;background:rgba(14,42,51,0.55);font-family:Lexend,'Segoe UI',Arial,sans-serif;">
+    <form id="wwxwPinForm" style="background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:24px 22px;width:300px;max-width:calc(100% - 32px);box-shadow:0 8px 30px rgba(0,0,0,0.3);text-align:center;">
+      <div style="font-weight:700;font-size:17px;margin-bottom:4px;">West WX Watchers</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Enter your PIN to open the outlook</div>
+      <input id="wwxwPinIn" type="password" inputmode="numeric" autocomplete="one-time-code" maxlength="10" required
+        style="width:100%;box-sizing:border-box;font-size:22px;letter-spacing:6px;text-align:center;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);">
+      <button type="submit" style="margin-top:12px;width:100%;padding:10px;border:0;border-radius:999px;background:var(--accent);color:var(--onAccent);font-weight:600;font-size:14px;cursor:pointer;">Open</button>
+      <div id="wwxwPinMsg" style="min-height:18px;margin-top:10px;font-size:12.5px;color:#C62828;"></div>
+      <div style="font-size:11px;color:var(--muted);">You'll stay signed in on this device for 6 months.</div>
+    </form>
+  </div>
+  <script>
+  (function () {
+    var KEY = 'wwxw-pass', frame = document.querySelector('iframe[data-src]');
+    if (!frame) return;
+    var src = frame.getAttribute('data-src'), exec = src.split('?')[0];
+    if (window.WWXW_THEME) src += (src.indexOf('?') < 0 ? '?' : '&') + 'theme=' + window.WWXW_THEME;   // as the old loader line did
+    var gm = /[?&]grid=(\d)/.exec(location.search); if (gm) src += (src.indexOf('?') < 0 ? '?' : '&') + 'grid=' + gm[1];   // ?grid=1 = the 1° preview
+    var box = document.getElementById('wwxwPin'), input = document.getElementById('wwxwPinIn'), msg = document.getElementById('wwxwPinMsg');
+    var get = function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
+    var put = function (v) { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {} };
+    var open = function (pass) { frame.src = src + (src.indexOf('?') < 0 ? '?' : '&') + 'pass=' + encodeURIComponent(pass || ''); };
+    var ask = function () { box.style.display = 'flex'; setTimeout(function () { input.focus(); }, 50); };
+    // the page says the pass is missing, expired or cancelled: ask for the PIN
+    window.addEventListener('message', function (ev) { if (ev.data && ev.data.wwxw === 'locked') { put(null); ask(); } });
+    document.getElementById('wwxwPinForm').addEventListener('submit', function (ev) {
+      ev.preventDefault(); msg.textContent = 'Checking…';
+      fetch(exec + '?page=pin&pin=' + encodeURIComponent(input.value))
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+          if (!d.ok) { msg.textContent = d.msg || 'That PIN isn’t right.'; input.select(); return; }
+          put(d.pass); box.style.display = 'none'; msg.textContent = ''; input.value = ''; open(d.pass);
+        })
+        .catch(function () { msg.textContent = 'Couldn’t check the PIN. Please try again.'; });
+    });
+    open(get());   // no pass yet = the page reports "locked" and the box appears
+  })();
+  </script>
+  <script>
+  // The map page tells us when its sun/moon button is pressed: follow it and remember it
+  window.addEventListener('message', function (e) {
+    var t = e.data && e.data.wwxwTheme;
+    if (t !== 'light' && t !== 'dark') return;
+    document.documentElement.setAttribute('data-theme', t);
+    try { localStorage.setItem('wwxw-theme', t); } catch (x) {}
+    var m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', t === 'dark' ? '#10232A' : '#FFFFFF');
+  });
+  (function () { var m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', window.WWXW_THEME === 'dark' ? '#10232A' : '#FFFFFF'); })();
+  </script>
+</body>
+</html>

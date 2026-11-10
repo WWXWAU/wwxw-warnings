@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <link rel="preconnect" href="https://script.google.com">
+    <!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-QM9S50DJLZ"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-QM9S50DJLZ');
+</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0d0d1a">
+  <meta name="description" content="West WX Watchers — WA rainfall, lightning and live observations. Reporting severe WX, data and chasing since 1999.">
+  <title>West WX Watchers — WA severe weather, rainfall and live weather</title>
+  <link rel="icon" type="image/png" href="brand/wwxw-icon-64.png">
+  <link rel="apple-touch-icon" href="brand/wwxw-icon-192.png">
+  <!-- How the page looks when shared on Facebook, X, Messenger etc. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="West WX Watchers">
+  <meta property="og:title" content="West WX Watchers — WA severe weather, rainfall and live weather">
+  <meta property="og:description" content="Rainfall, lightning and live weather observations for Western Australia.">
+  <meta property="og:url" content="https://westweatherwatchers.com/">
+  <meta property="og:image" content="https://westweatherwatchers.com/brand/wwxw-share.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script>
+    // =====================================================================
+    // SOCIAL LINKS — paste your page addresses between the quotes.
+    // Any left empty ('') are not shown on the page.
+    // =====================================================================
+    var SOCIALS = {
+      instagram: '',   // e.g. 'https://www.instagram.com/yourname'
+      facebook:  'https://www.facebook.com/WestWeatherWatchers',
+      x:         'https://x.com/WestWXWatchers',
+      youtube:   'https://www.youtube.com/@WestWeatherWatchers',
+      tiktok:    '',   // e.g. 'https://www.tiktok.com/@yourname'
+      threads:   '',   // e.g. 'https://www.threads.net/@yourname'
+      email:     ''    // e.g. 'you@example.com'
+    };
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap">
+  <script>
+  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <style>
+    :root {   /* Coastal: light */
+      --bg: #EEF4F5; --panel: #FFFFFF; --panel2: #E3ECEE; --line: #C9D8DC;
+      --text: #0E2A33; --muted: #4A6470; --accent: #0E7C86; --onAccent: #FFFFFF; --accent2: #B07D00; --blue: #0E7C86;
+      --paper: #f8faf9; --ink: #111; color-scheme: light;
+    }
+    [data-theme=dark] {   /* Coastal: dark */
+      --bg: #10232A; --panel: #16303A; --panel2: #1B3842; --line: #28434D;
+      --text: #E2EEF0; --muted: #9DB6BD; --accent: #3FC1C9; --onAccent: #08181D; --accent2: #F2C230; --blue: #3FC1C9; color-scheme: dark;
+    }
+    :root:not([data-theme=dark]) .banner img { filter: invert(1) hue-rotate(180deg) saturate(1.3); }
+    .themebtn { margin-left: 6px; width: 36px; height: 32px; padding: 0; border-radius: 999px; border: 1px solid var(--line); background: transparent;
+                color: var(--text); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .themebtn svg { width: 17px; height: 17px; }
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.55 "Lexend", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+      padding-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    a { color: inherit; }
+    a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+    /* ---------- Logo banner ---------- */
+    .banner {
+      background: var(--bg); text-align: center;
+      padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px 16px;
+    }
+    .banner img { width: 100%; max-width: 720px; height: auto; display: inline-block; }
+    .stripe { height: 3px; background: var(--accent); }
+    /* Site tabs */
+    .tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; justify-content: center; gap: 4px;
+            padding: 6px 10px; background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
+            overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap; padding: 7px 15px; border-radius: 999px; flex-shrink: 0; }
+    .tabs a:hover { color: var(--text); background: var(--panel2); }
+    .tabs a.on { color: var(--onAccent); background: var(--accent); }
+    @media (max-width: 600px) { .tabs { justify-content: flex-start; } .tabs a { font-size: 13px; padding: 6px 11px; } }
+
+    /* ---------- Photo strip ---------- */
+    .hero {
+      position: relative; min-height: 200px; display: flex; align-items: flex-end;
+      background: linear-gradient(160deg, #1b2a52 0%, #0d0d1a 70%);
+      background-size: cover; background-position: center;
+      padding: 28px 20px 24px;
+      border-bottom: 1px solid var(--line);
+    }
+    .hero::before {   /* your photo, darkened so the title stays readable */
+      content: ""; position: absolute; inset: 0;
+      background: url("pictures/BG-new.JPG") center / cover no-repeat;
+      opacity: 0.55;
+    }
+    .hero::after {
+      content: ""; position: absolute; inset: 0;
+      background: linear-gradient(180deg, rgba(13,13,26,0.15) 0%, rgba(13,13,26,0.92) 100%);
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; width: 100%; }
+    .hero h1 { color: #fff; margin: 0 0 6px; font-size: clamp(26px, 5vw, 40px); line-height: 1.15; letter-spacing: 0.5px; }
+    .hero p { margin: 0; color: #DCE7EA; font-size: 17px; max-width: 640px; }
+
+    /* ---------- Layout ---------- */
+    main { max-width: 960px; margin: 0 auto; padding: 28px 20px 10px; }
+    h2 {
+      margin: 34px 0 14px; font-size: 19px; font-weight: 600; color: var(--text);
+      display: flex; align-items: center; gap: 10px;
+    }
+    h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+    /* Featured: the convective outlook */
+    .feature {
+      display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center;
+      background: var(--panel);
+      border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 14px; padding: 22px;
+    }
+    .feature h3 { margin: 0 0 6px; font-size: 22px; }
+    .feature + .feature { margin-top: 14px; }
+    .feature.rain { background: var(--panel); border-color: var(--line); border-left-color: var(--accent); }
+    .feature .btn.btn-rain { background: var(--accent); }
+    .feature p { margin: 0; color: var(--muted); }
+    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .tag { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--text); }
+    .tag .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+    .btn {
+      display: inline-block; text-decoration: none; font-weight: 700; white-space: nowrap;
+      background: var(--accent); color: var(--onAccent); padding: 11px 20px; border-radius: 999px; font-size: 15px;
+    }
+    .btn:hover { filter: brightness(1.08); }
+
+    /* Link cards */
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+    .card {
+      display: block; text-decoration: none; background: var(--panel); border: 1px solid var(--line);
+      border-radius: 12px; padding: 18px; transition: border-color .15s, transform .15s;
+    }
+    .card:hover { border-color: var(--blue); transform: translateY(-2px); }
+    .card .ico { font-size: 24px; line-height: 1; }
+    .card h3 { margin: 10px 0 4px; font-size: 17px; }
+    .card p { margin: 0; color: var(--muted); font-size: 14px; }
+    .card .note { display: inline-block; margin-top: 8px; font-size: 11px; color: var(--accent2); }
+
+    /* Socials */
+    .socials { display: flex; flex-wrap: wrap; gap: 10px; }
+    .social {
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
+      background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 600;
+    }
+    .social:hover { filter: brightness(1.1); }
+    .social.instagram { background: linear-gradient(45deg, #f9a825 0%, #e1306c 50%, #833ab4 100%); border-color: transparent; color: #fff; }
+    .social.facebook  { background: #1877f2; border-color: transparent; color: #fff; }
+    .social.x         { background: #000; border-color: #444; color: #fff; }
+    .social.youtube   { background: #ff0000; border-color: transparent; color: #fff; }
+    .social.tiktok    { background: #000; border-color: #25f4ee; color: #fff; }
+    .social svg { width: 18px; height: 18px; fill: currentColor; }
+    .socials-empty { color: var(--muted); font-size: 14px; }
+
+    .copy { display: inline-flex; align-items: center; gap: 8px; }
+    .copy img { height: 20px; width: auto; }
+    footer {
+      max-width: 960px; margin: 30px auto 0; padding: 18px 20px 26px; border-top: 1px solid var(--line);
+      color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
+    }
+
+    @media (max-width: 600px) {
+      .hero { min-height: 170px; }
+      .banner { padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: 10px; }
+      .feature { grid-template-columns: 1fr; }
+      .btn { text-align: center; }
+    }
+    @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
+    /* Live BoM warning banner (severe thunderstorms and tropical cyclones) */
+    .wbanner { display: none; flex-shrink: 0; background: #5a1414; border-bottom: 1px solid #c62828; color: #ffe3e3;
+               font: 600 12.5px/1.4 "Segoe UI", system-ui, Arial, sans-serif; padding: 5px 12px; }
+    .wbanner.cyc { background: #3d1b5e; border-bottom-color: #8e44c9; }
+    .wbanner .wb-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .wbanner .wb-t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wbanner a { color: #fff; text-decoration: underline; }
+    .wbanner .wb-src { opacity: 0.75; font-weight: 400; }
+    .wbanner .wb-more { margin-left: auto; flex: none; background: none; border: 1px solid rgba(255,255,255,0.45); color: #fff;
+                        border-radius: 4px; font: inherit; font-size: 11px; padding: 1px 7px; cursor: pointer; }
+    .wbanner ul { margin: 4px 0 2px 22px; padding: 0; font-weight: 500; }
+    .wbanner li { margin: 2px 0; }
+    @media (max-width: 600px) { .wbanner { font-size: 11px; padding: 4px 8px; } }
+  </style>
+</head>
+<body>
+
+  <header class="banner">
+    <img src="brand/wwxw-logo-banner-dark.png" width="1400" height="457"
+         alt="West WX Watchers — Reporting severe WX, data and chasing since 1999">
+  </header>
+  <nav class="tabs" aria-label="West WX Watchers">
+      <a href="/" class="on" aria-current="page">Home</a>
+      <a href="/rainfall/">Rainfall</a>
+      <a href="/obs/">Live Obs</a>
+    <button class="themebtn" id="themeBtn" type="button" onclick="wwxwToggleTheme()" aria-label="Switch between light and dark"></button>
+  </nav>
+  <div class="wbanner" id="wbanner" role="alert" aria-live="polite"></div>
+  <script>
+  (function () {   // current BoM severe thunderstorm and tropical cyclone warnings for WA
+    var U = 'https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec?page=warnings', el = document.getElementById('wbanner');
+    var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var item = function (w) { return '<a href="' + esc(w.link) + '" target="_blank" rel="noopener">' + esc(w.title) + '</a>'; };
+    function show(d) {
+      var it = (d && d.items) || [];
+      if (!it.length) { el.style.display = 'none'; return; }
+      el.className = 'wbanner' + (it.some(function (w) { return w.type === 'cyclone'; }) ? ' cyc' : '');
+      var h = '<div class="wb-row"><span aria-hidden="true">&#9888;</span><span class="wb-t"><span class="wb-src">BoM: </span>' + item(it[0]) + '</span>';
+      if (it.length > 1) {
+        h += '<button class="wb-more" type="button" onclick="var l=this.parentNode.nextSibling;l.hidden=!l.hidden;this.textContent=l.hidden?\'+' + (it.length - 1) + ' more\':\'less\';">+' + (it.length - 1) + ' more</button></div>';
+        h += '<ul hidden>' + it.slice(1).map(function (w) { return '<li>' + item(w) + '</li>'; }).join('') + '</ul>';
+      } else { h += '</div>'; }
+      el.innerHTML = h; el.style.display = 'block';
+    }
+    function load() { fetch(U, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(show).catch(function () {}); }
+    load(); setInterval(load, 300000);
+  })();
+  </script>
+
+  <section class="hero">
+    <div class="hero-inner">
+      <h1>Western Australian severe weather</h1>
+      <p>Rainfall, lightning and live observations across Western Australia.</p>
+    </div>
+  </section>
+
+  <main>
+    <h2>Forecasts &amp; data</h2>
+    <section class="feature rain">
+      <div>
+        <h3>WA Rainfall</h3>
+        <p>Rainfall heat map for Western Australia from more than 500 gauges, showing where the rain has fallen across the state, plus lightning over the last 24 hours.</p>
+        <div class="tags">
+          <span class="tag"><span class="dot" style="background:#4fc3f7"></span>Heat map</span>
+          <span class="tag"><span class="dot" style="background:#7c4dff"></span>Western Australia</span>
+          <span class="tag"><span class="dot" style="background:#ffca28"></span>Lightning 24 hrs</span>
+        </div>
+      </div>
+      <a class="btn btn-rain" href="/rainfall/">Open the rainfall map →</a>
+    </section>
+
+    <section class="feature">
+      <div>
+        <h3>Live Observations</h3>
+        <p>Temperature, humidity, wind and rain from more than 470 BoM, DPIRD and DWER stations across WA, refreshed every 10 minutes, with current BoM severe weather warnings on the map and email alerts when they change.</p>
+        <div class="tags">
+          <span class="tag"><span class="dot" style="background:#ef5350"></span>Temperature</span>
+          <span class="tag"><span class="dot" style="background:#66bb6a"></span>Wind and gusts</span>
+          <span class="tag"><span class="dot" style="background:#ffca28"></span>BoM warnings</span>
+        </div>
+      </div>
+      <a class="btn" href="/obs/">Open Live Obs →</a>
+    </section>
+
+    <h2>Follow West WX Watchers</h2>
+    <div class="socials" id="socials"></div>
+  </main>
+
+  <footer>
+    <span class="copy"><img src="brand/wwxw-copyright-white.png" width="375" height="85" alt="© WWXW"><span>2007–<span id="yr">2026</span> · West WX Watchers · westweatherwatchers.com</span></span>
+    <span>Maps and data are automated guidance. For official warnings, see the <a href="https://www.bom.gov.au/wa/warnings/">Bureau of Meteorology</a>.</span>
+  </footer>
+
+  <script>
+    // Current year in the footer
+    document.getElementById('yr').textContent = new Date().getFullYear();
+
+    // Build the social buttons from SOCIALS (empty ones are skipped)
+    (function () {
+      var ICONS = {
+        facebook: '<path d="M14 9h3V5h-3c-2.8 0-5 2.2-5 5v2H7v4h2v8h4v-8h3l1-4h-4v-2c0-.6.4-1 1-1z"/>',
+        instagram: '<path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5a4.5 4.5 0 1 1 0 9 4.5 4.5 0 0 1 0-9zm0 2a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM17.5 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>',
+        x: '<path d="M17.8 3h3.1l-6.8 7.8L22 21h-6.3l-4.9-6.4L5.2 21H2.1l7.3-8.3L2 3h6.4l4.4 5.9L17.8 3zm-1.1 16.2h1.7L7.4 4.7H5.6l11.1 14.5z"/>',
+        youtube: '<path d="M23 7.2a3 3 0 0 0-2.1-2.1C19 4.6 12 4.6 12 4.6s-7 0-8.9.5A3 3 0 0 0 1 7.2 31 31 0 0 0 .5 12a31 31 0 0 0 .5 4.8 3 3 0 0 0 2.1 2.1c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.1 31 31 0 0 0 .5-4.8 31 31 0 0 0-.5-4.8zM9.8 15.1V8.9l5.8 3.1-5.8 3.1z"/>',
+        tiktok: '<path d="M16.6 2h-3.3v13.2a2.9 2.9 0 1 1-2.9-2.9c.3 0 .6 0 .9.1V9.1a6.2 6.2 0 1 0 5.3 6.1V8.6a8 8 0 0 0 4.4 1.3V6.6a4.4 4.4 0 0 1-4.4-4.6z"/>',
+        threads: '<path d="M12.2 22c-5.7 0-9.2-3.7-9.2-10S6.5 2 12.2 2c4.3 0 7.4 2.1 8.6 5.9l-2.9.8c-.8-2.6-2.8-3.9-5.7-3.9-3.9 0-6.1 2.6-6.1 7.2s2.2 7.2 6.1 7.2c2.6 0 4.6-1.2 4.6-3.4 0-1.3-.7-2.2-2-2.7-.3 2.3-1.8 3.7-4.2 3.7-2.3 0-3.9-1.4-3.9-3.4 0-2.2 1.8-3.5 4.7-3.5.6 0 1.2 0 1.7.1-.2-1.1-.9-1.6-2.2-1.6-1 0-1.7.3-2.2.9L7.1 7c.8-1.1 2.2-1.8 4-1.8 2.9 0 4.6 1.7 4.9 4.8 2.8.8 4.4 2.8 4.4 5.4C20.4 19.6 17.1 22 12.2 22zm-.7-8.7c-1.4 0-2.1.5-2.1 1.2 0 .7.7 1.2 1.6 1.2 1.3 0 2.1-.8 2.2-2.3-.5-.1-1.1-.1-1.7-.1z"/>',
+        email: '<path d="M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm9 7.2L4.4 7H4v.6l8 5.4 8-5.4V7h-.4L12 12.2z"/>'
+      };
+      var NAMES = { facebook: 'Facebook', instagram: 'Instagram', x: 'X', youtube: 'YouTube', tiktok: 'TikTok', threads: 'Threads', email: 'Email' };
+      var box = document.getElementById('socials'), shown = 0;
+      Object.keys(SOCIALS).forEach(function (k) {
+        var url = (SOCIALS[k] || '').trim();
+        if (!url) return;
+        if (k === 'email' && url.indexOf('mailto:') !== 0) url = 'mailto:' + url;
+        var a = document.createElement('a');
+        a.className = 'social ' + k; a.href = url;
+        if (k !== 'email') { a.target = '_blank'; a.rel = 'noopener'; }
+        a.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + ICONS[k] + '</svg>' + NAMES[k];
+        box.appendChild(a); shown++;
+      });
+      if (!shown) box.innerHTML = '<span class="socials-empty">Social links coming soon.</span>';
+    })();
+  </script>
+<script>
+  var WWXW_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
+  var WWXW_MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"/></svg>';
+  function wwxwIcon() { var d = document.documentElement.getAttribute('data-theme') === 'dark', b = document.getElementById('themeBtn');
+    if (b) { b.innerHTML = d ? WWXW_SUN : WWXW_MOON; b.setAttribute('aria-label', d ? 'Switch to light theme' : 'Switch to dark theme'); } }
+  function wwxwToggleTheme() { var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('wwxw-theme', t); } catch (e) {} wwxwIcon(); }
+  wwxwIcon();
+</script>
+</body>
+</html>

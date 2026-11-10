@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Weather alerts — West WX Watchers</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#0E7C86">
+<link rel="apple-touch-icon" href="/icons/wwxw-icon-512.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="WWXW">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap">
+<style>
+:root{--bg:#EEF4F5;--surface:#FFFFFF;--text:#0E2A33;--muted:#4A6470;--line:#C9D8DC;--accent:#0E7C86;--onAccent:#FFFFFF;--warn:#C8372B;--ok:#2E7D32;color-scheme:light;}
+@media (prefers-color-scheme: dark){:root{--bg:#10232A;--surface:#16303A;--text:#E2EEF0;--muted:#9DB6BD;--line:#28434D;--accent:#3FC1C9;--onAccent:#08181D;--warn:#FF8A80;--ok:#A5D6A7;color-scheme:dark;}}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:"Lexend","Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;
+  padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);}
+.wrap{max-width:620px;margin:0 auto;padding:18px 16px 40px;}
+h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+.lead{color:var(--muted);font-size:14px;margin-bottom:16px;}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;}
+.box h2{font-size:15px;font-weight:600;margin-bottom:8px;}
+.msg{font-size:13.5px;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;}
+.msg.show{display:block;}.msg.ok{background:rgba(46,125,50,0.12);}.msg.bad{background:rgba(200,55,43,0.12);}
+.msg.info{background:rgba(14,124,134,0.12);}
+.place{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);}
+.place:last-child{border-bottom:0;}
+.place input[type=text]{flex:1;min-width:0;}
+.place small{color:var(--muted);white-space:nowrap;}
+input[type=text]{padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:14px;}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+.row input{flex:1;min-width:120px;}
+button{padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:14px;font-weight:500;cursor:pointer;}
+button.main{background:var(--accent);border-color:var(--accent);color:var(--onAccent);font-weight:600;}
+button.x{padding:4px 10px;font-size:13px;}
+button:disabled{opacity:0.45;cursor:default;}
+label.chk{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:14px;cursor:pointer;}
+label.chk input{margin-top:4px;accent-color:var(--accent);width:17px;height:17px;flex:none;}
+label.chk span small{display:block;color:var(--muted);font-size:12.5px;}
+.place{flex-wrap:wrap;}
+.wide{flex-basis:100%;display:flex;gap:8px;align-items:center;justify-content:flex-start;font-size:12.5px;color:var(--muted);cursor:pointer;margin-top:2px;}
+.wide input{flex:none;margin:0;accent-color:var(--accent);width:15px;height:15px;}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;}
+.note{color:var(--muted);font-size:12.5px;}
+.note a{color:var(--accent);}
+#iosHint ol{margin:6px 0 0 20px;font-size:14px;}
+.empty{color:var(--muted);font-size:13.5px;padding:6px 0;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Severe weather alerts</h1>
+  <p class="lead">Get a notification on this device when severe weather affects the places you choose in Western Australia.</p>
+
+  <div id="msg" class="msg"></div>
+
+  <div id="iosHint" class="box" style="display:none">
+    <h2>On iPhone or iPad: add this page to your Home Screen first</h2>
+    <ol>
+      <li>Tap the <b>Share</b> button in Safari (the square with an arrow).</li>
+      <li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+      <li>Open <b>WWXW</b> from your Home Screen and come back to this page.</li>
+    </ol>
+    <p class="note" style="margin-top:6px">Apple only allows website alerts from apps added to the Home Screen (iOS 16.4 or later).</p>
+  </div>
+
+  <div class="box">
+    <h2>Your places <span class="note">(up to 3)</span></h2>
+    <p class="note" style="margin-bottom:4px">A postcode alerts for its main town or suburb. Tick "anywhere in this postcode" for a farm or station that spreads across a big rural postcode — you'll get more alerts.</p>
+    <div id="places"></div>
+    <div class="row">
+      <button id="locBtn" onclick="useLocation()">&#128205; Use my location</button>
+    </div>
+    <div class="row">
+      <input id="pcIn" type="text" inputmode="numeric" maxlength="4" placeholder="or a WA postcode, e.g. 6714">
+      <input id="pcName" type="text" maxlength="40" placeholder="Name (optional), e.g. Home">
+      <button onclick="addPostcode()">Add</button>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>Alert me about</h2>
+    <label class="chk"><input type="checkbox" id="pWarn" checked><span>Bureau of Meteorology warnings
+      <small>Severe Thunderstorm, Severe Weather and Tropical Cyclone warnings that cover your place.</small></span></label>
+    <label class="chk"><input type="checkbox" id="pRain" checked><span>Heavy rain nearby
+      <small>A rain gauge within 25 km records 25 mm or more in an hour, or 60 mm in 3 hours.</small></span></label>
+    <div class="chk" style="cursor:default"><span style="flex:1">Daily storm outlook
+      <small>A morning alert (about 8:20 am) when the West WX Watchers outlook has your place at this level or higher today.</small></span>
+      <select id="pOutlook" style="padding:7px 9px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:13.5px;height:fit-content">
+        <option value="0">Off</option><option value="1">Thunderstorms</option><option value="2" selected>Level 1 · Marginal</option><option value="3">Level 2 · Slight</option>
+      </select></div>
+  </div>
+
+  <div class="actions">
+    <button id="onBtn" class="main" onclick="turnOn()">Turn on alerts</button>
+    <button id="testBtn" onclick="sendTest()" disabled>Send a test</button>
+    <button id="offBtn" onclick="turnOff()" disabled>Turn off</button>
+  </div>
+
+  <p class="note">These are unofficial alerts from West WX Watchers and may be delayed. The Bureau of Meteorology issues the official warnings —
+    check <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a> and
+    <a href="https://www.emergency.wa.gov.au/" target="_blank" rel="noopener">Emergency WA</a>, and follow the advice of emergency services.</p>
+  <p class="note" style="margin-top:8px"><b>Privacy:</b> we keep only what's needed to send your alerts — this device's alert address, your places
+    (rounded to about 1 km) and your choices. Nothing else is collected, and "Turn off" stops all alerts to this device.</p>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+<script src="config.js"></script>
+<script>
+// Firebase settings (FIREBASE_CONFIG, VAPID_KEY) are in config.js, so updates to this page never overwrite them.
+var API = 'https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec';   // rainfall web app (Push.gs)
+// ---------------------------------------------------------------------------------
+
+var places = [], token = null, reg = null, messaging = null, MAXP = 3;
+var saved = {};
+try { saved = JSON.parse(localStorage.getItem('wwxw-push') || '{}'); } catch (e) { saved = {}; }
+
+function $(id) { return document.getElementById(id); }
+function say(text, kind) { var m = $('msg'); m.textContent = text; m.className = 'msg show ' + (kind || 'info'); }
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function api(body) {
+  return fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
+    .then(function (r) { return r.json(); });
+}
+function store() { try { localStorage.setItem('wwxw-push', JSON.stringify({ token: token, places: places })); } catch (e) {} }
+
+function drawPlaces() {
+  var h = '';
+  places.forEach(function (p, i) {
+    h += '<div class="place"><input type="text" maxlength="40" value="' + esc(p.name) + '" oninput="places[' + i + '].name=this.value">'
+      + '<small>' + (p.pc ? 'postcode ' + esc(p.pc) + (p.pop ? ' · ' + Number(p.pop).toLocaleString('en-AU') + ' people' : '') : (p.lat !== null && p.lat !== undefined ? Math.abs(p.lat).toFixed(2) + '°S ' + p.lng.toFixed(2) + '°E' : '')) + '</small>'
+      + '<button class="x" onclick="places.splice(' + i + ',1);drawPlaces()">Remove</button>'
+      + (p.pc ? '<label class="wide"><input type="checkbox"' + (p.wide ? ' checked' : '') + ' onchange="places[' + i + '].wide=this.checked">'
+        + 'Alert me for anywhere in this postcode <span>(not just ' + esc(p.name && p.name !== p.pc ? p.name : 'its main town') + ')</span></label>' : '')
+      + '</div>';
+  });
+  $('places').innerHTML = h || '<div class="empty">No places yet — add your location or a postcode.</div>';
+  $('locBtn').disabled = places.length >= MAXP;
+}
+
+function useLocation() {
+  if (!navigator.geolocation) { say('This browser can\'t share your location — add a postcode instead.', 'bad'); return; }
+  say('Finding your location…');
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    var lat = Math.round(pos.coords.latitude * 100) / 100, lng = Math.round(pos.coords.longitude * 100) / 100;
+    if (!(lat >= -36 && lat <= -13 && lng >= 112 && lng <= 129.5)) { say('That location is outside WA. Add a WA postcode instead.', 'bad'); return; }
+    if (places.length < MAXP) places.push({ name: places.length ? 'Place ' + (places.length + 1) : 'My location', lat: lat, lng: lng, pc: '' });
+    drawPlaces(); say('Location added. Rename it if you like, then tap "' + $('onBtn').textContent + '".', 'ok');
+  }, function () { say('Couldn\'t get your location. Check location permission, or add a postcode instead.', 'bad'); },
+  { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+}
+
+function addPostcode() {
+  var pc = $('pcIn').value.trim(), name = $('pcName').value.trim();
+  if (!/^6\d{3}$/.test(pc)) { say('Please enter a WA postcode (6000–6999).', 'bad'); return; }
+  if (places.length >= MAXP) { say('Up to 3 places — remove one first.', 'bad'); return; }
+  places.push({ name: name || pc, lat: null, lng: null, pc: pc, wide: false });
+  $('pcIn').value = ''; $('pcName').value = '';
+  drawPlaces(); say('Postcode added. Tap "' + $('onBtn').textContent + '" to save — its town or suburb will fill in.', 'ok');
+}
+
+function prefs() { return { warn: $('pWarn').checked, rain: $('pRain').checked, outlook: +$('pOutlook').value }; }
+
+function setOn(on) {
+  $('onBtn').textContent = on ? 'Save changes' : 'Turn on alerts';
+  $('testBtn').disabled = !on; $('offBtn').disabled = !on;
+}
+
+function isIos() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
+function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
+function supported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
+
+function getToken() {
+  if (!messaging) {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    messaging = firebase.messaging();
+  }
+  return messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
+}
+
+function turnOn() {
+  if (!places.length) { say('Add at least one place first.', 'bad'); return; }
+  if (!supported()) { say(isIos() && !isStandalone() ? 'On iPhone, add this page to your Home Screen first (see above).' : 'This browser doesn\'t support alerts.', 'bad'); return; }
+  $('onBtn').disabled = true; say('Setting up…');
+  Notification.requestPermission().then(function (perm) {
+    if (perm !== 'granted') throw new Error('Notifications are blocked for this site. Allow them in your browser settings, then try again.');
+    return getToken();
+  }).then(function (t) {
+    if (!t) throw new Error('Couldn\'t get an alert address for this device.');
+    token = t;
+    return api({ action: 'subscribe', token: token, places: places, prefs: prefs() });
+  }).then(function (r) {
+    if (!r.ok) throw new Error(r.msg);
+    if (r.places) places = r.places;
+    store(); drawPlaces(); setOn(true); say(r.msg + ' Tap "Send a test" to check.', 'ok');
+  }).catch(function (e) { say(String(e.message || e), 'bad'); })
+    .then(function () { $('onBtn').disabled = false; });
+}
+
+function sendTest() {
+  if (!token) return;
+  $('testBtn').disabled = true;
+  api({ action: 'test', token: token }).then(function (r) { say(r.msg, r.ok ? 'ok' : 'bad'); })
+    .catch(function () { say('Couldn\'t reach West WX Watchers — please try again.', 'bad'); })
+    .then(function () { $('testBtn').disabled = false; });
+}
+
+function turnOff() {
+  if (!token) return;
+  api({ action: 'unsubscribe', token: token }).then(function (r) {
+    say(r.msg, r.ok ? 'ok' : 'bad');
+    if (r.ok) { try { if (messaging) messaging.deleteToken(); } catch (e) {} token = null; store(); setOn(false); }
+  }).catch(function () { say('Couldn\'t reach West WX Watchers — please try again.', 'bad'); });
+}
+
+window.addEventListener('load', function () {
+  if (isIos() && !isStandalone()) $('iosHint').style.display = 'block';
+  if (saved.places) places = saved.places;
+  drawPlaces();
+  if (!supported()) { if (!(isIos() && !isStandalone())) say('This browser doesn\'t support alerts. Try Chrome, Edge, Firefox or Safari.', 'bad'); return; }
+  navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (r) {
+    reg = r;
+    if (saved.token && Notification.permission === 'granted') {   // already signed up: show that straight away, then confirm
+      token = saved.token;
+      setOn(true); say('Checking your alert settings…');
+      api({ action: 'get', token: token }).then(function (d) {
+        if (d.ok && d.on) {
+          places = d.places || places; drawPlaces();
+          $('pWarn').checked = d.prefs.warn !== false; $('pRain').checked = d.prefs.rain !== false; $('pOutlook').value = String(d.prefs.outlook || 0);
+          setOn(true); say('Alerts are on for this device.', 'ok');
+        } else if (d.ok) { token = null; setOn(false); say('Alerts are off for this device. Tap "Turn on alerts" to start them.'); }
+        else { say('Couldn\'t check your settings just now (' + d.msg + '). Your alerts are unchanged.'); }
+      }).catch(function () { say('Couldn\'t reach West WX Watchers to check your settings. Your alerts are unchanged.'); });
+    }
+  }).catch(function (e) { say('Couldn\'t start the alert service: ' + e.message, 'bad'); });
+});
+</script>
+</body>
+</html>
