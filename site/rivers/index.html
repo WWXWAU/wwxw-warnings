@@ -61,7 +61,11 @@
     .state .sub { font-size: 13.5px; color: var(--muted); }
 
     /* Period pills: the highest level over a period */
-    .pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 20px 12px; }
+    .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 20px 12px; }
+    .pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; flex: 1 1 auto; }
+    .finder { display: flex; gap: 8px; margin-left: auto; flex: 0 1 auto; }
+    .finder select, .finder input { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 13px; font-size: 13.5px; }
+    .finder input { width: min(280px, 100%); }
     .pills .lab { font-size: 13px; font-weight: 600; color: var(--muted); margin-right: 4px; }
     .pills button { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500; cursor: pointer; }
     .pills button:hover { border-color: var(--accent); }
@@ -166,7 +170,7 @@
     @media (max-width: 1000px) {
       .main { grid-template-columns: 1fr; padding: 0 12px 14px; }
       .mapwrap { height: 60vh; max-height: 560px; min-height: 360px; }
-      .top { padding: 12px 12px 8px; } .state { margin: 0 12px 10px; } .pills { margin: 0 12px 10px; } .all { margin: 0 12px 14px; } .foot { padding: 0 12px 20px; }
+      .top { padding: 12px 12px 8px; } .state { margin: 0 12px 10px; } .tools { margin: 0 12px 10px; } .finder { margin-left: 0; width: 100%; } .finder input { flex: 1; width: auto; min-width: 0; } .finder select { flex: 0 1 auto; min-width: 0; } .all { margin: 0 12px 14px; } .foot { padding: 0 12px 20px; }
       h1 { font-size: 20px; }
       .tbl .hide-s { display: none; }
     }
@@ -195,7 +199,8 @@
     <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
   </div>
   <section class="state" id="state" aria-live="polite"><span class="big" id="stBig">–</span><span class="head" id="stHead">Checking the river gauges…</span><span class="sub" id="stSub"></span></section>
-  <div class="pills" id="pills" role="group" aria-label="Period for the highest levels and rises"><span class="lab">Over the last</span></div>
+  <div class="tools"><div class="pills" id="pills" role="group" aria-label="Period for the highest levels and rises"><span class="lab">Over the last</span></div>
+    <div class="finder"><select id="dsel" aria-label="District"><option value="">All districts</option></select><input id="q" type="search" placeholder="Find a river or place" aria-label="Find a river or place"></div></div>
 
   <div class="main">
     <div class="mapwrap">
@@ -214,7 +219,7 @@
   </div>
 
   <section class="all" aria-label="Every gauge">
-    <div class="hd"><h2 id="allH">Every gauge</h2><select id="dsel" aria-label="District"><option value="">All districts</option></select><input id="q" type="search" placeholder="Find a river or place" aria-label="Find a river or place"></div>
+    <div class="hd"><h2 id="allH">Every gauge</h2></div>
     <p class="anote" id="allNote"></p>
     <div style="overflow-x:auto"><table class="tbl" id="tbl"></table></div>
     <button class="more" id="allMore" type="button" hidden>Show all gauges</button>
@@ -385,6 +390,7 @@
       });
     }
     $('q').addEventListener('input', drawTable);
+    $('q').addEventListener('keydown', function (e) { if (e.key === 'Enter') { var r = $('tbl').querySelector('tbody tr'); if (r) pick(r.getAttribute('data-id'), true); } });
     // the table lists the gauges in the map view once someone zooms in; a district fits the map to that district
     function viewBox() { if (!map || !moved || $('q').value.trim()) return null; try { return map.getBounds(); } catch (e) { return null; } }
     function fillDistricts() {
@@ -455,7 +461,7 @@
     function WAControl() {}
     WAControl.prototype.onAdd = function () {
       var d = document.createElement('div'); d.className = 'maplibregl-ctrl maplibregl-ctrl-group';
-      d.innerHTML = '<button type="button" title="Show all of WA" aria-label="Show all of WA" style="font:700 11px Lexend,sans-serif;width:29px">WA</button>';
+      d.innerHTML = '<button type="button" title="Show all of WA" aria-label="Show all of WA" style="font:700 11px Lexend,sans-serif;width:29px;color:#0E2A33">WA</button>';
       d.firstChild.addEventListener('click', function () { moved = false; $('dsel').value = ''; map.fitBounds(WA, { padding: fitPad(), duration: 500 }); }); return d; };
     WAControl.prototype.onRemove = function () {};
     function firstPt(g) { if (!g) return null; var c = g.coordinates; while (c && Array.isArray(c[0])) c = c[0]; return c && c.length === 2 ? c : null; }
