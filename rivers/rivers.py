@@ -680,6 +680,7 @@ def main(out_dir):
     G = read_dwer()
     if len(G) < 50: sys.exit('Too few gauges read from DWER (%d); not publishing.' % len(G))
     pos = sites([g['id'] for g in G], os.path.join(out_dir, 'rivers-sites.json'))
+    for k in [k for k in pos if re.match(r'O\d+$', k)]: del pos[k]          # no shared (partner) gauges
     for g in G:                                                           # reporting or not (also used to match the Bureau's gauges)
         try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
         except Exception: g['age'] = None  # noqa: BLE001
