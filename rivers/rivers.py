@@ -653,6 +653,23 @@ def basins(out_dir, now):
     log('Basins: %d, %d KB' % (len(feats) // 2, os.path.getsize(path) // 1024))
 
 
+def districts(G):
+    """The Bureau's forecast district for each gauge (the same districts as the rest of the site); the nearest one
+    for a gauge just outside the simplified coastline."""
+    dd = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'districts.json')))['districts']
+    for d in dd:
+        xs = [p[0] for r in d['rings'] for p in r]; ys = [p[1] for r in d['rings'] for p in r]; d['bb'] = (min(xs), min(ys), max(xs), max(ys))
+    for g in G:
+        g['dist'] = None
+        if g.get('lat') is None: continue
+        for d in dd:
+            b = d['bb']
+            if b[0] <= g['lng'] <= b[2] and b[1] <= g['lat'] <= b[3] and inside(g['lng'], g['lat'], d['rings']): g['dist'] = d['name']; break
+        if not g['dist']:
+            g['dist'] = min(dd, key=lambda d: min(math.hypot(p[0] - g['lng'], p[1] - g['lat']) for r in d['rings'] for p in r[::3]))['name']
+    log('Districts: %s' % ', '.join('%s %d' % (n, c) for n, c in sorted(__import__('collections').Counter(g['dist'] for g in G).items(), key=lambda x: str(x[0]))))
+
+
 STILL = re.compile(r'(?i)^lake\b|\binlet\b|\bestuary\b|\bweir\b')   # lakes, inlets and weir pools: a level, not a river flow
 
 
@@ -762,6 +779,9 @@ def main(out_dir):
         log('Peaks skipped: %s' % e)
     for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json', 'rivers-basins.json'):                 # always something to publish
         if not os.path.exists(os.path.join(out_dir, f)): json.dump({}, open(os.path.join(out_dir, f), 'w'))
+    try: districts(G)
+    except Exception as e:  # noqa: BLE001
+        log('Districts skipped: %s' % e)
     D = {'made': now.isoformat(timespec='minutes'), 'gauges': G}
     json.dump(D, open(os.path.join(out_dir, 'rivers.json'), 'w'), separators=(',', ':'))
     rising = sorted([g for g in G if rising_now(g)], key=lambda g: -(g['r3'] or g['rate'] or 0))
