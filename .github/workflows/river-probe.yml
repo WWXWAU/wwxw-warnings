@@ -12,4 +12,4 @@ jobs:
           ORION_API_KEY: ${{ secrets.ORION_API_KEY }}
       - name: Hand over the encrypted list (deleted once read)
         run: |
-          if [ -d review ]; then cd review && git init -q -b review && git add -A && git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "encrypted review list" && git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" review; fi
+          if [ -d review ]; then cd review && git init -q -b review && git add -A && git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "encrypted review list" && git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" review; else git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" --delete review || true; fi
