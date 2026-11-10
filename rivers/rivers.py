@@ -400,20 +400,20 @@ SUBCATCH = 'https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Pub
 
 def subcatchments():
     """DWER-030: [{ufi, down, ref, rings, bbox}] (geometry simplified to about 300 m)."""
-    out, off = [], 0
-    while True:
-        q = SUBCATCH + '?' + urllib.parse.urlencode({'where': '1=1', 'outFields': 'ufi,downstream,win_ref', 'returnGeometry': 'true', 'outSR': 4326,
-                                                     'maxAllowableOffset': 0.003, 'geometryPrecision': 4, 'resultOffset': off, 'resultRecordCount': 1000, 'f': 'json'})
+    out, last = [], 0
+    while True:                                                              # page through by object id (offsets skipped some)
+        q = SUBCATCH + '?' + urllib.parse.urlencode({'where': 'objectid > %d' % last, 'outFields': 'objectid,ufi,downstream,win_ref', 'returnGeometry': 'true', 'outSR': 4326,
+                                                     'maxAllowableOffset': 0.003, 'geometryPrecision': 4, 'orderByFields': 'objectid', 'resultRecordCount': 500, 'f': 'json'})
         j = json.loads(get(q, timeout=240))
         F = j.get('features', [])
+        if not F: break
+        last = max(f['attributes']['objectid'] for f in F)
         for f in F:
             a, rings = f['attributes'], (f.get('geometry') or {}).get('rings') or []
             if not rings: continue
             xs = [p[0] for r in rings for p in r]; ys = [p[1] for r in rings for p in r]
             out.append({'ufi': int(a['ufi'] or 0), 'down': int(a['downstream'] or 0), 'ref': (a.get('win_ref') or '').strip(), 'rings': rings,
                         'bbox': (min(xs), min(ys), max(xs), max(ys))})
-        if len(F) < 1000 and not j.get('exceededTransferLimit'): break
-        off += len(F)
     log('Subcatchments read: %d' % len(out))
     return out
 
@@ -440,9 +440,10 @@ def upstream_map(G, R, out_dir, now):
     path = os.path.join(out_dir, 'rivers-upstream.json')
     try: U = json.load(open(path))
     except Exception: U = {}  # noqa: BLE001
+    if U.get('v') != 2: U = {}
     U.setdefault('up', {}); U.setdefault('rain', {})
     new = [r for r in R if r['id'] not in U['rain']] + [g for g in G if g['id'] not in U['up'] and g.get('lat') is not None]
-    stale = U.get('built', '') < (now - dt.timedelta(days=7)).strftime('%Y-%m-%d')
+    stale = U.get('built', '') < (now - dt.timedelta(days=7)).strftime('%Y-%m-%d') or U.get('v') != 2
     if stale or (new and U.get('built', '') < now.strftime('%Y-%m-%d')):
         S = subcatchments()
         if len(S) >= 1000:
@@ -460,7 +461,7 @@ def upstream_map(G, R, out_dir, now):
                     if u in seen: continue
                     seen.add(u); todo += kids.get(u, [])
                 U['up'][g['id']] = sorted(seen)
-            U['built'] = now.strftime('%Y-%m-%d')
+            U['built'] = now.strftime('%Y-%m-%d'); U['v'] = 2
             json.dump(U, open(path, 'w'), separators=(',', ':'), sort_keys=True)
         else: log('Too few subcatchments read; keeping the old upstream list')
     rain_in = {}
@@ -472,6 +473,27 @@ def upstream_map(G, R, out_dir, now):
         if ids: out[gid] = ids
     log('Upstream rain: %d river gauges with rain gauges in their catchment (median %d)' % (len(out), sorted(len(v) for v in out.values())[len(out) // 2] if out else 0))
     return out
+
+
+RAIN_PAGE = 'https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec'
+
+
+def rain_page():
+    """Every gauge on our Rainfall page (DPIRD, Bureau and DWER, about 500): since 9 am, the 24 hours to 9 am, 3 days."""
+    t = get(RAIN_PAGE, timeout=150, tries=2)
+    for _ in range(3):   # the page arrives as an escaped JavaScript string inside Google's wrapper
+        t = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1), 16)), t)
+        t = t.replace('\\\\', '\\').replace('\\/', '/').replace('\\"', '"')
+    R = []
+    for m in re.finditer(r'\{[^{}]*?"m60_daily"[^{}]*\}', t):
+        try: o = json.loads(m.group(0))
+        except Exception: continue  # noqa: BLE001
+        if o.get('lat') is None or o.get('lng') is None or not o.get('name'): continue
+        d, d2 = o.get('daily'), o.get('d2')
+        R.append({'id': 'P:' + o['name'], 'n': re.sub(r'\s+\(.*?\)\s*$', '', o['name']), 'src': o.get('source') or o.get('src') or '', 'll': [o['lat'], o['lng']],
+                  's9': d, 'to9': round(d2 - d, 1) if (d is not None and d2 is not None and d2 >= d) else None, 'd3': o.get('d3')})
+    log('Rainfall page gauges: %d' % len(R))
+    return R
 
 
 def rain_upstream(G, R, U):
@@ -624,7 +646,10 @@ def main(out_dir):
     try: R = rain_near(G, pos, now) or []
     except Exception as e:  # noqa: BLE001
         log('Rain skipped: %s' % e); [g.setdefault('rain', None) for g in G]
-    try: rain_upstream(G, R, upstream_map(G, R, out_dir, now) if R else {})
+    try:
+        RP = rain_page()
+        if len(RP) < 200: RP = R                                              # the Rainfall page didn't load: DWER and Bureau gauges only
+        rain_upstream(G, RP, upstream_map(G, RP, out_dir, now) if RP else {})
     except Exception as e:  # noqa: BLE001
         log('Upstream rain skipped: %s' % e); [g.setdefault('up', None) for g in G]
     json.dump(pos, open(os.path.join(out_dir, 'rivers-sites.json'), 'w'), separators=(',', ':'), sort_keys=True)
