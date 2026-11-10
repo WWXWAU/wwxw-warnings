@@ -402,9 +402,12 @@ def subcatchments():
     """DWER-030: [{ufi, down, ref, rings, bbox}] (geometry simplified to about 300 m)."""
     out, last = [], 0
     while True:                                                              # page through by object id (offsets skipped some)
-        q = SUBCATCH + '?' + urllib.parse.urlencode({'where': 'OBJECTID > %d' % last, 'outFields': 'OBJECTID,ufi,downstream,win_ref', 'returnGeometry': 'true', 'outSR': 4326,
-                                                     'maxAllowableOffset': 0.003, 'geometryPrecision': 4, 'orderByFields': 'OBJECTID', 'resultRecordCount': 500, 'f': 'json'})
-        j = json.loads(get(q, timeout=240))
+        q = SUBCATCH + '?' + urllib.parse.urlencode({'where': 'objectid > %d' % last, 'outFields': 'objectid,ufi,downstream,win_ref', 'returnGeometry': 'true', 'outSR': 4326,
+                                                     'maxAllowableOffset': 0.003, 'geometryPrecision': 4, 'orderByFields': 'objectid', 'resultRecordCount': 500, 'f': 'json'})
+        for k in range(4):                                                   # the service is sometimes briefly unavailable
+            j = json.loads(get(q, timeout=240))
+            if not j.get('error'): break
+            time.sleep(10 * (k + 1))
         F = j.get('features', [])
         if not F:
             if j.get('error'): log('Subcatchments: %s' % j['error'])
