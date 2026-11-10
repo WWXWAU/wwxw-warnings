@@ -225,7 +225,7 @@
     <button class="more" id="allMore" type="button" hidden>Show all gauges</button>
   </section>
 
-  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, partner gauges and rain gauges shared with us, the Bureau's flood levels, and rain from DWER and Bureau gauges. Roads affected by flooding from <a href="https://www.mainroads.wa.gov.au/travelmap/" target="_blank" rel="noopener">Main Roads WA</a> (CC BY 4.0, Commissioner of Main Roads); check the Travel Map before you go. Flow (m³/s) from DWER's hourly discharge reports. Rain upstream uses DWER's hydrographic subcatchments to find the rain gauges in each river's catchment. Gauge positions and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, the Bureau's flood levels, and rain from DWER and Bureau gauges. Roads affected by flooding from <a href="https://www.mainroads.wa.gov.au/travelmap/" target="_blank" rel="noopener">Main Roads WA</a> (CC BY 4.0, Commissioner of Main Roads); check the Travel Map before you go. Flow (m³/s) from DWER's hourly discharge reports. Rain upstream uses DWER's hydrographic subcatchments to find the rain gauges in each river's catchment. Gauge positions and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
   <img id="imgIcon" src="../brand/wwxw-icon-192.png" alt="" hidden>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
@@ -531,7 +531,7 @@
       if (fly && map && g.lat != null) map.easeTo({ center: [g.lng, g.lat], zoom: Math.max(map.getZoom(), 8), duration: 600 });
       var s = STATUS[status(g)], el = $('detail');
       el.style.setProperty('--c', 'var(' + s[1] + ')');
-      var bom = g.src === 'bom', ews = g.src === 'ews', gid = bom ? 'Bureau gauge ' + g.id.slice(1) : ews ? 'partner gauge' : 'gauge ' + g.id;
+      var bom = g.src === 'bom', gid = bom ? 'Bureau gauge ' + g.id.slice(1) : 'gauge ' + g.id;
       el.innerHTML = '<div class="hd"><h2>' + esc(g.river) + '<small>' + esc(g.name) + (g.dist ? ' · ' + esc(g.dist) : '') + ' · ' + gid + '</small></h2><button class="x" type="button" aria-label="Close">×</button></div>'
         + '<div class="facts"><div><b>' + m2(g.lvl) + '</b><span>Level, ' + esc(when(g.at)) + '</span></div>'
         + '<div><b style="color:var(' + s[1] + ')">' + (g.off_air ? 'Off air' : cmh(rr(g))) + '</b><span>' + s[0] + (g.off_air ? '' : ' · per hour, last 3 hours') + '</span></div>'
@@ -551,7 +551,6 @@
         + (g.note ? '<p>Gauge note: ' + esc(g.note) + '</p>' : '')
         + (bom ? '<p>One of the Bureau of Meteorology\'s flood-warning gauges (run by another agency, read from the Bureau). Its readings stop between floods at some sites.</p>'
                + '<p><a href="https://www.bom.gov.au/fwo/' + g.prod + '/' + g.prod + '.' + g.id.slice(1) + '.plt.shtml" target="_blank" rel="noopener">The Bureau\'s page for this gauge</a></p></div>'
-               : ews ? '<p>A partner gauge, shared with West WX Watchers. Level is metres above the gauge\'s zero.</p></div>'
                : '<p><a href="https://kumina.water.wa.gov.au/waterinformation/wir/reports/publish/' + g.id + '/tel.htm" target="_blank" rel="noopener">DWER\'s page for this gauge</a></p></div>');
       el.hidden = false;
       el.querySelectorAll('.seg button').forEach(function (b) { b.addEventListener('click', function () {

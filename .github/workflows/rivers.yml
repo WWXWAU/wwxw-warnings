@@ -28,9 +28,8 @@ jobs:
       - name: Every 15 minutes, for most of the hour
         env:
           ONCE: ${{ inputs.once }}
-          ORION_API_KEY: ${{ secrets.ORION_API_KEY }}
         run: |
-          FILES="rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json orion-cache.json orion-obs.json"
+          FILES="rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json"
           start=$(date +%s)
           for cycle in 1 2 3 4; do
             t0=$(date +%s)
