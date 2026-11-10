@@ -497,7 +497,7 @@
         var b2 = [part(u.s9, 'since 9 am'), part(u.to9, 'in the 24 hours to 9 am'), u.d3 ? mm(u.d3[0]) + ' over 3 days (most ' + mm(u.d3[1]) + ')' : null].filter(Boolean);
         var t = u.top, tw = (t.s9 || 0) + (t.to9 || 0);
         return '<div class="rain">Rain upstream, average of ' + u.n + (u.n === 1 ? ' gauge' : ' gauges') + ' in the catchment: ' + b2.join(' · ')
-          + (tw > 0 ? '<span class="tops">Wettest: ' + esc(t.n) + ', ' + mm(tw) + ' since 9 am yesterday (' + (t.src === 'BoM' ? 'Bureau' : 'DWER') + ')</span>' : '') + '</div>';
+          + (tw > 0 ? '<span class="tops">Wettest: ' + esc(t.n) + ', ' + mm(tw) + ' since 9 am yesterday' + (t.src ? ' (' + esc(t.src === 'BoM' ? 'Bureau' : t.src) + ')' : '') + '</span>' : '') + '</div>';
       }
       var r = g.rain; if (!r) return '';
       var bits = [];

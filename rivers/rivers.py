@@ -402,12 +402,14 @@ def subcatchments():
     """DWER-030: [{ufi, down, ref, rings, bbox}] (geometry simplified to about 300 m)."""
     out, last = [], 0
     while True:                                                              # page through by object id (offsets skipped some)
-        q = SUBCATCH + '?' + urllib.parse.urlencode({'where': 'objectid > %d' % last, 'outFields': 'objectid,ufi,downstream,win_ref', 'returnGeometry': 'true', 'outSR': 4326,
-                                                     'maxAllowableOffset': 0.003, 'geometryPrecision': 4, 'orderByFields': 'objectid', 'resultRecordCount': 500, 'f': 'json'})
+        q = SUBCATCH + '?' + urllib.parse.urlencode({'where': 'OBJECTID > %d' % last, 'outFields': 'OBJECTID,ufi,downstream,win_ref', 'returnGeometry': 'true', 'outSR': 4326,
+                                                     'maxAllowableOffset': 0.003, 'geometryPrecision': 4, 'orderByFields': 'OBJECTID', 'resultRecordCount': 500, 'f': 'json'})
         j = json.loads(get(q, timeout=240))
         F = j.get('features', [])
-        if not F: break
-        last = max(f['attributes']['objectid'] for f in F)
+        if not F:
+            if j.get('error'): log('Subcatchments: %s' % j['error'])
+            break
+        last = max(f['attributes'].get('objectid', f['attributes'].get('OBJECTID', 0)) for f in F)
         for f in F:
             a, rings = f['attributes'], (f.get('geometry') or {}).get('rings') or []
             if not rings: continue
