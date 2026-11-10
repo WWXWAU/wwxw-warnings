@@ -311,7 +311,7 @@
     }
     function row(g, val, sub) {
       var st = STATUS[status(g)];
-      return '<button class="g" type="button" data-id="' + g.id + '" style="--c:var(' + st[1] + ')"><i></i><span class="nm">' + esc(g.river) + '<small>' + esc(g.name) + (g.dist ? ' · ' + esc(g.dist) : '') + '</small></span>'
+      return '<button class="g" type="button" data-id="' + g.id + '" style="--c:var(' + st[1] + ')"><i></i><span class="nm">' + esc(g.river) + '<small>' + esc(g.name) + '</small></span>'
         + '<span class="v">' + val + '<small>' + sub + '</small></span></button>';
     }
     function drawLists() {
