@@ -608,6 +608,51 @@ def river_lines(G, out_dir, now):
     log('River lines: %d rivers, %d segments, %d KB' % (len(feats), len(seen), os.path.getsize(path) // 1024))
 
 
+BASINS = 'https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/Water/MapServer/31/query'
+
+
+def label_spot(rings):
+    """A point well inside the largest ring (for the basin's name): the grid point furthest from its edge."""
+    r = max(rings, key=len)
+    xs = [p[0] for p in r]; ys = [p[1] for p in r]
+    best, bd = None, -1
+    for i in range(1, 24):
+        for j in range(1, 24):
+            x = min(xs) + (max(xs) - min(xs)) * i / 24; y = min(ys) + (max(ys) - min(ys)) * j / 24
+            if not inside(x, y, [r]): continue
+            d = min(math.hypot(x - a[0], y - a[1]) for a in r[::max(1, len(r) // 400)])
+            if d > bd: best, bd = (x, y), d
+    return best or ((min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2)
+
+
+def basins(out_dir, now):
+    """DWER's river basins (DWER-027): faint outlines and names for the map, rivers-basins.json, rebuilt monthly."""
+    path = os.path.join(out_dir, 'rivers-basins.json')
+    try:
+        old = json.load(open(path))
+        if old.get('built', '') >= (now - dt.timedelta(days=30)).strftime('%Y-%m-%d') and old.get('features'): return
+    except Exception: pass  # noqa: BLE001
+    q = BASINS + '?' + urllib.parse.urlencode({'where': '1=1', 'outFields': 'basin_name', 'returnGeometry': 'true', 'outSR': 4326,
+                                               'maxAllowableOffset': 0.01, 'geometryPrecision': 3, 'f': 'json'})
+    j = {}
+    for k in range(4):
+        try: j = json.loads(get(q, timeout=240))
+        except Exception as e: j = {'error': str(e)}  # noqa: BLE001
+        if not j.get('error'): break
+        time.sleep(10 * (k + 1))
+    feats = []
+    for f in j.get('features', []):
+        rings = (f.get('geometry') or {}).get('rings') or []
+        if not rings: continue
+        nm = (f['attributes'].get('basin_name') or '').strip()
+        feats.append({'type': 'Feature', 'properties': {'name': nm}, 'geometry': {'type': 'MultiLineString', 'coordinates': rings}})
+        x, y = label_spot(rings)
+        feats.append({'type': 'Feature', 'properties': {'name': nm, 'label': 1}, 'geometry': {'type': 'Point', 'coordinates': [round(x, 3), round(y, 3)]}})
+    if len(feats) < 40: log('Basins: too few read (%d)' % len(feats)); return
+    json.dump({'type': 'FeatureCollection', 'built': now.strftime('%Y-%m-%d'), 'features': feats}, open(path, 'w'), separators=(',', ':'))
+    log('Basins: %d, %d KB' % (len(feats) // 2, os.path.getsize(path) // 1024))
+
+
 STILL = re.compile(r'(?i)^lake\b|\binlet\b|\bestuary\b|\bweir\b')   # lakes, inlets and weir pools: a level, not a river flow
 
 
@@ -706,13 +751,16 @@ def main(out_dir):
     except Exception as e:  # noqa: BLE001
         log('Upstream rain skipped: %s' % e); [g.setdefault('up', None) for g in G]
     json.dump(pos, open(os.path.join(out_dir, 'rivers-sites.json'), 'w'), separators=(',', ':'), sort_keys=True)
+    try: basins(out_dir, now)
+    except Exception as e:  # noqa: BLE001
+        log('Basins skipped: %s' % e)
     try: river_lines(G, out_dir, now)
     except Exception as e:  # noqa: BLE001
         log('River lines skipped: %s' % e)
     try: peaks(G, H, now, out_dir)
     except Exception as e:  # noqa: BLE001
         log('Peaks skipped: %s' % e)
-    for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json'):                 # always something to publish
+    for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json', 'rivers-basins.json'):                 # always something to publish
         if not os.path.exists(os.path.join(out_dir, f)): json.dump({}, open(os.path.join(out_dir, f), 'w'))
     D = {'made': now.isoformat(timespec='minutes'), 'gauges': G}
     json.dump(D, open(os.path.join(out_dir, 'rivers.json'), 'w'), separators=(',', ':'))
