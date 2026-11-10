@@ -516,23 +516,24 @@ def rain_upstream(G, R, U):
 
 # ---------------------------------------------------------------- peaks over the last days and this month
 def peaks(G, H, now, out_dir):
+    """Each gauge's highest level over the last 1-7 days and this month, with when, the peak flow, and the rise to it
+    (the peak less the lowest level before it in the period): g['pk'][n] = [level, when, peak flow, rise]."""
     path = os.path.join(out_dir, 'rivers-daily.json')
     try: D = json.load(open(path))
     except Exception: D = {'d': {}}  # noqa: BLE001
-    for kind, src in (('l', H['h']), ('q', H.get('q', {}))):
-        for sid, hh in src.items():
-            day = {}
-            for k, v in hh.items():
-                d = k[:10]; day[d] = max(day.get(d, v), v)
-            cur = D['d'].setdefault(sid, {})
-            for d, v in day.items():
-                e = cur.setdefault(d, [None, None]); e[0 if kind == 'l' else 1] = v if e[0 if kind == 'l' else 1] is None else max(e[0 if kind == 'l' else 1], v)
+    D.setdefault('d', {})
+    def put(sid, d, i, v, f):
+        e = D['d'].setdefault(sid, {}).setdefault(d, [None, None, None])
+        while len(e) < 3: e.append(None)
+        e[i] = v if e[i] is None else f(e[i], v)
+    for sid, hh in H['h'].items():                                           # daily highest [0] and lowest [2] level, highest flow [1]
+        for k, v in hh.items(): put(sid, k[:10], 0, v, max); put(sid, k[:10], 2, v, min)
+    for sid, qq in H.get('q', {}).items():
+        for k, v in qq.items(): put(sid, k[:10], 1, v, max)
     if not D.get('seeded'):                                                  # the start of the month, from Water Data Online
         ids = [g['id'] for g in G if not g['id'].startswith('B')]
         for sid, hh in kiwis_history(ids, days=12).items():
-            cur = D['d'].setdefault(sid, {})
-            for k, v in hh.items():
-                e = cur.setdefault(k[:10], [None, None]); e[0] = v if e[0] is None else max(e[0], v)
+            for k, v in hh.items(): put(sid, k[:10], 0, v, max); put(sid, k[:10], 2, v, min)
         D['seeded'] = now.strftime('%Y-%m-%d')
     keep = (now - dt.timedelta(days=40)).strftime('%Y-%m-%d')
     for sid in list(D['d']):
@@ -541,23 +542,70 @@ def peaks(G, H, now, out_dir):
     month0 = now.strftime('%Y-%m-01')
     for g in G:
         hh, qq, dd = H['h'].get(g['id'], {}), H.get('q', {}).get(g['id'], {}), D['d'].get(g['id'], {})
+        live = g.get('at') and not g.get('off_air')
         pk = {}
         for n in range(1, 8):
             cut = (now - dt.timedelta(hours=24 * n)).strftime('%Y-%m-%dT%H:00')
-            L = [(v, k) for k, v in hh.items() if k >= cut]
-            if g.get('at') and not g.get('off_air'): L.append((g['lvl'], g['at'][:16]))
+            S = sorted((k, v) for k, v in hh.items() if k >= cut)
+            if live: S.append((g['at'][:16], g['lvl']))
+            if not S: continue
+            ip = max(range(len(S)), key=lambda i: (S[i][1], i))
+            low = min(v for _, v in S[:ip + 1])
             Q = [v for k, v in qq.items() if k >= cut]
-            if L:
-                v, k = max(L); pk[str(n)] = [round(v, 3), k, round(max(Q), 3) if Q else None]
-        L = [(e[0], d) for d, e in dd.items() if d >= month0 and e[0] is not None]
-        if g.get('at') and not g.get('off_air') and g['at'][:7] == month0[:7]: L.append((g['lvl'], g['at'][:16]))
-        Q = [e[1] for d, e in dd.items() if d >= month0 and e[1] is not None]
-        if L:
-            v, k = max(L)
-            if len(k) == 10:                                                  # a day's maximum: find its hour if we still have it
+            pk[str(n)] = [round(S[ip][1], 3), S[ip][0], round(max(Q), 3) if Q else None, round(S[ip][1] - low, 3)]
+        M = sorted((d, e) for d, e in dd.items() if d >= month0 and e[0] is not None)
+        if M or live:
+            cand = [(e[0], d) for d, e in M] + ([(g['lvl'], g['at'][:16])] if live and g['at'][:7] == month0[:7] else [])
+            v, k = max(cand)
+            lows = [e[2] for d, e in M if d <= k[:10] and len(e) > 2 and e[2] is not None] + [v]
+            if len(k) == 10:                                                  # a day's highest: its hour, if we still have it
                 hrs = [kk for kk, vv in hh.items() if kk[:10] == k and vv == v]; k = hrs[0] if hrs else k
-            pk['m'] = [round(v, 3), k, round(max(Q), 3) if Q else None]
+            Q = [e[1] for d, e in M if e[1] is not None]
+            pk['m'] = [round(v, 3), k, round(max(Q), 3) if Q else None, round(v - min(lows), 3)]
         g['pk'] = pk
+
+
+HYDRO = 'https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/Water/MapServer/7/query'
+
+
+def river_lines(G, out_dir, now):
+    """The courses of the rivers that have gauges (DWER hydrography, mainstream and major river lines), plus every
+    named major river, for the map: rivers-lines.json, rebuilt weekly."""
+    path = os.path.join(out_dir, 'rivers-lines.json')
+    try:
+        old = json.load(open(path))
+        if old.get('built', '') >= (now - dt.timedelta(days=7)).strftime('%Y-%m-%d') and old.get('features'): return
+    except Exception: pass  # noqa: BLE001
+    names = sorted(set(re.sub(r'\s+', ' ', g['river']).strip() for g in G if g.get('river') and not STILL.search(g['river'])))
+    wheres = ["level = 2 AND named > 0"] + ["level IN (1, 2) AND hyd_name IN (%s)" % ','.join("'%s'" % n.replace("'", "''") for n in names[i:i + 25]) for i in range(0, len(names), 25)]
+    lines, seen = {}, set()
+    for w in wheres:
+        last = 0
+        while True:
+            q = HYDRO + '?' + urllib.parse.urlencode({'where': '(%s) AND objectid > %d' % (w, last), 'outFields': 'objectid,hyd_name', 'returnGeometry': 'true', 'outSR': 4326,
+                                                     'maxAllowableOffset': 0.004, 'geometryPrecision': 3, 'orderByFields': 'objectid', 'resultRecordCount': 1000, 'f': 'json'})
+            j = {}
+            for k in range(4):
+                try: j = json.loads(get(q, timeout=240))
+                except Exception as e: j = {'error': str(e)}  # noqa: BLE001
+                if not j.get('error'): break
+                time.sleep(10 * (k + 1))
+            F = j.get('features', [])
+            if not F:
+                if j.get('error'): log('River lines: %s' % j['error'])
+                break
+            last = max(f['attributes']['objectid'] for f in F)
+            for f in F:
+                oid = f['attributes']['objectid']
+                if oid in seen: continue
+                seen.add(oid)
+                nm = (f['attributes'].get('hyd_name') or '').strip()
+                for path_ in (f.get('geometry') or {}).get('paths') or []:
+                    if len(path_) > 1: lines.setdefault(nm, []).append(path_)
+    feats = [{'type': 'Feature', 'properties': {'name': nm}, 'geometry': {'type': 'MultiLineString', 'coordinates': ps}} for nm, ps in lines.items()]
+    if len(feats) < 20: log('River lines: too few read (%d); keeping the old file' % len(feats)); return
+    json.dump({'type': 'FeatureCollection', 'built': now.strftime('%Y-%m-%d'), 'features': feats}, open(path, 'w'), separators=(',', ':'))
+    log('River lines: %d rivers, %d segments, %d KB' % (len(feats), len(seen), os.path.getsize(path) // 1024))
 
 
 STILL = re.compile(r'(?i)^lake\b|\binlet\b|\bestuary\b|\bweir\b')   # lakes, inlets and weir pools: a level, not a river flow
@@ -658,10 +706,13 @@ def main(out_dir):
     except Exception as e:  # noqa: BLE001
         log('Upstream rain skipped: %s' % e); [g.setdefault('up', None) for g in G]
     json.dump(pos, open(os.path.join(out_dir, 'rivers-sites.json'), 'w'), separators=(',', ':'), sort_keys=True)
+    try: river_lines(G, out_dir, now)
+    except Exception as e:  # noqa: BLE001
+        log('River lines skipped: %s' % e)
     try: peaks(G, H, now, out_dir)
     except Exception as e:  # noqa: BLE001
         log('Peaks skipped: %s' % e)
-    for f in ('rivers-upstream.json', 'rivers-daily.json'):                 # always something to publish
+    for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json'):                 # always something to publish
         if not os.path.exists(os.path.join(out_dir, f)): json.dump({}, open(os.path.join(out_dir, f), 'w'))
     D = {'made': now.isoformat(timespec='minutes'), 'gauges': G}
     json.dump(D, open(os.path.join(out_dir, 'rivers.json'), 'w'), separators=(',', ':'))

@@ -23,12 +23,12 @@ jobs:
         run: |
           mkdir -p out
           if git fetch -q --depth 1 origin river-data 2>/dev/null; then
-            for f in rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json; do git show origin/river-data:$f > out/$f 2>/dev/null || rm -f out/$f; done
+            for f in rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json; do git show origin/river-data:$f > out/$f 2>/dev/null || rm -f out/$f; done
           fi
       - run: python rivers/rivers.py out
       - name: Publish to the river-data branch
         run: |
           mkdir -p pub && cd pub && git init -q -b river-data
-          cp ../out/rivers.json ../out/rivers-roads.json ../out/rivers-history.json ../out/rivers-sites.json ../out/rivers-flood.json ../out/rivers-upstream.json ../out/rivers-daily.json . && git add -A
+          cp ../out/rivers.json ../out/rivers-roads.json ../out/rivers-history.json ../out/rivers-sites.json ../out/rivers-flood.json ../out/rivers-upstream.json ../out/rivers-daily.json ../out/rivers-lines.json . && git add -A
           git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "River levels"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" river-data
