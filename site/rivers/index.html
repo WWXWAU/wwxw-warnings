@@ -816,9 +816,9 @@
     setIcon();
 
     // ---- load, and refresh every 15 minutes while the page is open
-    var bust = '?t=' + Math.floor(Date.now() / 300000);
+    var bust = '?t=' + Math.floor(Date.now() / 60000);
     function load(first) {
-      bust = '?t=' + Math.floor(Date.now() / 300000);
+      bust = '?t=' + Math.floor(Date.now() / 60000);
       return fetch(DATA + 'rivers.json' + bust).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
         D = j; G = D.gauges;
         return fetch(DATA + 'rivers-roads.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
@@ -838,7 +838,14 @@
       $('msg').hidden = false; $('msg').textContent = 'The river levels didn’t load. Check your connection and refresh the page.';
       $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now';
     });
-    setInterval(function () { if (!document.hidden) load(false).catch(function () {}); }, 5 * 60 * 1000);
+    // refresh every 2 minutes while the page is on screen, and straight away when someone comes back to the tab
+    // (browsers pause timers in background tabs, so a tab left open would otherwise show old levels)
+    var lastLoad = Date.now(), busy = false;
+    function refresh() { if (busy || document.hidden) return; busy = true; lastLoad = Date.now();
+      load(false).catch(function () {}).then(function () { busy = false; }); }
+    setInterval(refresh, 2 * 60 * 1000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && Date.now() - lastLoad > 60 * 1000) refresh(); });
+    window.addEventListener('focus', function () { if (Date.now() - lastLoad > 60 * 1000) refresh(); });
     window.riverRoads = function (fc) { ROADS = fc; drawState(); drawLists(); if (map && map.getSource('froads')) { map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } };   // for testing
     window.riverMap = function () { return map; };   // for testing
     window.riverPick = function (id) { var w = G.filter(function (g) { return g.up && g.q != null; })[0]; pick(id || (w ? w.id : byId('616011') ? '616011' : G[0].id), true); };   // for testing
