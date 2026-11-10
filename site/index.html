@@ -203,6 +203,8 @@
       <a href="/" class="on" aria-current="page">Home</a>
       <a href="/rainfall/">Rainfall</a>
       <a href="/obs/">Live Obs</a>
+      <a href="/rivers/">River Levels</a>
+      <a href="/ripper/">Ripper Weather</a>
     <button class="themebtn" id="themeBtn" type="button" onclick="wwxwToggleTheme()" aria-label="Switch between light and dark"></button>
   </nav>
   <div class="wbanner" id="wbanner" role="alert" aria-live="polite"></div>
@@ -230,7 +232,7 @@
   <section class="hero">
     <div class="hero-inner">
       <h1>Western Australian severe weather</h1>
-      <p>Rainfall, lightning and live observations across Western Australia.</p>
+      <p>Rainfall, lightning, live observations and river levels across Western Australia.</p>
     </div>
   </section>
 
@@ -262,13 +264,40 @@
       <a class="btn" href="/obs/">Open Live Obs →</a>
     </section>
 
+    <section class="feature">
+      <div>
+        <h3>River Levels</h3>
+        <p>Every WA river gauge on one map: which rivers are rising, the highest levels and biggest rises over the last day to month, river flow, flood levels, rain upstream and roads closed by flooding. Updated every 15 minutes.</p>
+        <div class="tags">
+          <span class="tag"><span class="dot" style="background:#2f7fc1"></span>250+ river gauges</span>
+          <span class="tag"><span class="dot" style="background:#e8590c"></span>Flood levels</span>
+          <span class="tag"><span class="dot" style="background:#d32f2f"></span>Flooded roads</span>
+        </div>
+      </div>
+      <a class="btn" href="/rivers/">Open River Levels →</a>
+    </section>
+
+    <section class="feature">
+      <div>
+        <h3>Ripper Weather</h3>
+        <p>Where in WA has the best weather today and the next few days: towns ranked on sunshine, comfortable temperatures, light winds and no rain, with a tally of the best towns this month and year.</p>
+        <div class="tags">
+          <span class="tag"><span class="dot" style="background:#ffca28"></span>Best towns today</span>
+          <span class="tag"><span class="dot" style="background:#66bb6a"></span>Next few days</span>
+          <span class="tag"><span class="dot" style="background:#4fc3f7"></span>Month and year tally</span>
+        </div>
+      </div>
+      <a class="btn" href="/ripper/">Open Ripper Weather →</a>
+    </section>
+
     <h2>Follow West WX Watchers</h2>
     <div class="socials" id="socials"></div>
   </main>
 
   <footer>
     <span class="copy"><img src="brand/wwxw-copyright-white.png" width="375" height="85" alt="© WWXW"><span>2007–<span id="yr">2026</span> · West WX Watchers · westweatherwatchers.com</span></span>
-    <span>Maps and data are automated guidance. For official warnings, see the <a href="https://www.bom.gov.au/wa/warnings/">Bureau of Meteorology</a>.</span>
+    <span>Maps and data are automated guidance, <b>not for the protection of life or property</b>. For official warnings, see the <a href="https://www.bom.gov.au/wa/warnings/">Bureau of Meteorology</a>.</span>
+    <span style="flex-basis:100%">© West WX Watchers. Content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent. <a href="/terms/">Terms of use</a></span>
   </footer>
 
   <script>

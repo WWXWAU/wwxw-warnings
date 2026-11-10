@@ -73,6 +73,12 @@
     @media (max-width: 600px) { .wbanner { font-size: 11px; padding: 4px 8px; } }
     [data-theme=dark] .tabs .brand img, [data-theme=dark] .loading img { background: #f8faf9; padding: 2px; }
     [data-theme=dark] .loading img { padding: 8px; }
+    /* Legal line along the bottom */
+    .legal { flex-shrink: 0; padding: 3px 10px calc(3px + env(safe-area-inset-bottom, 0px)); background: var(--surface, #fff); border-top: 1px solid var(--line, #ccc);
+             color: var(--muted, #666); font: 10.5px/1.35 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; text-align: center; }
+    .legal a { color: inherit; }
+    .legal .lg-s { display: none; }
+    @media (max-width: 700px) { .legal .lg-l { display: none; } .legal .lg-s { display: inline; } }
   </style>
 </head>
 <body>
@@ -81,6 +87,8 @@
       <a href="/">Home</a>
       <a href="/rainfall/">Rainfall</a>
       <a href="/obs/">Live Obs</a>
+      <a href="/rivers/">River Levels</a>
+      <a href="/ripper/">Ripper Weather</a>
       <a href="/cyclones/" class="on" aria-current="page">Cyclones</a>
   </nav>
   <div class="wbanner" id="wbanner" role="alert" aria-live="polite"></div>
@@ -112,6 +120,7 @@
     </div>
     <iframe id="app" data-src="https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec?page=cyclones" title="West WX Watchers cyclone tracks" allow="fullscreen; geolocation" allowfullscreen></iframe>
   </div>
+  <div class="legal"><span class="lg-l">Not for the protection of life or property. © West WX Watchers — content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent.</span><span class="lg-s">Not for the protection of life or property · © West WX Watchers, no copying or reposting without consent ·</span> <a href="/terms/">Terms of use</a></div>
   <!-- PIN access (PinGate.gs in the outlook project): asks for the PIN, keeps a 6-month pass, loads the page with it -->
   <div id="wwxwPin" style="position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;background:rgba(14,42,51,0.55);font-family:Lexend,'Segoe UI',Arial,sans-serif;">
     <form id="wwxwPinForm" style="background:var(--surface);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:24px 22px;width:300px;max-width:calc(100% - 32px);box-shadow:0 8px 30px rgba(0,0,0,0.3);text-align:center;">

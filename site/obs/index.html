@@ -72,6 +72,12 @@
     @media (max-width: 600px) { .wbanner { font-size: 11px; padding: 4px 8px; } }
     [data-theme=dark] .tabs .brand img, [data-theme=dark] .loading img { background: #f8faf9; padding: 2px; }
     [data-theme=dark] .loading img { padding: 8px; }
+    /* Legal line along the bottom */
+    .legal { flex-shrink: 0; padding: 3px 10px calc(3px + env(safe-area-inset-bottom, 0px)); background: var(--surface, #fff); border-top: 1px solid var(--line, #ccc);
+             color: var(--muted, #666); font: 10.5px/1.35 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; text-align: center; }
+    .legal a { color: inherit; }
+    .legal .lg-s { display: none; }
+    @media (max-width: 700px) { .legal .lg-l { display: none; } .legal .lg-s { display: inline; } }
   </style>
 </head>
 <body>
@@ -80,6 +86,8 @@
       <a href="/">Home</a>
       <a href="/rainfall/">Rainfall</a>
       <a href="/obs/" class="on" aria-current="page">Live Obs</a>
+      <a href="/rivers/">River Levels</a>
+      <a href="/ripper/">Ripper Weather</a>
   </nav>
   <div class="wbanner" id="wbanner" role="alert" aria-live="polite"></div>
   <script>
@@ -110,6 +118,7 @@
     </div>
     <iframe id="app" data-src="https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec?page=obs" title="West WX Watchers live observations" allow="fullscreen; geolocation" allowfullscreen></iframe>
   </div>
+  <div class="legal"><span class="lg-l">Not for the protection of life or property. © West WX Watchers — content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent.</span><span class="lg-s">Not for the protection of life or property · © West WX Watchers, no copying or reposting without consent ·</span> <a href="/terms/">Terms of use</a></div>
   <script>document.getElementById('app').src = document.getElementById('app').getAttribute('data-src') + '&theme=' + window.WWXW_THEME;</script>
   <script>
   // The map page tells us when its sun/moon button is pressed: follow it and remember it

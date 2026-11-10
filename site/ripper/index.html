@@ -146,15 +146,17 @@
       .tabs .brand img { width: 18px; height: 18px; padding: 1px; border-radius: 4px; }
       .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; }
     }
+    .foot.legalnote { margin-top: -14px; font-weight: 600; }
   </style>
 </head>
 <body>
   <nav class="tabs" aria-label="West WX Watchers">
     <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
-    <a href="/">Home</a>
-    <a href="/rainfall/">Rainfall</a>
-    <a href="/obs/">Live Obs</a>
-    <a href="/ripper/" class="on" aria-current="page">Ripper Weather</a>
+      <a href="/">Home</a>
+      <a href="/rainfall/">Rainfall</a>
+      <a href="/obs/">Live Obs</a>
+      <a href="/rivers/">River Levels</a>
+      <a href="/ripper/" class="on" aria-current="page">Ripper Weather</a>
   </nav>
 
   <div class="top">
@@ -193,6 +195,7 @@
     </div>
   </div>
   <div class="foot" id="foot">Forecasts from the <a href="https://www.bom.gov.au/wa/forecasts/" target="_blank" rel="noopener">Bureau of Meteorology</a>, with wind, humidity and sea breeze from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), scored by West WX Watchers. A bit of fun, not a warning service: for warnings go to <a href="https://www.bom.gov.au/wa/warnings/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+  <div class="foot legalnote">Not for the protection of life or property. © West WX Watchers — content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent. <a href="/terms/">Terms of use</a></div>
 
   <img id="imgIcon" src="../brand/wwxw-icon-192.png" alt="" hidden>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
