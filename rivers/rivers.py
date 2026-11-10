@@ -6,9 +6,15 @@ Every 15 minutes (GitHub Actions):
   * Gauge positions from the Bureau's Water Data Online (KiWIS), cached in rivers-sites.json.
   * An hourly 8-day level record per gauge, kept in rivers-history.json: our own readings, with the gaps filled from
     Water Data Online's provisional level series (about a day behind, so it seeds the first week).
+  * DWER's own hourly tables for each gauge (the station pages' 'Report of Discharge in m3/s' and 'Report of Stage
+    Levels' for the last 6 days): flow as DWER publishes it, and the stage record that fills any gaps in ours.
+  * Rain upstream: the rain gauges inside each river gauge's catchment, from DWER's hydrographic subcatchments
+    (DWER-030, with their downstream links), cached weekly in rivers-upstream.json.
+  * Peaks: each gauge's highest level and flow over the last 1 to 7 days and this month (daily maxima kept in
+    rivers-daily.json).
 Writes rivers.json (now) and rivers-history.json (the record) into the output folder.
 """
-import bisect, datetime as dt, ftplib, io, json, math, os, re, sys, time, urllib.parse, urllib.request
+import concurrent.futures as cf, datetime as dt, ftplib, io, json, math, os, re, sys, time, urllib.parse, urllib.request
 
 UA = {'User-Agent': 'Mozilla/5.0 (West WX Watchers river levels; westweatherwatchers.com)'}
 DWER = 'https://kumina.water.wa.gov.au/waterinformation'
@@ -341,79 +347,193 @@ def rain_near(G, pos, now):
             r = best[1]; g['rain'] = {'n': r['n'], 'src': r['src'], 'km': round(best[0], 1), 's9': r['s9'], 'to9': r['to9'], 'd3': r['d3']}; n += 1
     wet = sorted([g for g in G if g['rain'] and (g['rain']['s9'] or 0) + (g['rain']['to9'] or 0) > 0], key=lambda g: -((g['rain']['s9'] or 0) + (g['rain']['to9'] or 0)))
     log('Rain gauges: %d; river gauges with rain nearby: %d; wettest: %s' % (len(R), n, ', '.join('%s %s %s/%s mm' % (g['river'], g['name'], g['rain']['s9'], g['rain']['to9']) for g in wet[:4])))
-
-
-# ---------------------------------------------------------------- flow, from the level
-def rating_build(ids, out_dir, now):
-    """Each gauge's level-to-flow relationship, from the Bureau's daily highest and lowest level and flow over
-    five years (Water Data Online). Rebuilt weekly into rivers-ratings.json: {id: [[level, flow], ...]}."""
-    path = os.path.join(out_dir, 'rivers-ratings.json')
-    try: R = json.load(open(path))
-    except Exception: R = {'r': {}}  # noqa: BLE001
-    if R.get('built', '') >= (now - dt.timedelta(days=7)).strftime('%Y-%m-%d') and len(R['r']) > 100:
-        return R
-    want = {}
-    for par in ('Water Course Level', 'Water Course Discharge'):
-        q = KIWIS + urllib.parse.urlencode({'request': 'getTimeseriesList', 'station_no': ','.join(ids), 'parametertype_name': par,
-                                            'ts_name': 'DMQaQc.Merged.DailyMax.24HR,DMQaQc.Merged.DailyMin.24HR', 'returnfields': 'station_no,ts_id,ts_name'})
-        try:
-            for no, ts, nm in json.loads(get(q, timeout=180))[1:]: want[(no, par[13:16], 'Max' if 'DailyMax' in nm else 'Min')] = ts   # (id, 'Lev'/'Dis', 'Max'/'Min')
-        except Exception as e:  # noqa: BLE001
-            log('Rating series list not read (%s): %s' % (par, e)); return R
-    vals = {}
-    keys = list(want)
-    for k in range(0, len(keys), 20):
-        chunk = keys[k:k + 20]
-        q = KIWIS + urllib.parse.urlencode({'request': 'getTimeseriesValues', 'ts_id': ','.join(want[c] for c in chunk), 'period': 'P1826D', 'returnfields': 'Timestamp,Value'})
-        try: res = json.loads(get(q, timeout=300))
-        except Exception as e:  # noqa: BLE001
-            log('  rating values not read: %s' % e); continue
-        back = {v: kk for kk, v in want.items()}
-        for r in res:
-            kk = back.get(str(r.get('ts_id')))
-            if kk: vals[kk] = {ts[:10]: v for ts, v in r.get('data', []) if v is not None}
-        time.sleep(0.5)
-    built = 0
-    for sid in ids:
-        pts = []
-        for mm in ('Max', 'Min'):
-            L, Q = vals.get((sid, 'Lev', mm), {}), vals.get((sid, 'Dis', mm), {})
-            pts += [(L[d], Q[d]) for d in L if d in Q and Q[d] >= 0]
-        if len(pts) < 60: continue
-        pts.sort()
-        # bins of about equal count; the median flow in each; then made never to fall as the level rises
-        n = len(pts); nb = min(40, max(8, n // 25)); knots = []
-        for b in range(nb):
-            seg = pts[b * n // nb:(b + 1) * n // nb]
-            if not seg: continue
-            qs = sorted(q for _, q in seg)
-            knots.append([round(sum(l for l, _ in seg) / len(seg), 3), qs[len(qs) // 2]])
-        top = pts[-max(3, n // 200):]                                     # the highest few days pin the top of the curve
-        knots.append([round(sum(l for l, _ in top) / len(top), 3), sorted(q for _, q in top)[len(top) // 2]])
-        out = []
-        for l, q in sorted(knots):
-            if out and l <= out[-1][0] + 0.002: out[-1][1] = max(out[-1][1], q); continue
-            out.append([l, max(q, out[-1][1] if out else 0)])
-        if len(out) >= 4 and out[-1][1] > 0:
-            R['r'][sid] = [[l, round(q, 4)] for l, q in out]; built += 1
-    R['built'] = now.strftime('%Y-%m-%d')
-    json.dump(R, open(path, 'w'), separators=(',', ':'), sort_keys=True)
-    log('Flow ratings built: %d gauges' % built)
     return R
 
 
-def flow(knots, lvl):
-    """Flow (m3/s) at a level from a gauge's rating; (flow, beyond) where beyond = above the highest level rated."""
-    if not knots or lvl is None: return None, False
-    ls = [k[0] for k in knots]
-    if lvl <= ls[0]: return knots[0][1] if lvl >= ls[0] - 0.05 else 0.0, False
-    i = bisect.bisect_left(ls, lvl)
-    if i >= len(knots):                                                   # above the curve: carry on along its last slope, flagged
-        (l1, q1), (l2, q2) = knots[-2], knots[-1]
-        s = (q2 - q1) / (l2 - l1) if l2 > l1 else 0
-        return max(q2, q2 + s * (lvl - l2)), True
-    (l1, q1), (l2, q2) = knots[i - 1], knots[i]
-    return q1 + (q2 - q1) * (lvl - l1) / (l2 - l1), False
+# ---------------------------------------------------------------- DWER's own hourly tables (flow in m3/s, stage)
+PUB = 'https://kumina.water.wa.gov.au/waterinformation/wir/reports/publish/%s/%s'
+
+
+def hourly_table(html):
+    """DWER's HYHOURF report (te2/te4.htm): {'YYYY-MM-DDTHH:00': value} for the hour starting at HH."""
+    m = re.search(r'(?s)<pre>(.*?)</pre>', html)
+    if not m: return {}
+    t = re.sub(r'<[^>]+>', '', m.group(1))
+    st = re.search(r'Start Time\s+(\d\d)/(\d\d)/(\d{4})', t)
+    hd = re.search(r'Hour((?:\s+\d\d/\d\d)+)\s+Hour', t)
+    if not st or not hd: return {}
+    y, days, prev = int(st.group(3)), [], None
+    for dd, mo in re.findall(r'(\d\d)/(\d\d)', hd.group(1)):
+        if prev and int(mo) < prev: y += 1                                     # across the new year
+        prev = int(mo); days.append('%04d-%s-%s' % (y, mo, dd))
+    out = {}
+    for line in t.splitlines():
+        r = re.match(r'\s*(\d+)-\s*(\d+)\s+(.*?)\s+\d+-\s*\d+\s*$', line)
+        if not r: continue
+        cells = re.findall(r'\[\s*\]|-?\d+\.\d+', r.group(3))
+        if len(cells) != len(days): continue
+        for d, c in zip(days, cells):
+            if c.startswith('['): continue
+            out['%sT%02d:00' % (d, int(r.group(1)))] = float(c)
+    return out
+
+
+def dwer_tables(G):
+    """Flow (m3/s) and stage for the last 6 days from each DWER gauge's station page: {id: {'q': {...}, 's': {...}}}."""
+    def one(g):
+        o = {}
+        for k, page in (('q', 'te4.htm'), ('s', 'te2.htm')):
+            try: o[k] = hourly_table(get(PUB % (g['id'], page), timeout=40, tries=2))
+            except Exception: o[k] = {}  # noqa: BLE001
+        return g['id'], o
+    out = {}
+    with cf.ThreadPoolExecutor(8) as X:
+        for sid, o in X.map(one, [g for g in G if not g['id'].startswith('B')]):
+            out[sid] = o
+    log('DWER hourly tables: flow for %d gauges, stage for %d' % (sum(1 for o in out.values() if o['q']), sum(1 for o in out.values() if o['s'])))
+    return out
+
+
+# ---------------------------------------------------------------- rain upstream (DWER's hydrographic subcatchments)
+SUBCATCH = 'https://public-services.slip.wa.gov.au/public/rest/services/SLIP_Public_Services/Water/MapServer/33/query'
+
+
+def subcatchments():
+    """DWER-030: [{ufi, down, ref, rings, bbox}] (geometry simplified to about 300 m)."""
+    out, off = [], 0
+    while True:
+        q = SUBCATCH + '?' + urllib.parse.urlencode({'where': '1=1', 'outFields': 'ufi,downstream,win_ref', 'returnGeometry': 'true', 'outSR': 4326,
+                                                     'maxAllowableOffset': 0.003, 'geometryPrecision': 4, 'resultOffset': off, 'resultRecordCount': 1000, 'f': 'json'})
+        j = json.loads(get(q, timeout=240))
+        F = j.get('features', [])
+        for f in F:
+            a, rings = f['attributes'], (f.get('geometry') or {}).get('rings') or []
+            if not rings: continue
+            xs = [p[0] for r in rings for p in r]; ys = [p[1] for r in rings for p in r]
+            out.append({'ufi': int(a['ufi'] or 0), 'down': int(a['downstream'] or 0), 'ref': (a.get('win_ref') or '').strip(), 'rings': rings,
+                        'bbox': (min(xs), min(ys), max(xs), max(ys))})
+        if len(F) < 1000 and not j.get('exceededTransferLimit'): break
+        off += len(F)
+    log('Subcatchments read: %d' % len(out))
+    return out
+
+
+def inside(lng, lat, rings):
+    c = False
+    for r in rings:                                                          # even-odd: holes count themselves out
+        for (x1, y1), (x2, y2) in zip(r, r[1:] + r[:1]):
+            if (y1 > lat) != (y2 > lat) and lng < (x2 - x1) * (lat - y1) / (y2 - y1) + x1: c = not c
+    return c
+
+
+def where(S, lng, lat):
+    for s in S:
+        b = s['bbox']
+        if b[0] <= lng <= b[2] and b[1] <= lat <= b[3] and inside(lng, lat, s['rings']): return s['ufi']
+    return None
+
+
+def upstream_map(G, R, out_dir, now):
+    """For each river gauge, the rain gauges in its catchment: {gauge id: [rain id, ...]}. The subcatchments are read
+    weekly (or daily while new gauges turn up) and cached in rivers-upstream.json as each gauge's upstream
+    subcatchments and each rain gauge's subcatchment."""
+    path = os.path.join(out_dir, 'rivers-upstream.json')
+    try: U = json.load(open(path))
+    except Exception: U = {}  # noqa: BLE001
+    U.setdefault('up', {}); U.setdefault('rain', {})
+    new = [r for r in R if r['id'] not in U['rain']] + [g for g in G if g['id'] not in U['up'] and g.get('lat') is not None]
+    stale = U.get('built', '') < (now - dt.timedelta(days=7)).strftime('%Y-%m-%d')
+    if stale or (new and U.get('built', '') < now.strftime('%Y-%m-%d')):
+        S = subcatchments()
+        if len(S) >= 1000:
+            kids, by_ref = {}, {}
+            for s in S:
+                kids.setdefault(s['down'], []).append(s['ufi'])
+                if s['ref']: by_ref.setdefault(s['ref'], s['ufi'])
+            for r in R: U['rain'][r['id']] = where(S, r['ll'][1], r['ll'][0])
+            for g in G:
+                top = by_ref.get(g['id'])
+                if top is None and g.get('lat') is not None: top = where(S, g['lng'], g['lat'])
+                seen, todo = set(), [top] if top is not None else []
+                while todo:
+                    u = todo.pop()
+                    if u in seen: continue
+                    seen.add(u); todo += kids.get(u, [])
+                U['up'][g['id']] = sorted(seen)
+            U['built'] = now.strftime('%Y-%m-%d')
+            json.dump(U, open(path, 'w'), separators=(',', ':'), sort_keys=True)
+        else: log('Too few subcatchments read; keeping the old upstream list')
+    rain_in = {}
+    for rid, u in U['rain'].items():
+        if u is not None: rain_in.setdefault(u, []).append(rid)
+    out = {}
+    for gid, ups in U['up'].items():
+        ids = sorted(set(rid for u in ups for rid in rain_in.get(u, [])))
+        if ids: out[gid] = ids
+    log('Upstream rain: %d river gauges with rain gauges in their catchment (median %d)' % (len(out), sorted(len(v) for v in out.values())[len(out) // 2] if out else 0))
+    return out
+
+
+def rain_upstream(G, R, U):
+    by = {r['id']: r for r in R}
+    for g in G:
+        L = [by[i] for i in U.get(g['id'], []) if i in by]
+        if not L: g['up'] = None; continue
+        def agg(k):
+            v = [r[k] for r in L if r.get(k) is not None]
+            return (round(sum(v) / len(v), 1), max(v), len(v)) if v else None
+        w = max(L, key=lambda r: ((r.get('s9') or 0) + (r.get('to9') or 0), r.get('d3') or 0))
+        g['up'] = {'n': len(L), 's9': agg('s9'), 'to9': agg('to9'), 'd3': agg('d3'),
+                   'top': {'n': w['n'], 'src': w['src'], 's9': w.get('s9'), 'to9': w.get('to9'), 'd3': w.get('d3')}}
+
+
+# ---------------------------------------------------------------- peaks over the last days and this month
+def peaks(G, H, now, out_dir):
+    path = os.path.join(out_dir, 'rivers-daily.json')
+    try: D = json.load(open(path))
+    except Exception: D = {'d': {}}  # noqa: BLE001
+    for kind, src in (('l', H['h']), ('q', H.get('q', {}))):
+        for sid, hh in src.items():
+            day = {}
+            for k, v in hh.items():
+                d = k[:10]; day[d] = max(day.get(d, v), v)
+            cur = D['d'].setdefault(sid, {})
+            for d, v in day.items():
+                e = cur.setdefault(d, [None, None]); e[0 if kind == 'l' else 1] = v if e[0 if kind == 'l' else 1] is None else max(e[0 if kind == 'l' else 1], v)
+    if not D.get('seeded'):                                                  # the start of the month, from Water Data Online
+        ids = [g['id'] for g in G if not g['id'].startswith('B')]
+        for sid, hh in kiwis_history(ids, days=12).items():
+            cur = D['d'].setdefault(sid, {})
+            for k, v in hh.items():
+                e = cur.setdefault(k[:10], [None, None]); e[0] = v if e[0] is None else max(e[0], v)
+        D['seeded'] = now.strftime('%Y-%m-%d')
+    keep = (now - dt.timedelta(days=40)).strftime('%Y-%m-%d')
+    for sid in list(D['d']):
+        D['d'][sid] = {d: e for d, e in D['d'][sid].items() if d >= keep}
+    json.dump(D, open(path, 'w'), separators=(',', ':'), sort_keys=True)
+    month0 = now.strftime('%Y-%m-01')
+    for g in G:
+        hh, qq, dd = H['h'].get(g['id'], {}), H.get('q', {}).get(g['id'], {}), D['d'].get(g['id'], {})
+        pk = {}
+        for n in range(1, 8):
+            cut = (now - dt.timedelta(hours=24 * n)).strftime('%Y-%m-%dT%H:00')
+            L = [(v, k) for k, v in hh.items() if k >= cut]
+            if g.get('at') and not g.get('off_air'): L.append((g['lvl'], g['at'][:16]))
+            Q = [v for k, v in qq.items() if k >= cut]
+            if L:
+                v, k = max(L); pk[str(n)] = [round(v, 3), k, round(max(Q), 3) if Q else None]
+        L = [(e[0], d) for d, e in dd.items() if d >= month0 and e[0] is not None]
+        if g.get('at') and not g.get('off_air') and g['at'][:7] == month0[:7]: L.append((g['lvl'], g['at'][:16]))
+        Q = [e[1] for d, e in dd.items() if d >= month0 and e[1] is not None]
+        if L:
+            v, k = max(L)
+            if len(k) == 10:                                                  # a day's maximum: find its hour if we still have it
+                hrs = [kk for kk, vv in hh.items() if kk[:10] == k and vv == v]; k = hrs[0] if hrs else k
+            pk['m'] = [round(v, 3), k, round(max(Q), 3) if Q else None]
+        g['pk'] = pk
+
+
+STILL = re.compile(r'(?i)^lake\b|\binlet\b|\bestuary\b|\bweir\b')   # lakes, inlets and weir pools: a level, not a river flow
 
 
 def main(out_dir):
@@ -432,10 +552,11 @@ def main(out_dir):
         json.dump(F, open(os.path.join(out_dir, 'rivers-flood.json'), 'w'), separators=(',', ':'), sort_keys=True)
     except Exception as e:  # noqa: BLE001
         log('Flood levels skipped: %s' % e); [g.setdefault('fl', None) for g in G]
-    # the hourly record
+    # the hourly record: levels (h) and DWER's flows (q)
     hp = os.path.join(out_dir, 'rivers-history.json')
     try: H = json.load(open(hp))
     except Exception: H = {'h': {}}  # noqa: BLE001
+    H.setdefault('q', {})
     cut = (now - dt.timedelta(hours=KEEP_H)).strftime('%Y-%m-%dT%H:00')
     thin = [g['id'] for g in G if not g['id'].startswith('B') and len([k for k in H['h'].get(g['id'], {}) if k >= cut]) < 24]   # gauges without a day of record yet
     if thin and (not H.get('seeded') or H.get('seeded') < now.strftime('%Y-%m-%d')):
@@ -446,14 +567,28 @@ def main(out_dir):
     for g in G:
         if g.get('hist'): H['h'].setdefault(g['id'], {}).update(g.pop('hist')); continue   # a Bureau gauge: its own last 7 days
         if not g['at']: continue
-        hk = g['at'][:13] + ':00'
-        H['h'].setdefault(g['id'], {})[hk] = g['lvl']
-    for sid in list(H['h']):
-        H['h'][sid] = {k: v for k, v in H['h'][sid].items() if k >= cut}
-        if not H['h'][sid]: del H['h'][sid]
+        H['h'].setdefault(g['id'], {})[g['at'][:13] + ':00'] = g['lvl']
+    # DWER's hourly tables, once an hour: their flow in m3/s, and their stage record to fill any gap in ours
+    if H.get('tables', '') <= (now - dt.timedelta(minutes=50)).isoformat(timespec='minutes'):
+        T = dwer_tables(G)
+        filled = 0
+        for g in G:
+            t = T.get(g['id'])
+            if not t: continue
+            if t['q']: H['q'].setdefault(g['id'], {}).update(t['q'])
+            if t['s'] and g.get('off') is not None:
+                cur = H['h'].setdefault(g['id'], {})
+                for k, st in t['s'].items():
+                    if k not in cur and k >= cut: cur[k] = round(st - g['off'], 3); filled += 1
+        H['tables'] = now.isoformat(timespec='minutes')
+        log('Gaps filled from DWER\'s stage tables: %d hourly readings' % filled)
+    for part in ('h', 'q'):
+        for sid in list(H[part]):
+            H[part][sid] = {k: v for k, v in H[part][sid].items() if k >= cut}
+            if not H[part][sid]: del H[part][sid]
     H['made'] = now.isoformat(timespec='minutes')
     json.dump(H, open(hp, 'w'), separators=(',', ':'), sort_keys=True)
-    # now: each gauge with its change over 24 h and its 8-day high, and where it sits against its record
+    # now: each gauge with its changes, flow, and where it sits against its record
     for g in G:
         p = pos.get(g['id']); g['lat'], g['lng'] = (p if p else (None, None))
         hh = H['h'].get(g['id'], {})
@@ -461,38 +596,63 @@ def main(out_dir):
         old = [v for k, v in sorted(hh.items()) if k <= ago]
         g['d24'] = round(g['lvl'] - old[-1], 3) if old else None
         g['hi8'] = round(max(hh.values()), 3) if hh else g['lvl']
+        g['still'] = bool(STILL.search(g['river'])) or g['name'].lower().startswith('weir ')
         g['pct'] = max(0, round(100 * g['lvl'] / g['rec'])) if g['rec'] and g['rec'] > 0.2 else None   # below the gauge's zero counts as 0%
         if g['id'].startswith('B'):
             try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
             except Exception: g['age'] = None  # noqa: BLE001
             g['off_air'] = g['age'] is None or g['age'] > 48
         g['tidal'] = g['id'] in TIDAL or tidal([v for k, v in sorted(hh.items()) if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00')])
+        # the rise over the last 3 hours, per hour (steadier than one hour's change)
+        g['r3'] = None
+        if g.get('at'):
+            k3 = (dt.datetime.fromisoformat(g['at']) - dt.timedelta(hours=3)).strftime('%Y-%m-%dT%H:00')
+            back = [v for k, v in sorted(hh.items()) if k <= k3 and k >= (dt.datetime.fromisoformat(g['at']) - dt.timedelta(hours=5)).strftime('%Y-%m-%dT%H:00')]
+            if back: g['r3'] = round((g['lvl'] - back[-1]) / 3, 3)
+        # flow as DWER publishes it (their latest hour), and its change over the hour before
+        qq = H['q'].get(g['id'], {})
+        ks = sorted(qq)
+        g['q'] = qq[ks[-1]] if ks else None
+        g['qat'] = ks[-1] if ks else None
+        g['dq'] = round(qq[ks[-1]] - qq[ks[-2]], 3) if len(ks) > 1 else None
+        g['dry'] = (g['q'] is not None and g['q'] < 0.001) or g['lvl'] <= 0.02
     try: flood_roads(out_dir)
     except Exception as e:  # noqa: BLE001
         log('Flooded roads not read: %s' % e)
         if not os.path.exists(os.path.join(out_dir, 'rivers-roads.json')): json.dump({'type': 'FeatureCollection', 'features': []}, open(os.path.join(out_dir, 'rivers-roads.json'), 'w'))
-    try: rain_near(G, pos, now)
+    R = []
+    try: R = rain_near(G, pos, now) or []
     except Exception as e:  # noqa: BLE001
         log('Rain skipped: %s' % e); [g.setdefault('rain', None) for g in G]
+    try: rain_upstream(G, R, upstream_map(G, R, out_dir, now) if R else {})
+    except Exception as e:  # noqa: BLE001
+        log('Upstream rain skipped: %s' % e); [g.setdefault('up', None) for g in G]
     json.dump(pos, open(os.path.join(out_dir, 'rivers-sites.json'), 'w'), separators=(',', ':'), sort_keys=True)
-    R = rating_build([g['id'] for g in G if not g['id'].startswith('B')], out_dir, now)
-    for g in G:
-        q, beyond = flow(R['r'].get(g['id']), g['lvl'])
-        g['q'] = None if q is None else round(q, 3 if q < 1 else 2 if q < 10 else 1)
-        g['qx'] = beyond
-        if g['q'] is not None and g['rate'] is not None:                    # the flow an hour ago, for the change
-            q0, _ = flow(R['r'].get(g['id']), g['lvl'] - g['rate']); g['dq'] = round(g['q'] - q0, 3)
-    log('Flow estimated: %d gauges. Biggest: %s' % (len([g for g in G if g['q'] is not None]), ', '.join(
-        '%s %s %.1f m3/s' % (g['river'], g['name'], g['q']) for g in sorted([g for g in G if g['q'] is not None and not g['off_air']], key=lambda g: -g['q'])[:5])))
+    try: peaks(G, H, now, out_dir)
+    except Exception as e:  # noqa: BLE001
+        log('Peaks skipped: %s' % e)
     D = {'made': now.isoformat(timespec='minutes'), 'gauges': G}
     json.dump(D, open(os.path.join(out_dir, 'rivers.json'), 'w'), separators=(',', ':'))
-    rising = sorted([g for g in G if (g['rate'] or 0) > 0.005 and not g['tidal'] and not g['off_air']], key=lambda g: -(g['rate'] or 0))
+    rising = sorted([g for g in G if rising_now(g)], key=lambda g: -(g['r3'] or g['rate'] or 0))
+    log('Flow from DWER: %d gauges. Biggest: %s' % (len([g for g in G if g['q'] is not None]), ', '.join(
+        '%s %s %.1f m3/s' % (g['river'], g['name'], g['q']) for g in sorted([g for g in G if g['q'] is not None and not g['off_air']], key=lambda g: -g['q'])[:5])))
     log('Tidal: %s' % ', '.join(g['river'] + ' ' + g['name'] for g in G if g['tidal']))
+    log('Still water (lakes, weir pools): %s' % ', '.join(g['river'] + ' ' + g['name'] for g in G if g['still']))
     log('Not reporting: %d' % len([g for g in G if g['off_air']]))
-    log('Rising: %d. Fastest: %s' % (len(rising), ', '.join('%s %s %+.3f m/h' % (g['river'], g['name'], g['rate']) for g in rising[:5])))
-    top = sorted([g for g in G if g['pct'] is not None], key=lambda g: -g['pct'])[:5]
+    log('Rising: %d. Fastest: %s' % (len(rising), ', '.join('%s %s %+.3f m/h' % (g['river'], g['name'], g['r3'] or g['rate']) for g in rising[:5])))
+    top = sorted([g for g in G if g['pct'] is not None and not g['still']], key=lambda g: -g['pct'])[:5]
     log('Highest vs record: %s' % ', '.join('%s %s %d%%' % (g['river'], g['name'], g['pct']) for g in top))
-    log('History: %d gauges, %d hourly readings' % (len(H['h']), sum(len(v) for v in H['h'].values())))
+    log('History: %d gauges, %d hourly readings, %d flow readings' % (len(H['h']), sum(len(v) for v in H['h'].values()), sum(len(v) for v in H['q'].values())))
+
+
+RISE, FAST = 0.02, 0.10   # metres an hour, averaged over 3 hours: rising, and rising fast (the page uses the same)
+
+
+def rising_now(g):
+    if g['off_air'] or g['tidal']: return False
+    r = g['r3'] if g['r3'] is not None else g['rate']
+    if r is None: return False
+    return r >= (FAST if g['dry'] else RISE) and (g['rate'] or 0) > 0
 
 
 if __name__ == '__main__':
