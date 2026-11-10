@@ -92,7 +92,7 @@ def rain_gauges(S, C, now):
     R = []
     for i, s in enumerate(S):
         t = rain_totals(_ser(C, s, 'rain'), now)
-        if t: R.append({'id': 'O:%d' % i, 'n': s['name'], 'src': 'EWS', 'll': [s['lat'], s['lng']], 's9': t['s9'], 'to9': t['to9'], 'd3': t['d3']})
+        if t: R.append({'id': 'O:%d' % i, 'n': s['name'], 'src': 'Partner', 'll': [s['lat'], s['lng']], 's9': t['s9'], 'to9': t['to9'], 'd3': t['d3']})
     return R
 
 
