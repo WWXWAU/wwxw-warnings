@@ -624,7 +624,7 @@ def main(out_dir):
         g['d24'] = round(g['lvl'] - old[-1], 3) if old else None
         g['hi8'] = round(max(hh.values()), 3) if hh else g['lvl']
         g['still'] = bool(STILL.search(g['river'])) or g['name'].lower().startswith('weir ')
-        g['pct'] = max(0, round(100 * g['lvl'] / g['rec'])) if g['rec'] and g['rec'] > 0.2 else None   # below the gauge's zero counts as 0%
+        g['pct'] = max(0, round(100 * g['lvl'] / g['rec'])) if g['rec'] and g['rec'] > 0.2 and not g['still'] else None   # below the gauge's zero counts as 0%
         if g['id'].startswith('B'):
             try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
             except Exception: g['age'] = None  # noqa: BLE001

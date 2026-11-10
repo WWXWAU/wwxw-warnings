@@ -405,7 +405,7 @@
     }
     function initMap() {
       map = new maplibregl.Map({ container: 'map', style: style(), attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
-        bounds: [[112.6, -35.3], [129.0, -13.6]], fitBoundsOptions: { padding: 16 }, maxBounds: [[100, -42], [140, -8]], minZoom: 3, maxZoom: 13 });
+        bounds: [[112.6, -35.3], [129.0, -13.6]], fitBoundsOptions: { padding: { top: 16, left: 16, right: 16, bottom: 64 } }, maxBounds: [[100, -42], [140, -8]], minZoom: 3, maxZoom: 13 });
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
