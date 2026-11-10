@@ -1,0 +1,1260 @@
+[
+{
+"name": "Rain gauge, 55 km W of Newman",
+"lat": -23.5,
+"lng": 119.24,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+1644,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 40 km SE of Newman",
+"lat": -23.55,
+"lng": 120.09,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+1642,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 18 km E of Boddington",
+"lat": -32.74,
+"lng": 116.65,
+"kind": "Rain",
+"sensors": {
+"temp": [
+"s",
+90505,
+"Degs (C)"
+],
+"rain": [
+"s",
+90504,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 25 km SE of Fitzroy Crossing",
+"lat": -18.31,
+"lng": 125.78,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+40245,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 70 km NW of Newman",
+"lat": -23.06,
+"lng": 119.15,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+38948,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 55 km NW of Tom Price",
+"lat": -22.39,
+"lng": 117.37,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+117269,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 45 km SE of Pannawonica",
+"lat": -22.0,
+"lng": 116.51,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+60315,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 55 km N of Tom Price (1)",
+"lat": -22.21,
+"lng": 117.64,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+67698,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 55 km N of Tom Price (2)",
+"lat": -22.18,
+"lng": 117.74,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+15764,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 85 km S of Pannawonica",
+"lat": -22.42,
+"lng": 116.31,
+"kind": "Rain",
+"sensors": {
+"temp": [
+"s",
+66968,
+"Degs (C)"
+],
+"rain": [
+"s",
+60321,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 95 km NW of Tom Price",
+"lat": -22.1,
+"lng": 117.12,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+60324,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 45 km NW of Paraburdoo",
+"lat": -22.95,
+"lng": 117.31,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+60327,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, Pannawonica",
+"lat": -21.65,
+"lng": 116.32,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+58465,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 60 km S of Pannawonica",
+"lat": -22.16,
+"lng": 116.35,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+60318,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 75 km W of Newman",
+"lat": -23.17,
+"lng": 119.04,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+65218,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 110 km S of Pannawonica",
+"lat": -22.59,
+"lng": 116.52,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+92143,
+"mm"
+]
+}
+},
+{
+"name": "Rain gauge, 210 km NE of Laverton",
+"lat": -27.61,
+"lng": 124.22,
+"kind": "Rain",
+"sensors": {
+"rain": [
+"s",
+51872,
+"mm"
+]
+}
+},
+{
+"name": "Turkey Creek, 9 km S of Warmun",
+"lat": -17.11,
+"lng": 128.19,
+"kind": "Rain + River/creek level",
+"sensors": {
+"rain": [
+"s",
+90773,
+"mm"
+],
+"level": [
+"s",
+90768,
+"m"
+]
+}
+},
+{
+"name": "Weather station, 30 km NW of Leonora",
+"lat": -28.68,
+"lng": 121.17,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+57950,
+"Degs (C)"
+],
+"wdir": [
+"s",
+57947,
+"Degrees"
+],
+"rain": [
+"s",
+57979,
+"mm"
+],
+"hum": [
+"s",
+57951,
+"%"
+],
+"wind": [
+"s",
+57948,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 40 km NE of Warmun",
+"lat": -16.7,
+"lng": 128.39,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+81708,
+"Degs (C)"
+],
+"wdir": [
+"s",
+81710,
+"Degrees"
+],
+"rain": [
+"s",
+82850,
+"mm"
+],
+"wind": [
+"s",
+81702,
+"m/s"
+],
+"hum": [
+"s",
+82855,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 75 km N of Warmun",
+"lat": -16.4,
+"lng": 127.99,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+65112,
+"Degs (C)"
+],
+"wdir": [
+"s",
+65109,
+"Degrees"
+],
+"wind": [
+"s",
+65110,
+"m/s"
+],
+"rain": [
+"s",
+65116,
+"mm"
+],
+"hum": [
+"s",
+65113,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 20 km E of Lancelin",
+"lat": -31.08,
+"lng": 115.56,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+73804,
+"Degs (C)"
+],
+"wdir": [
+"s",
+71825,
+"Degrees"
+],
+"wind": [
+"s",
+71835,
+"m/s"
+],
+"rain": [
+"s",
+71831,
+"mm"
+],
+"hum": [
+"s",
+71828,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 7 km W of Keysbrook",
+"lat": -32.42,
+"lng": 115.89,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+49967,
+"Degs (C)"
+],
+"wdir": [
+"s",
+50461,
+"Degrees"
+],
+"rain": [
+"s",
+52770,
+"mm"
+],
+"wind": [
+"s",
+50460,
+"m/s"
+],
+"hum": [
+"s",
+49968,
+"%"
+]
+}
+},
+{
+"name": "Weather station, Serpentine (1)",
+"lat": -32.38,
+"lng": 115.98,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+121533,
+"Degs (C)"
+],
+"rain": [
+"s",
+121536,
+"mm"
+],
+"hum": [
+"s",
+121537,
+"%"
+],
+"wdir": [
+"ss",
+12991,
+"Degrees"
+],
+"wind": [
+"ss",
+12990,
+"m/s"
+]
+}
+},
+{
+"name": "Weather station, Maida Vale",
+"lat": -31.95,
+"lng": 116.02,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+90826,
+"Degs (C)"
+],
+"wdir": [
+"s",
+90831,
+"Degrees"
+],
+"rain": [
+"s",
+90828,
+"mm"
+],
+"hum": [
+"s",
+90825,
+"%"
+],
+"wind": [
+"s",
+91866,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, Parkerville",
+"lat": -31.83,
+"lng": 116.12,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+53638,
+"Degs (C)"
+],
+"wdir": [
+"s",
+44630,
+"Degrees"
+],
+"rain": [
+"s",
+53641,
+"mm"
+],
+"hum": [
+"s",
+53639,
+"%"
+],
+"wind": [
+"s",
+44631,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, Serpentine (2)",
+"lat": -32.39,
+"lng": 115.99,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+81314,
+"Degs (C)"
+],
+"wdir": [
+"s",
+81313,
+"Degrees"
+],
+"wind": [
+"s",
+81315,
+"m/s"
+],
+"rain": [
+"s",
+83117,
+"mm"
+],
+"hum": [
+"s",
+81317,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 90 km E of Wittenoom",
+"lat": -22.3,
+"lng": 119.22,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+57957,
+"Degs (C)"
+],
+"wdir": [
+"s",
+57954,
+"Degrees"
+],
+"wind": [
+"s",
+57955,
+"m/s"
+],
+"rain": [
+"s",
+58391,
+"mm"
+],
+"hum": [
+"s",
+57958,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 60 km S of Nullagine",
+"lat": -22.41,
+"lng": 119.89,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+57965,
+"Degs (C)"
+],
+"wdir": [
+"s",
+57962,
+"Degrees"
+],
+"rain": [
+"s",
+58390,
+"mm"
+],
+"hum": [
+"s",
+57966,
+"%"
+],
+"wind": [
+"s",
+57963,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 60 km S of Pannawonica (1)",
+"lat": -22.17,
+"lng": 116.27,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+78064,
+"Degs (C)"
+],
+"rain": [
+"s",
+78063,
+"mm"
+],
+"hum": [
+"s",
+78060,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 75 km SW of Nullagine",
+"lat": -22.36,
+"lng": 119.58,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+57973,
+"Degs (C)"
+],
+"wdir": [
+"s",
+57970,
+"Degrees"
+],
+"wind": [
+"s",
+57971,
+"m/s"
+],
+"rain": [
+"s",
+58392,
+"mm"
+],
+"hum": [
+"s",
+57974,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 65 km NW of Newman",
+"lat": -23.02,
+"lng": 119.24,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+123078,
+"Degs (C)"
+],
+"wdir": [
+"s",
+123080,
+"Degrees"
+],
+"rain": [
+"s",
+123076,
+"mm"
+],
+"hum": [
+"s",
+123075,
+"%"
+],
+"wind": [
+"s",
+123099,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 30 km N of Nullagine",
+"lat": -21.62,
+"lng": 120.08,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+54703,
+"Degs (C)"
+],
+"wdir": [
+"s",
+54700,
+"Degrees"
+],
+"rain": [
+"s",
+54706,
+"mm"
+],
+"hum": [
+"s",
+54704,
+"%"
+],
+"wind": [
+"s",
+54701,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 50 km NW of Marble Bar",
+"lat": -20.99,
+"lng": 119.31,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+55691,
+"Degs (C)"
+],
+"wdir": [
+"s",
+55690,
+"Degrees"
+],
+"rain": [
+"s",
+55694,
+"mm"
+],
+"hum": [
+"s",
+55692,
+"%"
+],
+"wind": [
+"s",
+55704,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 55 km NW of Newman",
+"lat": -23.17,
+"lng": 119.25,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+79179,
+"Degs (C)"
+],
+"wdir": [
+"s",
+97214,
+"Degrees"
+],
+"wind": [
+"s",
+97212,
+"m/s"
+],
+"rain": [
+"s",
+97215,
+"mm"
+],
+"hum": [
+"s",
+79177,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 75 km SE of Wittenoom",
+"lat": -22.78,
+"lng": 118.79,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+56677,
+"Degs (C)"
+],
+"wdir": [
+"s",
+56674,
+"Degrees"
+],
+"wind": [
+"s",
+56675,
+"m/s"
+],
+"rain": [
+"s",
+56680,
+"mm"
+],
+"hum": [
+"s",
+56678,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 100 km W of Newman",
+"lat": -23.31,
+"lng": 118.78,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+86774,
+"Degs (C)"
+],
+"wdir": [
+"s",
+86775,
+"Degrees"
+],
+"wind": [
+"s",
+86791,
+"m/s"
+],
+"rain": [
+"s",
+86772,
+"mm"
+],
+"hum": [
+"s",
+86777,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 85 km W of Newman",
+"lat": -23.13,
+"lng": 118.93,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+86785,
+"Degs (C)"
+],
+"wdir": [
+"s",
+86781,
+"Degrees"
+],
+"wind": [
+"s",
+86792,
+"m/s"
+],
+"rain": [
+"s",
+86790,
+"mm"
+],
+"hum": [
+"s",
+86786,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 65 km SW of Marble Bar",
+"lat": -21.57,
+"lng": 119.28,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+97260,
+"Degs (C)"
+],
+"wdir": [
+"s",
+97263,
+"Degrees"
+],
+"wind": [
+"s",
+97267,
+"m/s"
+],
+"rain": [
+"s",
+97259,
+"mm"
+],
+"hum": [
+"s",
+97261,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 25 km S of Marble Bar",
+"lat": -21.38,
+"lng": 119.7,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+55684,
+"Degs (C)"
+],
+"wdir": [
+"s",
+55681,
+"Degrees"
+],
+"rain": [
+"s",
+55687,
+"mm"
+],
+"hum": [
+"s",
+55685,
+"%"
+],
+"wind": [
+"s",
+55682,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 65 km W of Tom Price",
+"lat": -22.53,
+"lng": 117.17,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+117259,
+"Degs (C)"
+],
+"wdir": [
+"s",
+117254,
+"Degrees"
+],
+"rain": [
+"s",
+117255,
+"mm"
+],
+"hum": [
+"s",
+117257,
+"%"
+],
+"wind": [
+"s",
+117276,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 65 km W of Newman",
+"lat": -23.31,
+"lng": 119.09,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+69258,
+"Degs (C)"
+],
+"wdir": [
+"s",
+69255,
+"Degrees"
+],
+"rain": [
+"s",
+69263,
+"mm"
+],
+"hum": [
+"s",
+69259,
+"%"
+],
+"wind": [
+"s",
+69256,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 60 km S of Pannawonica (2)",
+"lat": -22.19,
+"lng": 116.25,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+70812,
+"Degs (C)"
+],
+"wdir": [
+"s",
+70809,
+"Degrees"
+],
+"wind": [
+"s",
+70810,
+"m/s"
+],
+"rain": [
+"s",
+70816,
+"mm"
+],
+"hum": [
+"s",
+70813,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 45 km S of Pannawonica",
+"lat": -22.05,
+"lng": 116.35,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+58645,
+"Degs (C)"
+],
+"rain": [
+"s",
+58642,
+"mm"
+],
+"hum": [
+"s",
+58646,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 100 km S of Port Hedland",
+"lat": -21.2,
+"lng": 118.67,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+56382,
+"Degs (C)"
+],
+"wdir": [
+"s",
+56379,
+"Degrees"
+],
+"rain": [
+"s",
+56386,
+"mm"
+],
+"hum": [
+"s",
+56383,
+"%"
+],
+"wind": [
+"s",
+56380,
+"km/h"
+]
+}
+},
+{
+"name": "Weather station, 115 km E of Nullagine",
+"lat": -22.26,
+"lng": 121.17,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+45742,
+"Degs (C)"
+],
+"wdir": [
+"s",
+45741,
+"Degrees"
+],
+"wind": [
+"s",
+31446,
+"m/s"
+],
+"rain": [
+"s",
+110054,
+"mm"
+],
+"hum": [
+"s",
+110053,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 18 km S of Onslow",
+"lat": -21.79,
+"lng": 115.17,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+65887,
+"Degs (C)"
+],
+"wdir": [
+"s",
+65884,
+"Degrees"
+],
+"wind": [
+"s",
+65885,
+"m/s"
+],
+"rain": [
+"s",
+65891,
+"mm"
+],
+"hum": [
+"s",
+65888,
+"%"
+]
+}
+},
+{
+"name": "Weather station, 210 km NE of Laverton",
+"lat": -27.61,
+"lng": 124.22,
+"kind": "Rain + Weather",
+"sensors": {
+"temp": [
+"s",
+51837,
+"Degs (C)"
+],
+"wdir": [
+"s",
+51834,
+"Degrees"
+],
+"rain": [
+"s",
+51890,
+"mm"
+],
+"hum": [
+"s",
+51838,
+"%"
+],
+"wind": [
+"s",
+51835,
+"km/h"
+]
+}
+},
+{
+"name": "Turner River, 90 km S of Port Hedland (1)",
+"lat": -21.09,
+"lng": 118.74,
+"kind": "River/creek level",
+"sensors": {
+"level": [
+"s",
+67728,
+"m"
+]
+}
+},
+{
+"name": "Turner River, 100 km S of Port Hedland",
+"lat": -21.19,
+"lng": 118.73,
+"kind": "River/creek level",
+"sensors": {
+"level": [
+"s",
+114221,
+"m"
+]
+}
+},
+{
+"name": "Turner River, 90 km S of Port Hedland (2)",
+"lat": -21.12,
+"lng": 118.71,
+"kind": "River/creek level",
+"sensors": {
+"level": [
+"s",
+67725,
+"m"
+]
+}
+}
+]
