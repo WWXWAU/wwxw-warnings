@@ -25,12 +25,12 @@
   </script>
   <style>
     :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
-            --land: #F3F6F4; --water: #C9E2EA; --river: #6FB3CC; --road: #E1E6E3; --border: #9AAFB5;
+            --land: #F3F6F4; --water: #C9E2EA; --river: #6FB3CC; --course: #2A86AE; --road: #E1E6E3; --border: #9AAFB5;
             --fast: #D32F2F; --rise: #EF8A17; --steady: #7FA2AA; --fall: #2F7FC1; --tide: #8C7BBF; --off: #B7C2C5;
             --minor: #D9A400; --moderate: #E8590C; --major: #A61B1B;
             color-scheme: light; }
     [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
-            --land: #1B323B; --water: #0E2229; --river: #2F6C82; --road: #24414B; --border: #4E6E78;
+            --land: #1B323B; --water: #0E2229; --river: #2F6C82; --course: #5FB4D6; --road: #24414B; --border: #4E6E78;
             --steady: #6E929A; --off: #4F6369; color-scheme: dark; }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
@@ -82,6 +82,7 @@
     .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 0 8px; }
     .card h2 { font-size: 16px; margin: 0; padding: 0 16px 6px; }
+    .card .cnote { margin: -2px 16px 6px; font-size: 12px; color: var(--muted); }
     .card .none { padding: 2px 16px 8px; font-size: 13.5px; color: var(--muted); }
     .g { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 16px; width: 100%; border: 0; background: none; text-align: left; cursor: pointer; }
     .g:hover { background: var(--bg); }
@@ -118,7 +119,10 @@
     .seg button { border: 0; background: none; color: var(--muted); font-size: 12.5px; font-weight: 600; padding: 3px 11px; border-radius: 999px; cursor: pointer; }
     .seg button[aria-pressed=true] { background: var(--accent); color: var(--onAccent); }
     .chart { position: relative; margin-top: 6px; }
-    .chart svg { display: block; width: 100%; height: 190px; }
+    .chart svg { display: block; width: 100%; height: 190px; touch-action: pan-y; cursor: crosshair; user-select: none; }
+    .chint { font-size: 11.5px; color: var(--muted); margin-top: 2px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .chint button { border: 1px solid var(--line); background: var(--surface); color: var(--accent); border-radius: 999px; font-size: 11.5px; font-weight: 600; padding: 1px 9px; cursor: pointer; }
+    .chint button[hidden] { display: none; }
     .chart .tipc { position: absolute; top: 0; pointer-events: none; background: var(--text); color: var(--bg); font-size: 12px; border-radius: 7px; padding: 3px 7px; white-space: nowrap; transform: translateX(-50%); }
     .chart .tipc[hidden] { display: none; }
     .detail .more { font-size: 12.5px; color: var(--muted); margin-top: 8px; }
@@ -183,7 +187,7 @@
     <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
   </div>
   <section class="state" id="state" aria-live="polite"><span class="big" id="stBig">–</span><span class="head" id="stHead">Checking the river gauges…</span><span class="sub" id="stSub"></span></section>
-  <div class="pills" id="pills" role="group" aria-label="Highest level over"><span class="lab">Highest level</span></div>
+  <div class="pills" id="pills" role="group" aria-label="Period for the highest levels and rises"><span class="lab">Over the last</span></div>
 
   <div class="main">
     <div class="mapwrap">
@@ -195,8 +199,9 @@
       <section class="detail" id="detail" hidden aria-live="polite"></section>
       <section class="card" id="floodCard" hidden style="border-left:6px solid var(--moderate)"><h2>Above flood level</h2><div id="flooded"></div></section>
       <section class="card" id="roadsCard" hidden style="border-left:6px solid var(--major)"><h2>Roads affected by flooding</h2><div id="roads"></div></section>
-      <section class="card" id="risingCard"><h2 id="risingH">Rising now</h2><div id="rising"></div></section>
-      <section class="card"><h2 id="highestH">Highest against their record</h2><div id="highest"></div></section>
+      <section class="card" id="nowCard" hidden style="border-left:6px solid var(--rise)"><h2>Rising now</h2><div id="risingNow"></div></section>
+      <section class="card" id="risingCard"><h2 id="risingH">Biggest rises</h2><div id="rising"></div></section>
+      <section class="card"><h2 id="highestH">Highest</h2><p class="cnote">The biggest rivers flowing: ranked by peak flow, as levels can't be compared between rivers.</p><div id="highest"></div></section>
     </div>
   </div>
 
@@ -215,7 +220,7 @@
     var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
     var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
     var $ = function (id) { return document.getElementById(id); };
-    var ROADS = { type: 'FeatureCollection', features: [] };
+    var ROADS = { type: 'FeatureCollection', features: [] }, LINES = { type: 'FeatureCollection', features: [] };
     var roadClosed = function (f) { return /clos/i.test(f.properties.type) && !/open/i.test(f.properties.type); };
     var D = null, G = [], H = null, map = null, sel = null, sortBy = 'status', sortDir = 1, allRows = false;
 
@@ -243,17 +248,18 @@
     var toMinor = function (g) { return g.fl && g.fl.minor != null && !g.off_air ? g.fl.minor - g.lvl : null; };
 
     // ---- the highest level over a period (the pills)
-    var PERS = { now: ['Now', 'now'], 1: ['24 hours', 'in the last 24 hours'], 2: ['2 days', 'in the last 2 days'], 3: ['3 days', 'in the last 3 days'], 4: ['4 days', 'in the last 4 days'],
+    var PERS = { 1: ['24 hours', 'in the last 24 hours'], 2: ['2 days', 'in the last 2 days'], 3: ['3 days', 'in the last 3 days'], 4: ['4 days', 'in the last 4 days'],
                  5: ['5 days', 'in the last 5 days'], 6: ['6 days', 'in the last 6 days'], 7: ['7 days', 'in the last 7 days'], m: ['This month', 'this month'] };
-    var PER = 'now';
+    var PER = '1';
     try { var sp = localStorage.getItem('wwxw-river-per'); if (sp && PERS[sp]) PER = sp; } catch (e) {}
-    var pk = function (g) { return PER !== 'now' && g.pk && g.pk[PER] ? g.pk[PER] : null; };
-    var pkPct = function (g) { var k = pk(g); return k && g.rec && g.rec > 0.2 ? Math.max(0, Math.round(100 * k[0] / g.rec)) : null; };
+    var pk = function (g) { return g.pk && g.pk[PER] ? g.pk[PER] : null; };          // [peak level, when, peak flow, rise to the peak]
+    var rise = function (g) { var k = pk(g); return k && k[3] != null && !g.still && !g.tidal && !g.off_air ? k[3] : null; };
+    var pkQ = function (g) { var k = pk(g); return k && k[2] != null && !g.still ? k[2] : null; };
     var whenK = function (k) { if (!k) return ''; if (k.length === 10) return new Date(k + 'T12:00:00+08:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Perth' });
       return new Date(k.slice(0, 16) + ':00+08:00').toLocaleString('en-AU', { weekday: 'short', day: 'numeric', hour: 'numeric', timeZone: 'Australia/Perth' }); };
     function drawPills() {
       var el = $('pills');
-      el.innerHTML = '<span class="lab">Highest level</span>' + ['now', '1', '2', '3', '4', '5', '6', '7', 'm'].map(function (k) {
+      el.innerHTML = '<span class="lab">Over the last</span>' + ['1', '2', '3', '4', '5', '6', '7', 'm'].map(function (k) {
         return '<button type="button" data-p="' + k + '" aria-pressed="' + (PER === k) + '">' + PERS[k][0] + '</button>'; }).join('');
       el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
         PER = b.getAttribute('data-p'); try { localStorage.setItem('wwxw-river-per', PER); } catch (e) {}
@@ -289,7 +295,7 @@
         $('stSub').textContent = hi && hi.d24 >= 0.05 ? 'Biggest rise in the last 24 hours: ' + place(hi) + ', ' + cm(hi.d24) + '.' : 'All ' + live.length + ' reporting gauges are steady or falling.';
       } else {
         $('stHead').textContent = (n === 1 ? '1 river gauge rising' : n + ' river gauges rising') + (fast.length ? ', ' + fast.length + ' fast' : '');
-        $('stSub').textContent = 'Fastest: ' + place(top) + ', ' + cmh(rr(top)) + ' over the last 3 hours' + (top.pct != null && !top.still ? ' (' + top.pct + '% of its record)' : '') + '.';
+        $('stSub').textContent = 'Fastest: ' + place(top) + ', ' + cmh(rr(top)) + ' over the last 3 hours' + '.';
       }
     }
     function row(g, val, sub) {
@@ -303,25 +309,16 @@
       $('floodCard').hidden = !FL.length;
       $('flooded').innerHTML = FL.map(function (g) { var f = FLOOD[fcls(g)]; return row(g, '<span style="color:var(' + f[1] + ')">' + f[0] + '</span>', m2(g.lvl) + ' · ' + STATUS[status(g)][0].toLowerCase()); }).join('');
       var R = live.filter(function (g) { var s = status(g); return s === 'fast' || s === 'rise'; }).sort(function (a, b) { return rr(b) - rr(a); });
-      if (R.length) {
-        $('risingH').textContent = 'Rising now';
-        $('rising').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(rr(g)), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : g.pct != null ? ' · ' + g.pct + '% of record' : '')); }).join('');
-      } else {
-        var B = live.filter(function (g) { return g.d24 != null && g.d24 >= 0.05 && !g.dry && !g.still; }).sort(function (a, b) { return b.d24 - a.d24; });
-        $('risingH').textContent = B.length ? 'Biggest rises, last 24 hours' : 'Rising now';
-        $('rising').innerHTML = B.length ? B.slice(0, 6).map(function (g) { return row(g, cm(g.d24), 'now ' + m2(g.lvl) + ', ' + STATUS[status(g)][0].toLowerCase()); }).join('')
-          : '<div class="none">No rivers are rising. Rises show here as soon as a gauge picks one up.</div>';
-      }
-      if (PER === 'now') {
-        $('highestH').textContent = 'Highest against their record';
-        var P = live.filter(function (g) { return g.pct != null && !g.still; }).sort(function (a, b) { return b.pct - a.pct; });
-        $('highest').innerHTML = P.slice(0, 6).map(function (g) { return row(g, g.pct + '%', m2(g.lvl) + ' of ' + m2(g.rec) + ' (' + yearOf(g.recd) + ')'); }).join('');
-      } else {
-        $('highestH').textContent = 'Highest ' + PERS[PER][1] + ', against their record';
-        var K = G.filter(function (g) { return pkPct(g) != null && !g.still && !g.tidal; }).sort(function (a, b) { return pkPct(b) - pkPct(a) || pk(b)[0] - pk(a)[0]; });
-        $('highest').innerHTML = K.length ? K.slice(0, 8).map(function (g) { var k = pk(g); return row(g, pkPct(g) + '%', m2(k[0]) + ' at ' + esc(whenK(k[1])) + (k[2] != null ? ' · ' + fq(k[2]) : '')); }).join('')
-          : '<div class="none">No readings for this period yet.</div>';
-      }
+      $('nowCard').hidden = !R.length;                                 // rising right now: only when something is
+      $('risingNow').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(rr(g)), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : '')); }).join('');
+      var B = G.filter(function (g) { return rise(g) != null && rise(g) >= 0.02; }).sort(function (a, b) { return rise(b) - rise(a); });
+      $('risingH').textContent = 'Biggest rises ' + PERS[PER][1];
+      $('rising').innerHTML = B.length ? B.slice(0, 8).map(function (g) { var k = pk(g); return row(g, cm(k[3]), 'to ' + m2(k[0]) + ', ' + esc(whenK(k[1])) + ' · now ' + STATUS[status(g)][0].toLowerCase()); }).join('')
+        : '<div class="none">No river rose more than 2 cm ' + PERS[PER][1] + '.</div>';
+      var K = G.filter(function (g) { return pkQ(g) != null && pkQ(g) > 0; }).sort(function (a, b) { return pkQ(b) - pkQ(a); });
+      $('highestH').textContent = 'Highest ' + PERS[PER][1];
+      $('highest').innerHTML = K.length ? K.slice(0, 8).map(function (g) { var k = pk(g); return row(g, m2(k[0]), esc(whenK(k[1])) + ' · peak flow ' + fq(k[2])); }).join('')
+        : '<div class="none">No readings for this period yet.</div>';
       $('roadsCard').hidden = !ROADS.features.length;
       $('roads').innerHTML = ROADS.features.map(function (f, i) {
         var p = f.properties, c = roadClosed(f) ? '--major' : '--rise';
@@ -333,16 +330,16 @@
     }
 
     // ---- every gauge
-    var COLS0 = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['r3', 'Per hour', 'n'], ['d24', '24 hours', 'n hide-xs'], ['q', 'Flow', 'n hide-xs'], ['fld', 'Flood level', 'n hide-s'], ['pct', 'Against record', 'n hide-s'], ['at', 'Reading', 'n hide-s']];
+    var COLS0 = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['pk', 'Highest', 'n'], ['rise', 'Rise', 'n hide-xs'], ['r3', 'Per hour', 'n'], ['q', 'Flow', 'n hide-xs'], ['fld', 'Flood level', 'n hide-s'], ['at', 'Reading', 'n hide-s']];
     var COLS = COLS0;
     function drawTable() {
       var q = $('q').value.trim().toLowerCase();
-      COLS = PER === 'now' ? COLS0 : COLS0.slice(0, 3).concat([['pk', 'Highest, ' + PERS[PER][0].toLowerCase(), 'n']], COLS0.slice(3));
-      if (sortBy === 'pk' && PER === 'now') sortBy = 'status';
+      COLS = COLS0.map(function (c) { return c[0] === 'pk' ? ['pk', 'Highest, ' + PERS[PER][0].toLowerCase(), 'n'] : c[0] === 'rise' ? ['rise', 'Rise, ' + PERS[PER][0].toLowerCase(), 'n hide-xs'] : c; });
       var L = G.filter(function (g) { return !q || (g.river + ' ' + g.name + ' ' + g.id).toLowerCase().indexOf(q) >= 0; });
       var key = function (g) {
         if (sortBy === 'status') return STATUS[status(g)][2] * 1000 - rr(g) * 100;
-        if (sortBy === 'pk') return pkPct(g) == null ? 1e9 : -pkPct(g);
+        if (sortBy === 'pk') return pkQ(g) == null ? 1e9 : -pkQ(g);
+        if (sortBy === 'rise') return rise(g) == null ? 1e9 : -rise(g);
         if (sortBy === 'r3') return g.off_air ? 1e9 : -rr(g);
         if (sortBy === 'river') return (g.river + ' ' + g.name).toLowerCase();
         if (sortBy === 'at') return g.at || '';
@@ -354,11 +351,12 @@
       var h = '<thead><tr>' + COLS.map(function (c) { return '<th class="' + (c[2] || '') + '"><button type="button" data-k="' + c[0] + '"' + (sortBy === c[0] ? ' aria-sort="' + (sortDir > 0 ? 'ascending' : 'descending') + '"' : '') + '>' + c[1] + (sortBy === c[0] ? (sortDir > 0 ? ' ↓' : ' ↑') : '') + '</button></th>'; }).join('') + '</tr></thead><tbody>';
       var total = L.length; if (!allRows && !q) L = L.slice(0, 30);   // the first 30 (most active first); the rest on request
       h += L.map(function (g) {
-        var s = STATUS[status(g)], pct = g.pct == null ? '' : '<span class="bar" style="--c:var(' + (g.pct >= 50 ? '--fast' : g.pct >= 25 ? '--rise' : '--steady') + ')"><b style="width:' + Math.min(100, g.pct) + '%"></b></span>';
+        var s = STATUS[status(g)], k = pk(g);
         return '<tr data-id="' + g.id + '" tabindex="0"><td><span class="st" style="--c:var(' + s[1] + ')"><i></i>' + s[0] + '</span></td>'
-          + '<td>' + esc(g.river) + '<br><small>' + esc(g.name) + '</small></td><td class="n">' + m2(g.lvl) + '</td>' + (PER !== 'now' ? '<td class="n">' + (pk(g) ? m2(pk(g)[0]) + '<br><small>' + esc(whenK(pk(g)[1])) + (pkPct(g) != null ? ' · ' + pkPct(g) + '%' : '') + '</small>' : '–') + '</td>' : '') + '<td class="n">' + (g.off_air ? '–' : cmh(rr(g))) + '</td>'
-          + '<td class="n hide-xs">' + (g.off_air ? '–' : cm(g.d24)) + '</td><td class="n hide-xs">' + (g.q == null ? '–' : fq(g.q)) + '</td>'
-          + '<td class="n hide-s">' + (fcls(g) ? '<b style="color:var(' + FLOOD[fcls(g)][1] + ')">' + FLOOD[fcls(g)][0] + '</b>' : toMinor(g) != null ? '<small>' + m2(toMinor(g)) + ' below minor</small>' : '<small>–</small>') + '</td><td class="n hide-s">' + (g.pct == null ? '–' : g.pct + '%') + pct + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
+          + '<td>' + esc(g.river) + '<br><small>' + esc(g.name) + '</small></td><td class="n">' + m2(g.lvl) + '</td><td class="n">' + (k ? m2(k[0]) + '<br><small>' + esc(whenK(k[1])) + '</small>' : '–') + '</td>'
+          + '<td class="n hide-xs">' + (rise(g) == null ? '–' : cm(rise(g))) + '</td><td class="n">' + (g.off_air ? '–' : cmh(rr(g))) + '</td>'
+          + '<td class="n hide-xs">' + (g.q == null ? '–' : fq(g.q)) + '</td>'
+          + '<td class="n hide-s">' + (fcls(g) ? '<b style="color:var(' + FLOOD[fcls(g)][1] + ')">' + FLOOD[fcls(g)][0] + '</b>' : toMinor(g) != null ? '<small>' + m2(toMinor(g)) + ' below minor</small>' : '<small>–</small>') + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
       }).join('') + '</tbody>';
       $('tbl').innerHTML = h;
       var mb = $('allMore'); mb.hidden = !!q || total <= 30; mb.textContent = allRows ? 'Show the first 30' : 'Show all ' + total + ' gauges';
@@ -377,7 +375,7 @@
       return { type: 'FeatureCollection', features: G.filter(function (g) { return g.lat != null; }).map(function (g) {
         var s = status(g);
         var f = fcls(g);
-        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: g.still ? 0 : PER !== 'now' ? Math.min(100, pkPct(g) || 0) : g.pct == null ? 0 : Math.min(100, g.pct), f: f ? css(FLOOD[f][1]) : '' },
+        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: rise(g) == null ? 0 : Math.min(100, Math.sqrt(Math.max(0, rise(g)) / 1.5) * 100), f: f ? css(FLOOD[f][1]) : '' },
                  geometry: { type: 'Point', coordinates: [g.lng, g.lat] } }; }) };
     }
     function style() {
@@ -405,15 +403,28 @@
     }
     function initMap() {
       map = new maplibregl.Map({ container: 'map', style: style(), attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
-        bounds: [[112.6, -35.3], [129.0, -13.6]], fitBoundsOptions: { padding: { top: 16, left: 16, right: 16, bottom: 64 } }, maxBounds: [[100, -42], [140, -8]], minZoom: 3, maxZoom: 13 });
+        bounds: WA, fitBoundsOptions: { padding: fitPad() }, maxBounds: [[100, -42], [140, -8]], minZoom: 3, maxZoom: 13 });
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
+      map.addControl(new WAControl(), 'top-right');
+      map.on('dragstart', function () { moved = true; }); map.on('zoomstart', function (e) { if (e.originalEvent) moved = true; });
       map.on('load', function () {
+        map.resize(); map.fitBounds(WA, { padding: fitPad(), duration: 0 });
         addGauges();
         var a = document.querySelector('.maplibregl-ctrl-attrib'); if (a) a.classList.remove('maplibregl-compact-show');   // start folded away
       });
     }
+    // the whole state in view: clear of the key along the bottom; again on resize until someone moves the map
+    var WA = [[112.9, -35.2], [129.0, -13.7]], moved = false;
+    function fitPad() { var k = $('key'), kh = k ? k.offsetHeight : 50, w = $('map').clientWidth; return { top: 14, left: 14, right: w > 500 ? 54 : 44, bottom: kh + 22 }; }
+    window.addEventListener('resize', function () { if (map && !moved) map.fitBounds(WA, { padding: fitPad(), duration: 0 }); });
+    function WAControl() {}
+    WAControl.prototype.onAdd = function () {
+      var d = document.createElement('div'); d.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+      d.innerHTML = '<button type="button" title="Show all of WA" aria-label="Show all of WA" style="font:700 11px Lexend,sans-serif;width:29px">WA</button>';
+      d.firstChild.addEventListener('click', function () { moved = false; map.fitBounds(WA, { padding: fitPad(), duration: 500 }); }); return d; };
+    WAControl.prototype.onRemove = function () {};
     function firstPt(g) { if (!g) return null; var c = g.coordinates; while (c && Array.isArray(c[0])) c = c[0]; return c && c.length === 2 ? c : null; }
     function roadPts() { return { type: 'FeatureCollection', features: ROADS.features.map(function (f) { var c = firstPt(f.geometry); return c ? { type: 'Feature', properties: { closed: roadClosed(f) ? 1 : 0, road: f.properties.road, type: f.properties.type, where: f.properties.where }, geometry: { type: 'Point', coordinates: c } } : null; }).filter(Boolean) }; }
     function addGauges() {
@@ -426,6 +437,14 @@
         map.on('mousemove', l, function (e) { var p = e.features[0].properties; map.getCanvas().style.cursor = 'pointer'; rtip.setLngLat(e.lngLat).setHTML('<b>' + esc(p.road || '') + '</b><br>' + esc(p.type) + '<br><span style="color:var(--muted)">' + esc(p.where) + '</span>').addTo(map); });
         map.on('mouseleave', l, function () { map.getCanvas().style.cursor = ''; rtip.remove(); });
       });
+      map.addSource('glines', { type: 'geojson', data: LINES });
+      map.addLayer({ id: 'glines-case', type: 'line', source: 'glines', layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': css('--land'), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.6, 8, 4.5, 11, 6] } }, 'froads');
+      map.addLayer({ id: 'glines', type: 'line', source: 'glines', layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: { 'line-color': css('--course'), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.3, 8, 2.6, 11, 3.6] } }, 'froads');
+      map.addLayer({ id: 'glines-name', type: 'symbol', source: 'glines', minzoom: 6.5,
+        layout: { 'symbol-placement': 'line', 'symbol-spacing': 400, 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Italic'], 'text-size': 11.5 },
+        paint: { 'text-color': css('--course'), 'text-halo-color': css('--land'), 'text-halo-width': 1.4 } });
       map.addSource('g', { type: 'geojson', data: gaugesFC() });
       var r = ['interpolate', ['linear'], ['get', 'p'], 0, 5, 100, 12];
       map.addLayer({ id: 'g-halo', type: 'circle', source: 'g', filter: ['match', ['get', 's'], ['fast', 'rise'], true, false],
@@ -440,7 +459,7 @@
         var g = byId(e.features[0].properties.id); if (!g) return;
         var up = g.up && (g.up.s9 || g.up.to9) ? (g.up.s9 ? g.up.s9[1] : 0) + (g.up.to9 ? g.up.to9[1] : 0) : 0;
         tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(rr(g))) + (g.q != null ? '<br>Flow ' + fq(g.q) : '')
-          + (pk(g) ? '<br>Highest ' + PERS[PER][1] + ': ' + m2(pk(g)[0]) + (pkPct(g) != null ? ' (' + pkPct(g) + '% of record)' : '') : '')
+          + (pk(g) ? '<br>Highest ' + PERS[PER][1] + ': ' + m2(pk(g)[0]) + (rise(g) ? ' (up ' + cm(rise(g)).slice(1) + ')' : '') : '')
           + (up ? '<br>Rain upstream: up to ' + mm(up) + ' since 9 am yesterday' : g.rain && (g.rain.s9 || g.rain.to9) ? '<br>Rain nearby ' + mm((g.rain.s9 || 0) + (g.rain.to9 || 0)) + ' since 9 am yesterday' : '') + (fcls(g) ? '<br><b>' + FLOOD[fcls(g)][0] + '</b>' : '')).addTo(map);
       });
       map.on('mouseleave', 'g', function () { map.getCanvas().style.cursor = ''; tip.remove(); });
@@ -449,7 +468,7 @@
     function byId(id) { for (var i = 0; i < G.length; i++) if (G[i].id === id) return G[i]; return null; }
     function drawKey() {
       $('key').innerHTML = ['fast', 'rise', 'steady', 'fall', 'tide', 'off'].map(function (k) {
-        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span style="color:var(--muted)">Bigger dot: ' + (PER === 'now' ? 'closer to its record' : 'higher peak ' + PERS[PER][1] + ', against its record') + '</span>';
+        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span style="color:var(--muted)">Bigger dot: bigger rise ' + PERS[PER][1] + '</span>';
     }
 
     // ---- one gauge: the numbers and a 7-day chart
@@ -470,8 +489,9 @@
         + floodBox(g)
         + peakLine(g)
         + (g.q != null ? '<div class="seg" role="group" aria-label="Chart"><button type="button" data-v="lvl" aria-pressed="' + (chartVar === 'lvl') + '">Level</button><button type="button" data-v="q" aria-pressed="' + (chartVar === 'q') + '">Flow</button></div>' : '')
-        + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level or flow over the last 7 days"></svg><div class="tipc" id="tipc" hidden></div></div>'
-        + '<div class="more">' + (g.rec != null ? '<p>Record: <b>' + m2(g.rec) + '</b> (' + yearOf(g.recd) + ')' + (g.pct != null ? ', so it\'s at <b>' + g.pct + '%</b> of its record now.' : '.') + '</p>' : '')
+        + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level or flow over the last 7 days. Scroll to zoom, drag to move along, double-click to see all 7 days."></svg><div class="tipc" id="tipc" hidden></div></div>'
+        + '<div class="chint">Scroll or pinch to zoom, drag to move along. <button type="button" id="chartReset" hidden>Show all 7 days</button></div>'
+        + '<div class="more">' + (g.rec != null ? '<p>Record: <b>' + m2(g.rec) + '</b> (' + yearOf(g.recd) + ')' + '.' + '</p>' : '')
         + (g.hi8 != null ? '<p>Highest in the last week: ' + m2(g.hi8) + '.</p>' : '')
         + (g.q != null ? '<p>Flow is DWER\'s own figure from its hourly discharge report for this gauge (provisional).</p>' : '')
         + (g.still ? '<p>A lake, inlet or weir pool: its level isn\'t compared with river records on this page.</p>' : '')
@@ -509,7 +529,7 @@
     }
     function peakLine(g) {
       var k = pk(g); if (!k) return '';
-      return '<div class="rain">Highest ' + PERS[PER][1] + ': <b>' + m2(k[0]) + '</b>, ' + esc(whenK(k[1])) + (k[2] != null ? ' · peak flow ' + fq(k[2]) : '') + (pkPct(g) != null && !g.still ? ' · ' + pkPct(g) + '% of its record' : '') + '</div>';
+      return '<div class="rain">Highest ' + PERS[PER][1] + ': <b>' + m2(k[0]) + '</b>, ' + esc(whenK(k[1])) + (k[2] != null ? ' · peak flow ' + fq(k[2]) : '') + (rise(g) ? ' · rose ' + cm(rise(g)).slice(1) : '') + '</div>';
     }
     function floodBox(g) {
       var f = g.fl; if (!f || f.minor == null) return '';
@@ -524,53 +544,104 @@
       fetch(DATA + 'rivers-history.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
         .then(function (j) { H = j || { h: {}, q: {} }; cb(); });
     }
+    // the chart: the last 7 days; scroll (or pinch) to zoom in on a stretch, drag to move along, double-click to see it all
+    var VIEW = null;   // { id, a, b }: the time span on show (ms)
     function chart(g) {
       var svg = $('chartSvg'); svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + css('--muted') + '" font-size="13">Loading the last 7 days…</text>';
       loadHistory(function () {
         if (sel !== g.id) return;
         var isQ = chartVar === 'q' && H.q && H.q[g.id];
-        var h = (isQ ? H.q[g.id] : H.h[g.id]) || {}, now = Date.now(), from = now - 7 * 864e5;
-        var pts = Object.keys(h).sort().map(function (k) { return [new Date(k + ':00+08:00').getTime(), h[k]]; }).filter(function (p) { return p[0] >= from; });
-        if (!isQ && g.at && !g.off_air) pts.push([new Date(g.at).getTime(), g.lvl]);
-        if (pts.length < 2) { svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + css('--muted') + '" font-size="13">No recent readings to chart.</text>'; return; }
-        var W = svg.clientWidth || 340, Hh = 190, L = 40, R = 8, T = 10, B = 24;
-        var lo = Math.min.apply(null, pts.map(function (p) { return p[1]; })), hi = Math.max.apply(null, pts.map(function (p) { return p[1]; }));
-        var near = function (v) { return !isQ && v != null && v <= hi + Math.max(0.3, (hi - lo) * 1.5); };   // reference lines close enough to read against
-        var refs = [];
-        if (g.fl) ['minor', 'moderate', 'major'].forEach(function (k) { if (near(g.fl[k])) refs.push([g.fl[k], FLOOD[k][0].replace(' flood', '') + ' flood ' + m2(g.fl[k]), css(FLOOD[k][1])]); });
-        if (near(g.rec)) refs.push([g.rec, 'Record ' + m2(g.rec), css('--fast')]);
-        refs.forEach(function (r) { hi = Math.max(hi, r[0]); });
-        var pad = Math.max(isQ ? Math.max(0.001, hi * 0.05) : 0.05, (hi - lo) * 0.12); lo -= pad; hi += pad; if (isQ) lo = Math.max(lo, 0);
-        var x = function (t) { return L + (t - from) / (now - from) * (W - L - R); }, y = function (v) { return T + (hi - v) / (hi - lo) * (Hh - T - B); };
-        var step = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].filter(function (s) { return (hi - lo) / s <= 5; })[0] || 10000, s = '';
-        s += '<text x="4" y="' + (T + 2) + '" font-size="10.5" fill="' + css('--muted') + '">' + (isQ ? 'm³/s' : 'm') + '</text>';
-        for (var v = Math.ceil(lo / step) * step; v <= hi; v += step) {
-          s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + css('--line') + '"/>'
-            + '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="' + css('--muted') + '">' + (+v.toFixed(3)) + '</text>';
-        }
-        for (var d = 0; d <= 7; d++) {
-          var t = new Date(new Date(now - d * 864e5).toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' }) + 'T00:00:00+08:00').getTime();
-          if (t < from) continue;
-          s += '<line x1="' + x(t) + '" x2="' + x(t) + '" y1="' + T + '" y2="' + (Hh - B) + '" stroke="' + css('--line') + '" stroke-dasharray="2 3"/>'
-            + '<text x="' + (x(t) + 3) + '" y="' + (Hh - 8) + '" font-size="11" fill="' + css('--muted') + '">' + new Date(t + 6 * 36e5).toLocaleDateString('en-AU', { weekday: 'short', timeZone: 'Australia/Perth' }) + '</text>';
-        }
-        refs.forEach(function (r) { s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(r[0]) + '" y2="' + y(r[0]) + '" stroke="' + r[2] + '" stroke-dasharray="5 4"/>'
-          + '<text x="' + (W - R - 2) + '" y="' + (y(r[0]) - 4) + '" text-anchor="end" font-size="11" fill="' + r[2] + '">' + r[1] + '</text>'; });
-        var c = css(STATUS[status(g)][1] === '--steady' ? '--accent' : STATUS[status(g)][1]);
-        var line = pts.map(function (p, i) { return (i && p[0] - pts[i - 1][0] <= 3 * 36e5 ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1); }).join('');   // a gap of over 3 hours (no readings) is left as a gap
-        s += '<path d="' + line + '" fill="none" stroke="' + c + '" stroke-width="2.2" stroke-linejoin="round"/>'
-          + '<circle cx="' + x(pts[pts.length - 1][0]) + '" cy="' + y(pts[pts.length - 1][1]) + '" r="4" fill="' + c + '"/>'
-          + '<line id="cx" y1="' + T + '" y2="' + (Hh - B) + '" stroke="' + css('--muted') + '" visibility="hidden"/>';
-        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); svg.innerHTML = s;
-        var tipc = $('tipc'), cx = svg.querySelector('#cx');
-        var move = function (ev) {
-          var r = svg.getBoundingClientRect(), px = (ev.touches ? ev.touches[0].clientX : ev.clientX) - r.left, t = from + (px * W / r.width - L) / (W - L - R) * (now - from);
-          var best = pts[0]; pts.forEach(function (p) { if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p; });
-          cx.setAttribute('x1', x(best[0])); cx.setAttribute('x2', x(best[0])); cx.setAttribute('visibility', 'visible');
-          tipc.hidden = false; tipc.style.left = (x(best[0]) / W * 100) + '%';
-          tipc.textContent = (isQ ? fq(best[1]) : m2(best[1])) + ' · ' + new Date(best[0]).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', timeZone: 'Australia/Perth' });
+        var h = (isQ ? H.q[g.id] : H.h[g.id]) || {}, now = Date.now(), from0 = now - 7 * 864e5;
+        var all = Object.keys(h).sort().map(function (k) { return [new Date(k + ':00+08:00').getTime(), h[k]]; }).filter(function (p) { return p[0] >= from0; });
+        if (!isQ && g.at && !g.off_air) all.push([new Date(g.at).getTime(), g.lvl]);
+        if (all.length < 2) { svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + css('--muted') + '" font-size="13">No recent readings to chart.</text>'; return; }
+        if (!VIEW || VIEW.id !== g.id) VIEW = { id: g.id, a: from0, b: now };
+        var MIN = 6 * 36e5;
+        var clampV = function () { var w = Math.max(MIN, Math.min(now - from0, VIEW.b - VIEW.a)); if (VIEW.a < from0) VIEW.a = from0; VIEW.b = VIEW.a + w; if (VIEW.b > now) { VIEW.b = now; VIEW.a = now - w; } };
+        var draw = function () {
+          clampV();
+          var from = VIEW.a, to = VIEW.b, zoomed = to - from < now - from0 - 60000;
+          var pts = all.filter(function (p) { return p[0] >= from - 36e5 && p[0] <= to + 36e5; });
+          if (pts.length < 2) pts = all;
+          var vis = pts.filter(function (p) { return p[0] >= from && p[0] <= to; }); if (!vis.length) vis = pts;
+          var W = svg.clientWidth || 340, Hh = 190, L = 40, R = 8, T = 10, B = 24;
+          var lo = Math.min.apply(null, vis.map(function (p) { return p[1]; })), hi = Math.max.apply(null, vis.map(function (p) { return p[1]; }));
+          var near = function (v) { return !isQ && v != null && v <= hi + Math.max(0.3, (hi - lo) * 1.5); };
+          var refs = [];
+          if (g.fl) ['minor', 'moderate', 'major'].forEach(function (k) { if (near(g.fl[k])) refs.push([g.fl[k], FLOOD[k][0].replace(' flood', '') + ' flood ' + m2(g.fl[k]), css(FLOOD[k][1])]); });
+          if (near(g.rec)) refs.push([g.rec, 'Record ' + m2(g.rec), css('--fast')]);
+          refs.forEach(function (r) { hi = Math.max(hi, r[0]); });
+          var pad = Math.max(isQ ? Math.max(0.001, hi * 0.05) : 0.02, (hi - lo) * 0.12); lo -= pad; hi += pad; if (isQ) lo = Math.max(lo, 0);
+          var x = function (t) { return L + (t - from) / (to - from) * (W - L - R); }, y = function (v) { return T + (hi - v) / (hi - lo) * (Hh - T - B); };
+          var step = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].filter(function (st) { return (hi - lo) / st <= 5; })[0] || 10000, s = '';
+          s += '<defs><clipPath id="clipc"><rect x="' + L + '" y="0" width="' + (W - L - R) + '" height="' + Hh + '"/></clipPath></defs>';
+          s += '<text x="4" y="' + (T + 2) + '" font-size="10.5" fill="' + css('--muted') + '">' + (isQ ? 'm³/s' : 'm') + '</text>';
+          for (var v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+            s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v) + '" y2="' + y(v) + '" stroke="' + css('--line') + '"/>'
+              + '<text x="' + (L - 6) + '" y="' + (y(v) + 4) + '" text-anchor="end" font-size="11" fill="' + css('--muted') + '">' + (+v.toFixed(3)) + '</text>';
+          }
+          var span = to - from, tick = span > 3 * 864e5 ? 864e5 : span > 36 * 36e5 ? 12 * 36e5 : span > 18 * 36e5 ? 6 * 36e5 : span > 8 * 36e5 ? 3 * 36e5 : 36e5;
+          var day0 = new Date(new Date(from).toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' }) + 'T00:00:00+08:00').getTime();
+          for (var t = day0; t <= to; t += tick) {
+            if (t < from) continue;
+            var midnight = Math.round(((t - day0) % 864e5) / 36e5) === 0;
+            var lab = tick >= 864e5 ? new Date(t + 6 * 36e5).toLocaleDateString('en-AU', { weekday: 'short', timeZone: 'Australia/Perth' })
+              : midnight ? new Date(t + 36e5).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', timeZone: 'Australia/Perth' })
+              : new Date(t).toLocaleTimeString('en-AU', { hour: 'numeric', timeZone: 'Australia/Perth' }).replace(':00', '').replace(/\s/g, '');
+            s += '<line x1="' + x(t) + '" x2="' + x(t) + '" y1="' + T + '" y2="' + (Hh - B) + '" stroke="' + css('--line') + '" stroke-dasharray="2 3"/>'
+              + '<text x="' + (x(t) + 3) + '" y="' + (Hh - 8) + '" font-size="11" fill="' + css('--muted') + '"' + (midnight && tick < 864e5 ? ' font-weight="600"' : '') + '>' + lab + '</text>';
+          }
+          refs.forEach(function (r) { s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(r[0]) + '" y2="' + y(r[0]) + '" stroke="' + r[2] + '" stroke-dasharray="5 4"/>'
+            + '<text x="' + (W - R - 2) + '" y="' + (y(r[0]) - 4) + '" text-anchor="end" font-size="11" fill="' + r[2] + '">' + r[1] + '</text>'; });
+          var c = css(STATUS[status(g)][1] === '--steady' ? '--accent' : STATUS[status(g)][1]);
+          var line = pts.map(function (p, i) { return (i && p[0] - pts[i - 1][0] <= 3 * 36e5 ? 'L' : 'M') + x(p[0]).toFixed(1) + ' ' + y(p[1]).toFixed(1); }).join('');   // a gap of over 3 hours (no readings) is left as a gap
+          var last = all[all.length - 1];
+          s += '<g clip-path="url(#clipc)"><path d="' + line + '" fill="none" stroke="' + c + '" stroke-width="2.2" stroke-linejoin="round"/>'
+            + (last[0] <= to + 1 ? '<circle cx="' + x(last[0]) + '" cy="' + y(last[1]) + '" r="4" fill="' + c + '"/>' : '') + '</g>'
+            + '<line id="cx" y1="' + T + '" y2="' + (Hh - B) + '" stroke="' + css('--muted') + '" visibility="hidden"/>';
+          svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); svg.innerHTML = s;
+          var rb = $('chartReset'); if (rb) rb.hidden = !zoomed;
+          var tipc = $('tipc'), cx = svg.querySelector('#cx');
+          svg._x = x; svg._W = W; svg._L = L; svg._R = R;
+          svg._move = function (clientX) {
+            var r = svg.getBoundingClientRect(), t = from + ((clientX - r.left) * W / r.width - L) / (W - L - R) * (to - from);
+            var best = vis[0]; vis.forEach(function (p) { if (Math.abs(p[0] - t) < Math.abs(best[0] - t)) best = p; });
+            cx.setAttribute('x1', x(best[0])); cx.setAttribute('x2', x(best[0])); cx.setAttribute('visibility', 'visible');
+            tipc.hidden = false;
+            tipc.textContent = (isQ ? fq(best[1]) : m2(best[1])) + ' · ' + new Date(best[0]).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: tick < 6 * 36e5 ? '2-digit' : undefined, timeZone: 'Australia/Perth' });
+            var px = x(best[0]) / W * r.width, half = tipc.offsetWidth / 2, wrap = svg.parentNode.clientWidth;   // kept inside the chart at either end
+            tipc.style.left = Math.max(half, Math.min(wrap - half, px)) + 'px';
+          };
         };
-        svg.onmousemove = move; svg.ontouchmove = move; svg.onmouseleave = function () { tipc.hidden = true; cx.setAttribute('visibility', 'hidden'); };
+        draw();
+        // zoom and pan
+        var zoomAt = function (clientX, f) {
+          var r = svg.getBoundingClientRect(), W = svg._W, frac = Math.max(0, Math.min(1, ((clientX - r.left) * W / r.width - svg._L) / (W - svg._L - svg._R)));
+          var t = VIEW.a + frac * (VIEW.b - VIEW.a), w = Math.max(MIN, Math.min(now - from0, (VIEW.b - VIEW.a) * f));
+          VIEW.a = t - frac * w; VIEW.b = VIEW.a + w; draw(); svg._move(clientX);
+        };
+        svg.onwheel = function (e) { e.preventDefault(); zoomAt(e.clientX, Math.pow(1.0015, e.deltaY)); };
+        var drag = null, pinch = null;
+        svg.onmousedown = function (e) { drag = { x: e.clientX, a: VIEW.a, b: VIEW.b }; svg.style.cursor = 'grabbing'; e.preventDefault(); };
+        window.addEventListener('mouseup', function () { drag = null; svg.style.cursor = ''; });
+        svg.onmousemove = function (e) {
+          if (drag) { var r = svg.getBoundingClientRect(), dt = (e.clientX - drag.x) / r.width * svg._W / (svg._W - svg._L - svg._R) * (drag.b - drag.a); VIEW.a = drag.a - dt; VIEW.b = drag.b - dt; draw(); }
+          svg._move(e.clientX);
+        };
+        svg.ondblclick = function () { VIEW.a = from0; VIEW.b = now; draw(); };
+        svg.onmouseleave = function () { $('tipc').hidden = true; var cx = svg.querySelector('#cx'); if (cx) cx.setAttribute('visibility', 'hidden'); };
+        svg.ontouchstart = function (e) {
+          if (e.touches.length === 2) { pinch = { d: Math.abs(e.touches[0].clientX - e.touches[1].clientX), a: VIEW.a, b: VIEW.b, c: (e.touches[0].clientX + e.touches[1].clientX) / 2 }; e.preventDefault(); }
+          else svg._move(e.touches[0].clientX);
+        };
+        svg.ontouchmove = function (e) {
+          if (pinch && e.touches.length === 2) {
+            e.preventDefault(); var d = Math.abs(e.touches[0].clientX - e.touches[1].clientX) || 1;
+            VIEW.a = pinch.a; VIEW.b = pinch.b; zoomAt(pinch.c, pinch.d / d);
+          } else if (e.touches.length === 1) svg._move(e.touches[0].clientX);
+        };
+        svg.ontouchend = function () { pinch = null; };
+        var rb = $('chartReset'); if (rb) rb.onclick = function () { VIEW.a = from0; VIEW.b = now; draw(); };
       });
     }
 
@@ -600,7 +671,9 @@
         if (rd && rd.features) ROADS = rd;
         $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' of ' + G.length + ' gauges reporting';
         drawPills(); drawState(); drawLists(); drawTable();
-        if (first) { drawKey(); initMap(); }
+        if (first) { drawKey(); initMap();
+          fetch(DATA + 'rivers-lines.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) {
+            if (j && j.features) { LINES = j; if (map && map.getSource('glines')) map.getSource('glines').setData(LINES); } }); }
         else { H = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
       });
     }

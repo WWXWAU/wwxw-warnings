@@ -49,7 +49,7 @@ async def run():
                         await pg.evaluate("window.riverPick('809316')"); await pg.wait_for_timeout(2500)
                         await pg.click('#pills button[data-p="7"]'); await pg.wait_for_timeout(1500)
                         await pg.screenshot(path='previews/desktop-pill7.png', full_page=True)
-                        await pg.click('#pills button[data-p="now"]')
+                        await pg.click('#pills button[data-p="1"]')
             await ctx.close()
         await b.close()
 asyncio.run(run())
