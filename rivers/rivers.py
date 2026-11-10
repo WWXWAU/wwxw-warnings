@@ -14,6 +14,7 @@ Every 15 minutes (GitHub Actions):
     rivers-daily.json).
 Writes rivers.json (now) and rivers-history.json (the record) into the output folder.
 """
+import orion
 import concurrent.futures as cf, datetime as dt, ftplib, io, json, math, os, re, sys, time, urllib.parse, urllib.request
 
 UA = {'User-Agent': 'Mozilla/5.0 (West WX Watchers river levels; westweatherwatchers.com)'}
@@ -445,10 +446,10 @@ def upstream_map(G, R, out_dir, now):
     path = os.path.join(out_dir, 'rivers-upstream.json')
     try: U = json.load(open(path))
     except Exception: U = {}  # noqa: BLE001
-    if U.get('v') != 2: U = {}
+    if U.get('v') != 3: U = {}
     U.setdefault('up', {}); U.setdefault('rain', {})
     new = [r for r in R if r['id'] not in U['rain']] + [g for g in G if g['id'] not in U['up'] and g.get('lat') is not None]
-    stale = U.get('built', '') < (now - dt.timedelta(days=7)).strftime('%Y-%m-%d') or U.get('v') != 2
+    stale = U.get('built', '') < (now - dt.timedelta(days=7)).strftime('%Y-%m-%d') or U.get('v') != 3
     if stale or (new and U.get('built', '') < now.strftime('%Y-%m-%d')):
         S = subcatchments()
         if len(S) >= 1000:
@@ -466,7 +467,7 @@ def upstream_map(G, R, out_dir, now):
                     if u in seen: continue
                     seen.add(u); todo += kids.get(u, [])
                 U['up'][g['id']] = sorted(seen)
-            U['built'] = now.strftime('%Y-%m-%d'); U['v'] = 2
+            U['built'] = now.strftime('%Y-%m-%d'); U['v'] = 3
             json.dump(U, open(path, 'w'), separators=(',', ':'), sort_keys=True)
         else: log('Too few subcatchments read; keeping the old upstream list')
     rain_in = {}
@@ -689,6 +690,15 @@ def main(out_dir):
         json.dump(F, open(os.path.join(out_dir, 'rivers-flood.json'), 'w'), separators=(',', ':'), sort_keys=True)
     except Exception as e:  # noqa: BLE001
         log('Flood levels skipped: %s' % e); [g.setdefault('fl', None) for g in G]
+    OS, OC = [], {'c': {}}
+    try:                                                                     # EWS creek gauges the site owner approved
+        OS, OC = orion.fetch(out_dir, now, log)
+        OG = orion.level_gauges(OS, OC, now)
+        for g in OG: pos[g['id']] = g.pop('ll')
+        G += OG
+        log('EWS level gauges: %d' % len(OG))
+    except Exception as e:  # noqa: BLE001
+        log('EWS gauges skipped: %s' % e)
     # the hourly record: levels (h) and DWER's flows (q)
     hp = os.path.join(out_dir, 'rivers-history.json')
     try: H = json.load(open(hp))
@@ -764,6 +774,8 @@ def main(out_dir):
     try:
         RP = rain_page()
         if len(RP) < 200: RP = R                                              # the Rainfall page didn't load: DWER and Bureau gauges only
+        try: RP = RP + orion.rain_gauges(OS, OC, now)
+        except Exception as e: log('EWS rain skipped: %s' % e)  # noqa: BLE001
         rain_upstream(G, RP, upstream_map(G, RP, out_dir, now) if RP else {})
     except Exception as e:  # noqa: BLE001
         log('Upstream rain skipped: %s' % e); [g.setdefault('up', None) for g in G]
@@ -777,7 +789,10 @@ def main(out_dir):
     try: peaks(G, H, now, out_dir)
     except Exception as e:  # noqa: BLE001
         log('Peaks skipped: %s' % e)
-    for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json', 'rivers-basins.json'):                 # always something to publish
+    try: json.dump({'made': now.isoformat(timespec='minutes'), 'stations': orion.obs(OS, OC, now)}, open(os.path.join(out_dir, 'orion-obs.json'), 'w'), separators=(',', ':'))
+    except Exception as e:  # noqa: BLE001
+        log('EWS obs skipped: %s' % e)
+    for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json', 'rivers-basins.json', 'orion-cache.json', 'orion-obs.json'):                 # always something to publish
         if not os.path.exists(os.path.join(out_dir, f)): json.dump({}, open(os.path.join(out_dir, f), 'w'))
     try: districts(G)
     except Exception as e:  # noqa: BLE001
