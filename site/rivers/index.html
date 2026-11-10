@@ -82,6 +82,11 @@
     .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 0 8px; }
     .card h2 { font-size: 16px; margin: 0; padding: 0 16px 6px; }
+    .card .ch { display: flex; align-items: flex-start; gap: 8px; padding-right: 12px; }
+    .card .ch h2 { flex: 1; }
+    .save { flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--accent); border-radius: 999px; font-size: 12px; font-weight: 600; padding: 3px 11px; cursor: pointer; white-space: nowrap; }
+    .save:hover { border-color: var(--accent); }
+    .save:disabled { opacity: 0.6; cursor: wait; }
     .card .cnote { margin: -2px 16px 6px; font-size: 12px; color: var(--muted); }
     .card .none { padding: 2px 16px 8px; font-size: 13.5px; color: var(--muted); }
     .g { display: grid; grid-template-columns: 12px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 7px 16px; width: 100%; border: 0; background: none; text-align: left; cursor: pointer; }
@@ -132,6 +137,9 @@
     .all { margin: 0 20px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 0 6px; }
     .all .hd { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding: 0 16px 10px; }
     .all h2 { margin: 0; font-size: 16px; flex: 1; }
+    .all select { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 12px; font-size: 13.5px; }
+    .anote { margin: -4px 16px 10px; font-size: 12.5px; color: var(--muted); }
+    .anote button { border: 0; background: none; padding: 0; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
     .all input { border: 1px solid var(--line); background: var(--bg); border-radius: 999px; padding: 6px 13px; font-size: 13.5px; width: min(320px, 100%); }
     .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
     .tbl th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
@@ -200,19 +208,21 @@
       <section class="card" id="floodCard" hidden style="border-left:6px solid var(--moderate)"><h2>Above flood level</h2><div id="flooded"></div></section>
       <section class="card" id="roadsCard" hidden style="border-left:6px solid var(--major)"><h2>Roads affected by flooding</h2><div id="roads"></div></section>
       <section class="card" id="nowCard" hidden style="border-left:6px solid var(--rise)"><h2>Rising now</h2><div id="risingNow"></div></section>
-      <section class="card" id="risingCard"><h2 id="risingH">Biggest rises</h2><div id="rising"></div></section>
-      <section class="card"><h2 id="highestH">Highest</h2><p class="cnote">The biggest rivers flowing: ranked by peak flow, as levels can't be compared between rivers.</p><div id="highest"></div></section>
+      <section class="card" id="risingCard"><div class="ch"><h2 id="risingH">Biggest rises</h2><button class="save" type="button" id="saveRise">Save image</button></div><div id="rising"></div></section>
+      <section class="card"><div class="ch"><h2 id="highestH">Highest</h2><button class="save" type="button" id="saveHigh">Save image</button></div><p class="cnote">The biggest rivers flowing: ranked by peak flow, as levels can't be compared between rivers.</p><div id="highest"></div></section>
     </div>
   </div>
 
   <section class="all" aria-label="Every gauge">
-    <div class="hd"><h2 id="allH">Every gauge</h2><input id="q" type="search" placeholder="Find a river or place" aria-label="Find a river or place"></div>
+    <div class="hd"><h2 id="allH">Every gauge</h2><select id="dsel" aria-label="District"><option value="">All districts</option></select><input id="q" type="search" placeholder="Find a river or place" aria-label="Find a river or place"></div>
+    <p class="anote" id="allNote"></p>
     <div style="overflow-x:auto"><table class="tbl" id="tbl"></table></div>
     <button class="more" id="allMore" type="button" hidden>Show all gauges</button>
   </section>
 
   <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, the Bureau's flood levels, and rain from DWER and Bureau gauges. Roads affected by flooding from <a href="https://www.mainroads.wa.gov.au/travelmap/" target="_blank" rel="noopener">Main Roads WA</a> (CC BY 4.0, Commissioner of Main Roads); check the Travel Map before you go. Flow (m³/s) from DWER's hourly discharge reports. Rain upstream uses DWER's hydrographic subcatchments to find the rain gauges in each river's catchment. Gauge positions and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
+  <img id="imgIcon" src="../brand/wwxw-icon-192.png" alt="" hidden>
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
   (function () {
@@ -222,6 +232,7 @@
     var $ = function (id) { return document.getElementById(id); };
     var ROADS = { type: 'FeatureCollection', features: [] }, LINES = { type: 'FeatureCollection', features: [] }, BASINS = { type: 'FeatureCollection', features: [] };
     var roadClosed = function (f) { return /clos/i.test(f.properties.type) && !/open/i.test(f.properties.type); };
+    var TOPB = [], TOPK = [], CH = null;
     var D = null, G = [], H = null, map = null, sel = null, sortBy = 'status', sortDir = 1, allRows = false;
 
     // ---- what each gauge is doing
@@ -300,7 +311,7 @@
     }
     function row(g, val, sub) {
       var st = STATUS[status(g)];
-      return '<button class="g" type="button" data-id="' + g.id + '" style="--c:var(' + st[1] + ')"><i></i><span class="nm">' + esc(g.river) + '<small>' + esc(g.name) + '</small></span>'
+      return '<button class="g" type="button" data-id="' + g.id + '" style="--c:var(' + st[1] + ')"><i></i><span class="nm">' + esc(g.river) + '<small>' + esc(g.name) + (g.dist ? ' · ' + esc(g.dist) : '') + '</small></span>'
         + '<span class="v">' + val + '<small>' + sub + '</small></span></button>';
     }
     function drawLists() {
@@ -311,11 +322,11 @@
       var R = live.filter(function (g) { var s = status(g); return s === 'fast' || s === 'rise'; }).sort(function (a, b) { return rr(b) - rr(a); });
       $('nowCard').hidden = !R.length;                                 // rising right now: only when something is
       $('risingNow').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(rr(g)), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : '')); }).join('');
-      var B = G.filter(function (g) { return riseOf(g) != null && riseOf(g) >= 0.02; }).sort(function (a, b) { return riseOf(b) - riseOf(a); });
+      var B = G.filter(function (g) { return riseOf(g) != null && riseOf(g) >= 0.02; }).sort(function (a, b) { return riseOf(b) - riseOf(a); }); TOPB = B;
       $('risingH').textContent = 'Biggest rises ' + PERS[PER][1];
       $('rising').innerHTML = B.length ? B.slice(0, 8).map(function (g) { var k = pk(g); return row(g, cm(k[3]), 'to ' + m2(k[0]) + ', ' + esc(whenK(k[1])) + ' · now ' + STATUS[status(g)][0].toLowerCase()); }).join('')
         : '<div class="none">No river rose more than 2 cm ' + PERS[PER][1] + '.</div>';
-      var K = G.filter(function (g) { return pkQ(g) != null && pkQ(g) > 0; }).sort(function (a, b) { return pkQ(b) - pkQ(a); });
+      var K = G.filter(function (g) { return pkQ(g) != null && pkQ(g) > 0; }).sort(function (a, b) { return pkQ(b) - pkQ(a); }); TOPK = K;
       $('highestH').textContent = 'Highest ' + PERS[PER][1];
       $('highest').innerHTML = K.length ? K.slice(0, 8).map(function (g) { var k = pk(g); return row(g, m2(k[0]), esc(whenK(k[1])) + ' · peak flow ' + fq(k[2])); }).join('')
         : '<div class="none">No readings for this period yet.</div>';
@@ -330,24 +341,30 @@
     }
 
     // ---- every gauge
-    var COLS0 = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['pk', 'Highest', 'n'], ['rise', 'Rise', 'n hide-xs'], ['r3', 'Per hour', 'n'], ['q', 'Flow', 'n hide-xs'], ['fld', 'Flood level', 'n hide-s'], ['at', 'Reading', 'n hide-s']];
+    var COLS0 = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['pk', 'Highest', 'n'], ['rise', 'Rise', 'n hide-xs'], ['r3', 'Per hour', 'n'], ['q', 'Flow', 'n hide-xs'], ['fld', 'Flood level', 'n hide-s'], ['dist', 'District', 'hide-s'], ['at', 'Reading', 'n hide-s']];
     var COLS = COLS0;
     function drawTable() {
       var q = $('q').value.trim().toLowerCase();
       COLS = COLS0.map(function (c) { return c[0] === 'pk' ? ['pk', 'Highest, ' + PERS[PER][0].toLowerCase(), 'n'] : c[0] === 'rise' ? ['rise', 'Rise, ' + PERS[PER][0].toLowerCase(), 'n hide-xs'] : c; });
-      var L = G.filter(function (g) { return !q || (g.river + ' ' + g.name + ' ' + g.id).toLowerCase().indexOf(q) >= 0; });
+      var dsel = $('dsel').value, inView = viewBox();
+      var L = G.filter(function (g) { return (!q || (g.river + ' ' + g.name + ' ' + g.id + ' ' + (g.dist || '')).toLowerCase().indexOf(q) >= 0)
+        && (!dsel || g.dist === dsel) && (!inView || (g.lat != null && inView.contains([g.lng, g.lat]))); });
       var key = function (g) {
         if (sortBy === 'status') return STATUS[status(g)][2] * 1000 - rr(g) * 100;
         if (sortBy === 'pk') return pkQ(g) == null ? 1e9 : -pkQ(g);
         if (sortBy === 'rise') return riseOf(g) == null ? 1e9 : -riseOf(g);
         if (sortBy === 'r3') return g.off_air ? 1e9 : -rr(g);
         if (sortBy === 'river') return (g.river + ' ' + g.name).toLowerCase();
+        if (sortBy === 'dist') return (g.dist || '~') + ' ' + (g.river + ' ' + g.name).toLowerCase();
         if (sortBy === 'at') return g.at || '';
         if (sortBy === 'fld') return fcls(g) ? -10 - FLOOD[fcls(g)][2] : toMinor(g) == null ? 1e9 : toMinor(g);
         var v = g[sortBy]; return v == null ? -1e9 : -v;
       };
       L.sort(function (a, b) { var x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
-      $('allH').textContent = 'Every gauge (' + (q ? L.length + ' of ' : '') + G.length + ', ' + G.filter(function (g) { return !g.off_air; }).length + ' reporting)';
+      $('allH').textContent = inView || dsel || q ? 'Gauges ' + (dsel ? 'in the ' + dsel : 'in the map view') + ' (' + L.length + ' of ' + G.length + ')' : 'Every gauge (' + G.length + ', ' + G.filter(function (g) { return !g.off_air; }).length + ' reporting)';
+      $('allNote').innerHTML = inView ? 'Only the gauges in the map view are listed. Move or zoom the map to change the list, or <button type="button" id="allWA">show all of WA</button>.'
+        : 'Zoom the map into an area, or pick a district, to list just the gauges there.';
+      var aw = $('allWA'); if (aw) aw.onclick = function () { $('dsel').value = ''; moved = false; if (map) map.fitBounds(WA, { padding: fitPad(), duration: 500 }); setTimeout(drawTable, 650); };
       var h = '<thead><tr>' + COLS.map(function (c) { return '<th class="' + (c[2] || '') + '"><button type="button" data-k="' + c[0] + '"' + (sortBy === c[0] ? ' aria-sort="' + (sortDir > 0 ? 'ascending' : 'descending') + '"' : '') + '>' + c[1] + (sortBy === c[0] ? (sortDir > 0 ? ' ↓' : ' ↑') : '') + '</button></th>'; }).join('') + '</tr></thead><tbody>';
       var total = L.length; if (!allRows && !q) L = L.slice(0, 30);   // the first 30 (most active first); the rest on request
       h += L.map(function (g) {
@@ -356,7 +373,7 @@
           + '<td>' + esc(g.river) + '<br><small>' + esc(g.name) + '</small></td><td class="n">' + m2(g.lvl) + '</td><td class="n">' + (k ? m2(k[0]) + '<br><small>' + esc(whenK(k[1])) + '</small>' : '–') + '</td>'
           + '<td class="n hide-xs">' + (riseOf(g) == null ? '–' : cm(riseOf(g))) + '</td><td class="n">' + (g.off_air ? '–' : cmh(rr(g))) + '</td>'
           + '<td class="n hide-xs">' + (g.q == null ? '–' : fq(g.q)) + '</td>'
-          + '<td class="n hide-s">' + (fcls(g) ? '<b style="color:var(' + FLOOD[fcls(g)][1] + ')">' + FLOOD[fcls(g)][0] + '</b>' : toMinor(g) != null ? '<small>' + m2(toMinor(g)) + ' below minor</small>' : '<small>–</small>') + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
+          + '<td class="n hide-s">' + (fcls(g) ? '<b style="color:var(' + FLOOD[fcls(g)][1] + ')">' + FLOOD[fcls(g)][0] + '</b>' : toMinor(g) != null ? '<small>' + m2(toMinor(g)) + ' below minor</small>' : '<small>–</small>') + '</td><td class="hide-s"><small>' + esc(g.dist || '–') + '</small></td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
       }).join('') + '</tbody>';
       $('tbl').innerHTML = h;
       var mb = $('allMore'); mb.hidden = !!q || total <= 30; mb.textContent = allRows ? 'Show the first 30' : 'Show all ' + total + ' gauges';
@@ -368,6 +385,21 @@
       });
     }
     $('q').addEventListener('input', drawTable);
+    // the table lists the gauges in the map view once someone zooms in; a district fits the map to that district
+    function viewBox() { if (!map || !moved || $('q').value.trim()) return null; try { return map.getBounds(); } catch (e) { return null; } }
+    function fillDistricts() {
+      var ds = {}; G.forEach(function (g) { if (g.dist) ds[g.dist] = (ds[g.dist] || 0) + 1; });
+      var cur = $('dsel').value;
+      $('dsel').innerHTML = '<option value="">All districts</option>' + Object.keys(ds).sort().map(function (d) { return '<option' + (d === cur ? ' selected' : '') + '>' + esc(d) + '</option>'; }).join('');
+    }
+    $('dsel').addEventListener('change', function () {
+      var d = $('dsel').value, P = G.filter(function (g) { return g.dist === d && g.lat != null; });
+      if (map && P.length) {
+        var b = new maplibregl.LngLatBounds(); P.forEach(function (g) { b.extend([g.lng, g.lat]); });
+        moved = true; map.fitBounds(b, { padding: fitPad(), maxZoom: 9, duration: 600 });
+      } else if (map && !d) { moved = false; map.fitBounds(WA, { padding: fitPad(), duration: 600 }); }
+      drawTable();
+    });
     $('allMore').addEventListener('click', function () { allRows = !allRows; drawTable(); });
 
     // ---- map
@@ -375,7 +407,7 @@
       return { type: 'FeatureCollection', features: G.filter(function (g) { return g.lat != null; }).map(function (g) {
         var s = status(g);
         var f = fcls(g);
-        return { type: 'Feature', id: +g.id, properties: { id: g.id, nm: g.name, rv: g.river, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: riseOf(g) == null ? 0 : Math.min(100, Math.sqrt(Math.max(0, riseOf(g)) / 1.5) * 100), f: f ? css(FLOOD[f][1]) : '' },
+        return { type: 'Feature', id: +g.id, properties: { id: g.id, nm: g.name, rv: g.river, la: g.lat, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: riseOf(g) == null ? 0 : Math.min(100, Math.sqrt(Math.max(0, riseOf(g)) / 1.5) * 100), f: f ? css(FLOOD[f][1]) : '' },
                  geometry: { type: 'Point', coordinates: [g.lng, g.lat] } }; }) };
     }
     function style() {
@@ -409,6 +441,7 @@
       map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
       map.addControl(new WAControl(), 'top-right');
       map.on('dragstart', function () { moved = true; }); map.on('zoomstart', function (e) { if (e.originalEvent) moved = true; });
+      var mvT = null; map.on('moveend', function () { clearTimeout(mvT); mvT = setTimeout(function () { if (G.length) drawTable(); }, 250); });
       map.on('load', function () {
         map.resize(); map.fitBounds(WA, { padding: fitPad(), duration: 0 });
         addGauges();
@@ -423,7 +456,7 @@
     WAControl.prototype.onAdd = function () {
       var d = document.createElement('div'); d.className = 'maplibregl-ctrl maplibregl-ctrl-group';
       d.innerHTML = '<button type="button" title="Show all of WA" aria-label="Show all of WA" style="font:700 11px Lexend,sans-serif;width:29px">WA</button>';
-      d.firstChild.addEventListener('click', function () { moved = false; map.fitBounds(WA, { padding: fitPad(), duration: 500 }); }); return d; };
+      d.firstChild.addEventListener('click', function () { moved = false; $('dsel').value = ''; map.fitBounds(WA, { padding: fitPad(), duration: 500 }); }); return d; };
     WAControl.prototype.onRemove = function () {};
     function firstPt(g) { if (!g) return null; var c = g.coordinates; while (c && Array.isArray(c[0])) c = c[0]; return c && c.length === 2 ? c : null; }
     function roadPts() { return { type: 'FeatureCollection', features: ROADS.features.map(function (f) { var c = firstPt(f.geometry); return c ? { type: 'Feature', properties: { closed: roadClosed(f) ? 1 : 0, road: f.properties.road, type: f.properties.type, where: f.properties.where }, geometry: { type: 'Point', coordinates: c } } : null; }).filter(Boolean) }; }
@@ -460,11 +493,12 @@
         paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['*', r, 0.85], 9, ['*', r, 1.25]], 'circle-color': ['case', ['==', ['get', 's'], 'off'], 'rgba(0,0,0,0)', ['get', 'c']],
                  'circle-stroke-color': ['case', ['==', ['get', 's'], 'off'], ['get', 'c'], ['boolean', ['feature-state', 'sel'], false], css('--text'), ['!=', ['get', 'f'], ''], ['get', 'f'], css('--surface')],
                  'circle-stroke-width': ['case', ['boolean', ['feature-state', 'sel'], false], 3, ['!=', ['get', 'f'], ''], 4, 1.5] } });
-      map.addLayer({ id: 'g-name', type: 'symbol', source: 'g', minzoom: 7,
+      var nameLayout = function (minz, f) { return { id: 'g-name' + (f ? '-sw' : ''), type: 'symbol', source: 'g', minzoom: minz, filter: f ? ['<=', ['get', 'la'], -30] : ['>', ['get', 'la'], -30],
         layout: { 'text-field': ['step', ['zoom'], ['get', 'nm'], 9, ['format', ['get', 'nm'], {}, '\n', {}, ['get', 'rv'], { 'font-scale': 0.85 }]],
                   'text-font': ['Noto Sans Regular'], 'text-size': 11.5, 'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': 0.9,
                   'text-justify': 'auto', 'text-max-width': 12, 'text-padding': 3, 'symbol-sort-key': ['get', 'o'] },
-        paint: { 'text-color': css('--text'), 'text-halo-color': css('--land'), 'text-halo-width': 1.5 } });
+        paint: { 'text-color': css('--text'), 'text-halo-color': css('--land'), 'text-halo-width': 1.5 } }; };
+      map.addLayer(nameLayout(7, false)); map.addLayer(nameLayout(9.4, true));   // the south-west is crowded: names from closer in
       var tip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
       map.on('mousemove', 'g', function (e) {
         map.getCanvas().style.cursor = 'pointer';
@@ -492,7 +526,7 @@
       var s = STATUS[status(g)], el = $('detail');
       el.style.setProperty('--c', 'var(' + s[1] + ')');
       var bom = g.src === 'bom', gid = bom ? 'Bureau gauge ' + g.id.slice(1) : 'gauge ' + g.id;
-      el.innerHTML = '<div class="hd"><h2>' + esc(g.river) + '<small>' + esc(g.name) + ' · ' + gid + '</small></h2><button class="x" type="button" aria-label="Close">×</button></div>'
+      el.innerHTML = '<div class="hd"><h2>' + esc(g.river) + '<small>' + esc(g.name) + (g.dist ? ' · ' + esc(g.dist) : '') + ' · ' + gid + '</small></h2><button class="x" type="button" aria-label="Close">×</button></div>'
         + '<div class="facts"><div><b>' + m2(g.lvl) + '</b><span>Level, ' + esc(when(g.at)) + '</span></div>'
         + '<div><b style="color:var(' + s[1] + ')">' + (g.off_air ? 'Off air' : cmh(rr(g))) + '</b><span>' + s[0] + (g.off_air ? '' : ' · per hour, last 3 hours') + '</span></div>'
         + '<div><b>' + (g.d24 == null ? '–' : cm(g.d24)) + '</b><span>Change in 24 hours</span></div>'
@@ -502,7 +536,7 @@
         + peakLine(g)
         + (g.q != null ? '<div class="seg" role="group" aria-label="Chart"><button type="button" data-v="lvl" aria-pressed="' + (chartVar === 'lvl') + '">Level</button><button type="button" data-v="q" aria-pressed="' + (chartVar === 'q') + '">Flow</button></div>' : '')
         + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level or flow over the last 7 days. Scroll to zoom, drag to move along, double-click to see all 7 days."></svg><div class="tipc" id="tipc" hidden></div></div>'
-        + '<div class="chint">Scroll or pinch to zoom, drag to move along. <button type="button" id="chartReset" hidden>Show all 7 days</button></div>'
+        + '<div class="chint">Scroll or pinch to zoom, drag to move along. <button type="button" id="chartReset" hidden>Show all 7 days</button><button type="button" class="save" id="saveChart" style="margin-left:auto">Save image</button></div>'
         + '<div class="more">' + (g.rec != null ? '<p>Record: <b>' + m2(g.rec) + '</b> (' + yearOf(g.recd) + ')' + '.' + '</p>' : '')
         + (g.hi8 != null ? '<p>Highest in the last week: ' + m2(g.hi8) + '.</p>' : '')
         + (g.q != null ? '<p>Flow is DWER\'s own figure from its hourly discharge report for this gauge (provisional).</p>' : '')
@@ -613,6 +647,7 @@
             + '<line id="cx" y1="' + T + '" y2="' + (Hh - B) + '" stroke="' + css('--muted') + '" visibility="hidden"/>';
           svg.setAttribute('viewBox', '0 0 ' + W + ' ' + Hh); svg.innerHTML = s;
           var rb = $('chartReset'); if (rb) rb.hidden = !zoomed;
+          CH = { g: g, pts: pts, isQ: !!isQ, from: from, to: to, refs: refs };
           var tipc = $('tipc'), cx = svg.querySelector('#cx');
           svg._x = x; svg._W = W; svg._L = L; svg._R = R;
           svg._move = function (clientX) {
@@ -657,6 +692,107 @@
       });
     }
 
+    // ---- square images to save and share (the two lists, and a gauge's chart with its numbers)
+    var IMG = { bg: '#EEF4F5', card: '#FFFFFF', text: '#0E2A33', muted: '#4A6470', line: '#D5E1E4', accent: '#0E7C86',
+                fast: '#D32F2F', rise: '#EF8A17', steady: '#7FA2AA', fall: '#2F7FC1', tide: '#8C7BBF', off: '#B7C2C5', minor: '#D9A400', moderate: '#E8590C', major: '#A61B1B' };
+    var FONT = function (w, px) { return w + ' ' + px + 'px Lexend, "Segoe UI", Arial, sans-serif'; };
+    function fit(c, t, max) { if (c.measureText(t).width <= max) return t; while (t.length > 2 && c.measureText(t + '…').width > max) t = t.slice(0, -1); return t + '…'; }
+    function rrect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+    function frame(title, sub) {   // 1080 square: brand header and footer; returns [canvas, context, top of the free space]
+      var cv = document.createElement('canvas'); cv.width = cv.height = 1080; var c = cv.getContext('2d');
+      c.fillStyle = IMG.bg; c.fillRect(0, 0, 1080, 1080);
+      c.fillStyle = IMG.card; rrect(c, 32, 32, 1016, 1016, 34); c.fill();
+      var ic = $('imgIcon'); try { if (ic && ic.complete && ic.naturalWidth) c.drawImage(ic, 72, 70, 64, 64); } catch (e) {}
+      c.fillStyle = IMG.accent; c.font = FONT(700, 24); c.fillText('West WX Watchers', 152, 98);
+      c.fillStyle = IMG.muted; c.font = FONT(400, 21); c.fillText('WA River Levels · ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }), 152, 128);
+      c.fillStyle = IMG.text; c.font = FONT(800, 46); c.fillText(fit(c, title, 936), 72, 212);
+      if (sub) { c.fillStyle = IMG.muted; c.font = FONT(500, 25); c.fillText(fit(c, sub, 936), 72, 252); }
+      c.fillStyle = IMG.muted; c.font = FONT(400, 19);
+      c.fillText('westweatherwatchers.com/rivers · DWER and Bureau of Meteorology gauges (provisional)', 72, 1010);
+      return [cv, c, sub ? 290 : 250];
+    }
+    function listImage(title, note, L, val, subOf) {
+      var f = frame(title, note), cv = f[0], c = f[1], y = f[2] + 8, rows = L.slice(0, 8), H = Math.min(88, (960 - y) / Math.max(1, rows.length));
+      if (!rows.length) { c.fillStyle = IMG.muted; c.font = FONT(500, 30); c.fillText('Nothing to show for this period.', 72, y + 60); }
+      rows.forEach(function (g, i) {
+        var yy = y + i * H;
+        if (i) { c.strokeStyle = IMG.line; c.lineWidth = 1.5; c.beginPath(); c.moveTo(72, yy); c.lineTo(1008, yy); c.stroke(); }
+        c.fillStyle = IMG[STATUS[status(g)][1].slice(2)] || IMG.steady; c.beginPath(); c.arc(86, yy + H / 2, 11, 0, 7); c.fill();
+        c.fillStyle = IMG.text; c.font = FONT(700, 30); var v = val(g); var vw = c.measureText(v).width;
+        c.textAlign = 'right'; c.font = FONT(800, 34); c.fillText(v, 1008, yy + H / 2 + 2); vw = c.measureText(v).width;
+        c.font = FONT(400, 20); c.fillStyle = IMG.muted; c.fillText(fit(c, subOf(g), 470), 1008, yy + H / 2 + 30); c.textAlign = 'left';
+        c.fillStyle = IMG.text; c.font = FONT(700, 30); c.fillText(fit(c, g.river, 880 - vw - 130), 114, yy + H / 2 + 2);
+        c.fillStyle = IMG.muted; c.font = FONT(400, 21); c.fillText(fit(c, g.name + (g.dist ? ' · ' + g.dist : ''), 400), 114, yy + H / 2 + 30);
+      });
+      return cv;
+    }
+    function chartImage() {
+      var g = CH.g, k = pk(g), f = frame(g.river, g.name + (g.dist ? ' · ' + g.dist : '') + (g.src === 'bom' ? '' : ' · gauge ' + g.id)), cv = f[0], c = f[1], y = f[2] + 6;
+      var u = g.up, src = u || g.rain, upT = '–', upL = (u ? 'Rain upstream' : 'Rain nearby');
+      if (src) { var pick3 = function (k) { var v = src[k]; return v == null ? null : u ? v[0] : v; };
+        if (pick3('to9') != null) { upT = mm(pick3('to9')); upL += (u ? ' (avg)' : '') + ', 24 h to 9 am'; }
+        else if (pick3('d3') != null) { upT = mm(pick3('d3')); upL += (u ? ' (avg)' : '') + ', 3 days'; } }
+      var tiles = [[m2(g.lvl), 'Level, ' + when(g.at)], [g.off_air ? 'Off air' : cmh(rr(g)), STATUS[status(g)][0] + ', per hour'], [g.q == null ? '–' : fq(g.q), 'Flow (DWER)'],
+                   [k ? m2(k[0]) : '–', 'Highest ' + PERS[PER][1].replace('in the ', '')], [riseOf(g) != null ? cm(riseOf(g)) : '–', 'Rise ' + PERS[PER][1].replace('in the ', '')], [upT, upL]];
+      tiles.forEach(function (t, i) {
+        var x = 72 + (i % 3) * 316, yy = y + Math.floor(i / 3) * 112;
+        c.fillStyle = IMG.bg; rrect(c, x, yy, 300, 98, 16); c.fill();
+        c.fillStyle = i === 1 ? (IMG[STATUS[status(g)][1].slice(2)] || IMG.text) : IMG.text; c.font = FONT(800, 36); c.fillText(fit(c, t[0], 270), x + 18, yy + 50);
+        c.fillStyle = IMG.muted; c.font = FONT(400, 18); c.fillText(fit(c, t[1], 270), x + 18, yy + 80);
+      });
+      // the chart, as on the page (the same span)
+      var X0 = 132, X1 = 1000, Y0 = y + 250, Y1 = 940, pts = CH.pts.filter(function (p) { return p[1] != null; });
+      var vis = pts.filter(function (p) { return p[0] >= CH.from && p[0] <= CH.to; }); if (!vis.length) vis = pts;
+      var lo = Math.min.apply(null, vis.map(function (p) { return p[1]; })), hi = Math.max.apply(null, vis.map(function (p) { return p[1]; }));
+      CH.refs.forEach(function (r) { hi = Math.max(hi, r[0]); });
+      var pad = Math.max(CH.isQ ? Math.max(0.001, hi * 0.05) : 0.02, (hi - lo) * 0.12); lo -= pad; hi += pad; if (CH.isQ) lo = Math.max(0, lo);
+      var X = function (t) { return X0 + (t - CH.from) / (CH.to - CH.from) * (X1 - X0); }, Y = function (v) { return Y0 + (hi - v) / (hi - lo) * (Y1 - Y0); };
+      var step = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].filter(function (st) { return (hi - lo) / st <= 5; })[0] || 10000;
+      c.font = FONT(400, 18); c.textAlign = 'right';
+      for (var v = Math.ceil(lo / step) * step; v <= hi; v += step) { c.strokeStyle = IMG.line; c.lineWidth = 1.5; c.beginPath(); c.moveTo(X0, Y(v)); c.lineTo(X1, Y(v)); c.stroke(); c.fillStyle = IMG.muted; c.fillText(String(+v.toFixed(3)), X0 - 10, Y(v) + 6); }
+      c.textAlign = 'left'; c.fillText(CH.isQ ? 'Flow, m³/s' : 'Level, m', 72, Y0 - 16);
+      var span = CH.to - CH.from, tick = span > 3 * 864e5 ? 864e5 : span > 36 * 36e5 ? 12 * 36e5 : span > 18 * 36e5 ? 6 * 36e5 : 3 * 36e5;
+      var day0 = new Date(new Date(CH.from).toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' }) + 'T00:00:00+08:00').getTime();
+      for (var t = day0; t <= CH.to; t += tick) {
+        if (t < CH.from) continue;
+        c.strokeStyle = IMG.line; c.setLineDash([3, 5]); c.beginPath(); c.moveTo(X(t), Y0); c.lineTo(X(t), Y1); c.stroke(); c.setLineDash([]);
+        c.fillStyle = IMG.muted; c.fillText(tick >= 864e5 ? new Date(t + 6 * 36e5).toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', timeZone: 'Australia/Perth' })
+          : new Date(t).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', timeZone: 'Australia/Perth' }), X(t) + 5, Y1 + 26);
+      }
+      CH.refs.forEach(function (r) { c.strokeStyle = r[2]; c.setLineDash([8, 6]); c.lineWidth = 2; c.beginPath(); c.moveTo(X0, Y(r[0])); c.lineTo(X1, Y(r[0])); c.stroke(); c.setLineDash([]);
+        c.fillStyle = r[2]; c.textAlign = 'right'; c.fillText(r[1], X1 - 4, Y(r[0]) - 7); c.textAlign = 'left'; });
+      c.save(); c.beginPath(); c.rect(X0, Y0 - 6, X1 - X0, Y1 - Y0 + 12); c.clip();
+      c.strokeStyle = IMG.accent; c.lineWidth = 4; c.lineJoin = 'round'; c.beginPath();
+      pts.forEach(function (p, i) { if (i && p[0] - pts[i - 1][0] <= 3 * 36e5) c.lineTo(X(p[0]), Y(p[1])); else c.moveTo(X(p[0]), Y(p[1])); }); c.stroke();
+      var lp = pts[pts.length - 1]; c.fillStyle = IMG.accent; c.beginPath(); c.arc(X(lp[0]), Y(lp[1]), 7, 0, 7); c.fill(); c.restore();
+      return cv;
+    }
+    function saveCanvas(btn, make, name) {
+      btn.disabled = true; var t = btn.textContent; btn.textContent = 'Making…';
+      (document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(function () {
+        var cv = make();
+        cv.toBlob(function (blob) {
+          btn.disabled = false; btn.textContent = t; if (!blob) return;
+          // straight to a download on every device (phones too), not the share-to-apps menu
+          var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+          document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000);
+        }, 'image/png');
+      });
+    }
+    var stamp = function () { return new Date(D.made).toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' }); };
+    var perSlug = function () { return PER === 'm' ? 'this-month' : PER === '1' ? '24-hours' : PER + '-days'; };
+    var riseImg = function () { return listImage('Biggest rises ' + PERS[PER][1], 'River gauges with the biggest rise to their peak', TOPB, function (g) { return cm(riseOf(g)); },
+      function (g) { var k = pk(g); return 'to ' + m2(k[0]) + ', ' + whenK(k[1]); }); };
+    var highImg = function () { return listImage('Highest ' + PERS[PER][1], 'The biggest rivers flowing, by peak flow', TOPK, function (g) { return m2(pk(g)[0]); },
+      function (g) { var k = pk(g); return whenK(k[1]) + ' · peak flow ' + fq(k[2]); }); };
+    $('saveRise').addEventListener('click', function () { saveCanvas(this, riseImg, 'wa-river-rises-' + perSlug() + '-' + stamp() + '.png'); });
+    $('saveHigh').addEventListener('click', function () { saveCanvas(this, highImg, 'wa-river-highest-' + perSlug() + '-' + stamp() + '.png'); });
+    document.addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('#saveChart'); if (!b || !CH) return;
+      saveCanvas(b, chartImage, (CH.g.river + '-' + CH.g.name).toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + stamp() + '.png');
+    });
+    window.riverImages = function () { return [riseImg().toDataURL('image/png'), highImg().toDataURL('image/png'), CH ? chartImage().toDataURL('image/png') : null]; };   // for testing
+
     // ---- theme button (shared with the rest of the site)
     var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
     var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M2 12h2.5M19.5 12H22M4.9 4.9l1.8 1.8M17.3 17.3l1.8 1.8M4.9 19.1l1.8-1.8M17.3 6.7l1.8-1.8"/></svg>';
@@ -682,7 +818,7 @@
       }).then(function (rd) {
         if (rd && rd.features) ROADS = rd;
         $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' of ' + G.length + ' gauges reporting';
-        drawPills(); drawState(); drawLists(); drawTable();
+        fillDistricts(); drawPills(); drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap();
           fetch(DATA + 'rivers-lines.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) {
             if (j && j.features) { LINES = j; if (map && map.getSource('glines')) map.getSource('glines').setData(LINES); } });
