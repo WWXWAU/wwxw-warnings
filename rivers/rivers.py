@@ -631,6 +631,8 @@ def main(out_dir):
     try: peaks(G, H, now, out_dir)
     except Exception as e:  # noqa: BLE001
         log('Peaks skipped: %s' % e)
+    for f in ('rivers-upstream.json', 'rivers-daily.json'):                 # always something to publish
+        if not os.path.exists(os.path.join(out_dir, f)): json.dump({}, open(os.path.join(out_dir, f), 'w'))
     D = {'made': now.isoformat(timespec='minutes'), 'gauges': G}
     json.dump(D, open(os.path.join(out_dir, 'rivers.json'), 'w'), separators=(',', ':'))
     rising = sorted([g for g in G if rising_now(g)], key=lambda g: -(g['r3'] or g['rate'] or 0))

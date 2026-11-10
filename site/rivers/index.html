@@ -60,6 +60,14 @@
     .state .head { font-weight: 700; font-size: 17px; }
     .state .sub { font-size: 13.5px; color: var(--muted); }
 
+    /* Period pills: the highest level over a period */
+    .pills { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 20px 12px; }
+    .pills .lab { font-size: 13px; font-weight: 600; color: var(--muted); margin-right: 4px; }
+    .pills button { border: 1px solid var(--line); background: var(--surface); color: var(--text); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .pills button:hover { border-color: var(--accent); }
+    .pills button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--onAccent); font-weight: 600; }
+    .rain .tops { display: block; font-size: 11.5px; color: var(--muted); }
+
     /* Map + side panel */
     .main { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 16px; padding: 0 20px 16px; }
     .mapwrap { position: relative; background: var(--water); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; height: clamp(520px, calc(100vh - 250px), 820px); }
@@ -146,7 +154,7 @@
     @media (max-width: 1000px) {
       .main { grid-template-columns: 1fr; padding: 0 12px 14px; }
       .mapwrap { height: 60vh; max-height: 560px; min-height: 360px; }
-      .top { padding: 12px 12px 8px; } .state { margin: 0 12px 10px; } .all { margin: 0 12px 14px; } .foot { padding: 0 12px 20px; }
+      .top { padding: 12px 12px 8px; } .state { margin: 0 12px 10px; } .pills { margin: 0 12px 10px; } .all { margin: 0 12px 14px; } .foot { padding: 0 12px 20px; }
       h1 { font-size: 20px; }
       .tbl .hide-s { display: none; }
     }
@@ -156,6 +164,7 @@
       .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; }
       .state .big { font-size: 24px; } .state .head { font-size: 15px; }
       .tbl .hide-xs { display: none; }
+      .pills button { padding: 4px 10px; font-size: 12.5px; }
     }
   </style>
 </head>
@@ -174,6 +183,7 @@
     <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
   </div>
   <section class="state" id="state" aria-live="polite"><span class="big" id="stBig">–</span><span class="head" id="stHead">Checking the river gauges…</span><span class="sub" id="stSub"></span></section>
+  <div class="pills" id="pills" role="group" aria-label="Highest level over"><span class="lab">Highest level</span></div>
 
   <div class="main">
     <div class="mapwrap">
@@ -186,7 +196,7 @@
       <section class="card" id="floodCard" hidden style="border-left:6px solid var(--moderate)"><h2>Above flood level</h2><div id="flooded"></div></section>
       <section class="card" id="roadsCard" hidden style="border-left:6px solid var(--major)"><h2>Roads affected by flooding</h2><div id="roads"></div></section>
       <section class="card" id="risingCard"><h2 id="risingH">Rising now</h2><div id="rising"></div></section>
-      <section class="card"><h2>Highest against their record</h2><div id="highest"></div></section>
+      <section class="card"><h2 id="highestH">Highest against their record</h2><div id="highest"></div></section>
     </div>
   </div>
 
@@ -196,7 +206,7 @@
     <button class="more" id="allMore" type="button" hidden>Show all gauges</button>
   </section>
 
-  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, the Bureau's flood levels, and rain from DWER and Bureau gauges. Roads affected by flooding from <a href="https://www.mainroads.wa.gov.au/travelmap/" target="_blank" rel="noopener">Main Roads WA</a> (CC BY 4.0, Commissioner of Main Roads); check the Travel Map before you go. Gauge positions, flow ratings and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
+  <div class="foot">River levels from the <a href="https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm" target="_blank" rel="noopener">Department of Water and Environmental Regulation</a>'s telemetered gauges: automatic, unchecked readings, shown for general interest. Also the Bureau of Meteorology's flood-warning gauges run by other agencies, the Bureau's flood levels, and rain from DWER and Bureau gauges. Roads affected by flooding from <a href="https://www.mainroads.wa.gov.au/travelmap/" target="_blank" rel="noopener">Main Roads WA</a> (CC BY 4.0, Commissioner of Main Roads); check the Travel Map before you go. Flow (m³/s) from DWER's hourly discharge reports. Rain upstream uses DWER's hydrographic subcatchments to find the rain gauges in each river's catchment. Gauge positions and the first week of history from the <a href="https://www.bom.gov.au/waterdata/" target="_blank" rel="noopener">Bureau of Meteorology's Water Data Online</a>. Levels are metres above each gauge's zero, so they can't be compared between rivers. Updated every 15 minutes. Not a flood warning service: for flood warnings go to <a href="https://www.bom.gov.au/wa/flood/" target="_blank" rel="noopener">bom.gov.au</a>.</div>
 
   <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
   <script>
@@ -210,14 +220,17 @@
     var D = null, G = [], H = null, map = null, sel = null, sortBy = 'status', sortDir = 1, allRows = false;
 
     // ---- what each gauge is doing
-    var FAST = 0.05, MOVE = 0.005;     // metres an hour: rising fast, and the smallest change that counts
+    var FAST = 0.10, MOVE = 0.02;      // metres an hour, averaged over 3 hours: rising fast, and the smallest rise that counts (as the data job)
     var STATUS = { fast: ['Rising fast', '--fast', 0], rise: ['Rising', '--rise', 1], fall: ['Falling', '--fall', 3], steady: ['Steady', '--steady', 2], tide: ['Tidal', '--tide', 4], off: ['Not reporting', '--off', 5] };
     function status(g) {
       if (g.off_air) return 'off';
       if (g.tidal) return 'tide';
-      var r = g.rate || 0;
-      return r >= FAST ? 'fast' : r >= MOVE ? 'rise' : r <= -MOVE ? 'fall' : 'steady';
+      var r = rr(g);
+      if (r >= FAST && (g.rate || 0) > 0) return 'fast';
+      if (r >= (g.dry ? FAST : MOVE) && (g.rate || 0) > 0) return 'rise';   // a dry or near-empty gauge needs a real rise, not a wobble
+      return r <= -MOVE ? 'fall' : 'steady';
     }
+    var rr = function (g) { return g.r3 != null ? g.r3 : (g.rate || 0); };   // the rise per hour over the last 3 hours
     var m2 = function (v) { return v == null ? '–' : (Math.abs(v) < 10 ? v.toFixed(2) : v.toFixed(1)) + ' m'; };
     var cmh = function (v) { if (v == null) return '–'; var c = Math.round(v * 100); return (c > 0 ? '+' : c < 0 ? '−' : '±') + Math.abs(c) + ' cm/h'; };
     var cm = function (v) { if (v == null) return '–'; var c = Math.round(v * 100); return (c > 0 ? '+' : c < 0 ? '−' : '±') + Math.abs(c) + ' cm'; };
@@ -228,6 +241,24 @@
     var fcls = function (g) { return g.fl && FLOOD[g.fl.cls] ? g.fl.cls : null; };
     var fq = function (q) { if (q == null) return '–'; if (q < 1) return Math.round(q * 1000) + ' L/s'; return (q < 10 ? q.toFixed(1) : Math.round(q).toLocaleString('en-AU')) + ' m³/s'; };
     var toMinor = function (g) { return g.fl && g.fl.minor != null && !g.off_air ? g.fl.minor - g.lvl : null; };
+
+    // ---- the highest level over a period (the pills)
+    var PERS = { now: ['Now', 'now'], 1: ['24 hours', 'in the last 24 hours'], 2: ['2 days', 'in the last 2 days'], 3: ['3 days', 'in the last 3 days'], 4: ['4 days', 'in the last 4 days'],
+                 5: ['5 days', 'in the last 5 days'], 6: ['6 days', 'in the last 6 days'], 7: ['7 days', 'in the last 7 days'], m: ['This month', 'this month'] };
+    var PER = 'now';
+    try { var sp = localStorage.getItem('wwxw-river-per'); if (sp && PERS[sp]) PER = sp; } catch (e) {}
+    var pk = function (g) { return PER !== 'now' && g.pk && g.pk[PER] ? g.pk[PER] : null; };
+    var pkPct = function (g) { var k = pk(g); return k && g.rec && g.rec > 0.2 ? Math.max(0, Math.round(100 * k[0] / g.rec)) : null; };
+    var whenK = function (k) { if (!k) return ''; if (k.length === 10) return new Date(k + 'T12:00:00+08:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Perth' });
+      return new Date(k.slice(0, 16) + ':00+08:00').toLocaleString('en-AU', { weekday: 'short', day: 'numeric', hour: 'numeric', timeZone: 'Australia/Perth' }); };
+    function drawPills() {
+      var el = $('pills');
+      el.innerHTML = '<span class="lab">Highest level</span>' + ['now', '1', '2', '3', '4', '5', '6', '7', 'm'].map(function (k) {
+        return '<button type="button" data-p="' + k + '" aria-pressed="' + (PER === k) + '">' + PERS[k][0] + '</button>'; }).join('');
+      el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
+        PER = b.getAttribute('data-p'); try { localStorage.setItem('wwxw-river-per', PER); } catch (e) {}
+        drawPills(); drawKey(); drawLists(); drawTable(); if (map && map.getSource('g')) map.getSource('g').setData(gaugesFC()); if (sel) pick(sel, false); }); });
+    }
 
     // ---- the state of the rivers (flood first)
     function roadNote() {
@@ -251,14 +282,14 @@
       }
       el.style.setProperty('--statec', 'var(' + (fast.length ? '--fast' : n ? '--rise' : '--steady') + ')');
       $('stBig').textContent = n;
-      var top = fast.concat(rise).sort(function (a, b) { return b.rate - a.rate; })[0];
+      var top = fast.concat(rise).sort(function (a, b) { return rr(b) - rr(a); })[0];
       if (!n) {
         $('stHead').textContent = 'No rivers rising right now';
-        var hi = live.filter(function (g) { return g.d24 != null; }).sort(function (a, b) { return b.d24 - a.d24; })[0];
+        var hi = live.filter(function (g) { return g.d24 != null && !g.dry && !g.still; }).sort(function (a, b) { return b.d24 - a.d24; })[0];
         $('stSub').textContent = hi && hi.d24 >= 0.05 ? 'Biggest rise in the last 24 hours: ' + place(hi) + ', ' + cm(hi.d24) + '.' : 'All ' + live.length + ' reporting gauges are steady or falling.';
       } else {
         $('stHead').textContent = (n === 1 ? '1 river gauge rising' : n + ' river gauges rising') + (fast.length ? ', ' + fast.length + ' fast' : '');
-        $('stSub').textContent = 'Fastest: ' + place(top) + ', ' + cmh(top.rate) + (top.pct != null ? ' (' + top.pct + '% of its record)' : '') + '.';
+        $('stSub').textContent = 'Fastest: ' + place(top) + ', ' + cmh(rr(top)) + ' over the last 3 hours' + (top.pct != null && !top.still ? ' (' + top.pct + '% of its record)' : '') + '.';
       }
     }
     function row(g, val, sub) {
@@ -271,18 +302,26 @@
       var FL = G.filter(function (g) { return fcls(g) && !g.off_air; }).sort(function (a, b) { return FLOOD[fcls(b)][2] - FLOOD[fcls(a)][2] || b.lvl - a.lvl; });
       $('floodCard').hidden = !FL.length;
       $('flooded').innerHTML = FL.map(function (g) { var f = FLOOD[fcls(g)]; return row(g, '<span style="color:var(' + f[1] + ')">' + f[0] + '</span>', m2(g.lvl) + ' · ' + STATUS[status(g)][0].toLowerCase()); }).join('');
-      var R = live.filter(function (g) { return (g.rate || 0) >= MOVE; }).sort(function (a, b) { return b.rate - a.rate; });
+      var R = live.filter(function (g) { var s = status(g); return s === 'fast' || s === 'rise'; }).sort(function (a, b) { return rr(b) - rr(a); });
       if (R.length) {
         $('risingH').textContent = 'Rising now';
-        $('rising').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(g.rate), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : g.pct != null ? ' · ' + g.pct + '% of record' : '')); }).join('');
+        $('rising').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(rr(g)), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : g.pct != null ? ' · ' + g.pct + '% of record' : '')); }).join('');
       } else {
-        var B = live.filter(function (g) { return g.d24 != null && g.d24 >= 0.02; }).sort(function (a, b) { return b.d24 - a.d24; });
+        var B = live.filter(function (g) { return g.d24 != null && g.d24 >= 0.05 && !g.dry && !g.still; }).sort(function (a, b) { return b.d24 - a.d24; });
         $('risingH').textContent = B.length ? 'Biggest rises, last 24 hours' : 'Rising now';
         $('rising').innerHTML = B.length ? B.slice(0, 6).map(function (g) { return row(g, cm(g.d24), 'now ' + m2(g.lvl) + ', ' + STATUS[status(g)][0].toLowerCase()); }).join('')
           : '<div class="none">No rivers are rising. Rises show here as soon as a gauge picks one up.</div>';
       }
-      var P = live.filter(function (g) { return g.pct != null; }).sort(function (a, b) { return b.pct - a.pct; });
-      $('highest').innerHTML = P.slice(0, 6).map(function (g) { return row(g, g.pct + '%', m2(g.lvl) + ' of ' + m2(g.rec) + ' (' + yearOf(g.recd) + ')'); }).join('');
+      if (PER === 'now') {
+        $('highestH').textContent = 'Highest against their record';
+        var P = live.filter(function (g) { return g.pct != null && !g.still; }).sort(function (a, b) { return b.pct - a.pct; });
+        $('highest').innerHTML = P.slice(0, 6).map(function (g) { return row(g, g.pct + '%', m2(g.lvl) + ' of ' + m2(g.rec) + ' (' + yearOf(g.recd) + ')'); }).join('');
+      } else {
+        $('highestH').textContent = 'Highest ' + PERS[PER][1] + ', against their record';
+        var K = G.filter(function (g) { return pkPct(g) != null && !g.still && !g.tidal; }).sort(function (a, b) { return pkPct(b) - pkPct(a) || pk(b)[0] - pk(a)[0]; });
+        $('highest').innerHTML = K.length ? K.slice(0, 8).map(function (g) { var k = pk(g); return row(g, pkPct(g) + '%', m2(k[0]) + ' at ' + esc(whenK(k[1])) + (k[2] != null ? ' · ' + fq(k[2]) : '')); }).join('')
+          : '<div class="none">No readings for this period yet.</div>';
+      }
       $('roadsCard').hidden = !ROADS.features.length;
       $('roads').innerHTML = ROADS.features.map(function (f, i) {
         var p = f.properties, c = roadClosed(f) ? '--major' : '--rise';
@@ -294,26 +333,31 @@
     }
 
     // ---- every gauge
-    var COLS = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['rate', 'Last hour', 'n'], ['d24', '24 hours', 'n hide-xs'], ['q', 'Flow', 'n hide-xs'], ['fld', 'Flood level', 'n hide-s'], ['pct', 'Against record', 'n hide-s'], ['at', 'Reading', 'n hide-s']];
+    var COLS0 = [['status', 'Trend'], ['river', 'River and place'], ['lvl', 'Level', 'n'], ['r3', 'Per hour', 'n'], ['d24', '24 hours', 'n hide-xs'], ['q', 'Flow', 'n hide-xs'], ['fld', 'Flood level', 'n hide-s'], ['pct', 'Against record', 'n hide-s'], ['at', 'Reading', 'n hide-s']];
+    var COLS = COLS0;
     function drawTable() {
       var q = $('q').value.trim().toLowerCase();
+      COLS = PER === 'now' ? COLS0 : COLS0.slice(0, 3).concat([['pk', 'Highest, ' + PERS[PER][0].toLowerCase(), 'n']], COLS0.slice(3));
+      if (sortBy === 'pk' && PER === 'now') sortBy = 'status';
       var L = G.filter(function (g) { return !q || (g.river + ' ' + g.name + ' ' + g.id).toLowerCase().indexOf(q) >= 0; });
       var key = function (g) {
-        if (sortBy === 'status') return STATUS[status(g)][2] * 1000 - (g.rate || 0) * 100;
+        if (sortBy === 'status') return STATUS[status(g)][2] * 1000 - rr(g) * 100;
+        if (sortBy === 'pk') return pkPct(g) == null ? 1e9 : -pkPct(g);
+        if (sortBy === 'r3') return g.off_air ? 1e9 : -rr(g);
         if (sortBy === 'river') return (g.river + ' ' + g.name).toLowerCase();
         if (sortBy === 'at') return g.at || '';
         if (sortBy === 'fld') return fcls(g) ? -10 - FLOOD[fcls(g)][2] : toMinor(g) == null ? 1e9 : toMinor(g);
         var v = g[sortBy]; return v == null ? -1e9 : -v;
       };
       L.sort(function (a, b) { var x = key(a), y = key(b); return (x < y ? -1 : x > y ? 1 : 0) * sortDir; });
-      $('allH').textContent = 'Every gauge (' + (q ? L.length + ' of ' : '') + G.length + ')';
+      $('allH').textContent = 'Every gauge (' + (q ? L.length + ' of ' : '') + G.length + ', ' + G.filter(function (g) { return !g.off_air; }).length + ' reporting)';
       var h = '<thead><tr>' + COLS.map(function (c) { return '<th class="' + (c[2] || '') + '"><button type="button" data-k="' + c[0] + '"' + (sortBy === c[0] ? ' aria-sort="' + (sortDir > 0 ? 'ascending' : 'descending') + '"' : '') + '>' + c[1] + (sortBy === c[0] ? (sortDir > 0 ? ' ↓' : ' ↑') : '') + '</button></th>'; }).join('') + '</tr></thead><tbody>';
       var total = L.length; if (!allRows && !q) L = L.slice(0, 30);   // the first 30 (most active first); the rest on request
       h += L.map(function (g) {
         var s = STATUS[status(g)], pct = g.pct == null ? '' : '<span class="bar" style="--c:var(' + (g.pct >= 50 ? '--fast' : g.pct >= 25 ? '--rise' : '--steady') + ')"><b style="width:' + Math.min(100, g.pct) + '%"></b></span>';
         return '<tr data-id="' + g.id + '" tabindex="0"><td><span class="st" style="--c:var(' + s[1] + ')"><i></i>' + s[0] + '</span></td>'
-          + '<td>' + esc(g.river) + '<br><small>' + esc(g.name) + '</small></td><td class="n">' + m2(g.lvl) + '</td><td class="n">' + (g.off_air ? '–' : cmh(g.rate)) + '</td>'
-          + '<td class="n hide-xs">' + (g.off_air ? '–' : cm(g.d24)) + '</td><td class="n hide-xs">' + (g.off_air ? '–' : fq(g.q)) + '</td>'
+          + '<td>' + esc(g.river) + '<br><small>' + esc(g.name) + '</small></td><td class="n">' + m2(g.lvl) + '</td>' + (PER !== 'now' ? '<td class="n">' + (pk(g) ? m2(pk(g)[0]) + '<br><small>' + esc(whenK(pk(g)[1])) + (pkPct(g) != null ? ' · ' + pkPct(g) + '%' : '') + '</small>' : '–') + '</td>' : '') + '<td class="n">' + (g.off_air ? '–' : cmh(rr(g))) + '</td>'
+          + '<td class="n hide-xs">' + (g.off_air ? '–' : cm(g.d24)) + '</td><td class="n hide-xs">' + (g.q == null ? '–' : fq(g.q)) + '</td>'
           + '<td class="n hide-s">' + (fcls(g) ? '<b style="color:var(' + FLOOD[fcls(g)][1] + ')">' + FLOOD[fcls(g)][0] + '</b>' : toMinor(g) != null ? '<small>' + m2(toMinor(g)) + ' below minor</small>' : '<small>–</small>') + '</td><td class="n hide-s">' + (g.pct == null ? '–' : g.pct + '%') + pct + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
       }).join('') + '</tbody>';
       $('tbl').innerHTML = h;
@@ -333,12 +377,13 @@
       return { type: 'FeatureCollection', features: G.filter(function (g) { return g.lat != null; }).map(function (g) {
         var s = status(g);
         var f = fcls(g);
-        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: g.pct == null ? 0 : Math.min(100, g.pct), f: f ? css(FLOOD[f][1]) : '' },
+        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: g.still ? 0 : PER !== 'now' ? Math.min(100, pkPct(g) || 0) : g.pct == null ? 0 : Math.min(100, g.pct), f: f ? css(FLOOD[f][1]) : '' },
                  geometry: { type: 'Point', coordinates: [g.lng, g.lat] } }; }) };
     }
     function style() {
       return { version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
-        sources: { omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' } },
+        sources: { omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' },
+                   mask: { type: 'geojson', data: { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[129.0, -60], [180, -60], [180, 0], [129.0, 0], [129.0, -60]]] } } } },
         layers: [
           { id: 'bg', type: 'background', paint: { 'background-color': css('--land') } },
           { id: 'water', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': css('--water') } },
@@ -348,19 +393,19 @@
             paint: { 'line-color': css('--river'), 'line-width': 0.8, 'line-opacity': 0.7 } },
           { id: 'roads', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 5, filter: ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false],
             paint: { 'line-color': css('--road'), 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.6, 10, 2] } },
-          { id: 'states', type: 'line', source: 'omt', 'source-layer': 'boundary', filter: ['==', ['get', 'admin_level'], 4], paint: { 'line-color': css('--border'), 'line-width': 1, 'line-dasharray': [3, 2] } },
           { id: 'river-names', type: 'symbol', source: 'omt', 'source-layer': 'waterway', minzoom: 8, filter: ['==', ['get', 'class'], 'river'],
             layout: { 'symbol-placement': 'line', 'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']], 'text-font': ['Noto Sans Italic'], 'text-size': 11 },
             paint: { 'text-color': css('--river'), 'text-halo-color': css('--land'), 'text-halo-width': 1.2 } },
           { id: 'towns', type: 'symbol', source: 'omt', 'source-layer': 'place', filter: ['match', ['get', 'class'], ['city', 'town'], true, false],
             layout: { 'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']], 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 4, 10, 10, 13],
                       'text-variable-anchor': ['top', 'bottom', 'left', 'right'], 'text-radial-offset': 0.6, 'text-padding': 4 },
-            paint: { 'text-color': css('--muted'), 'text-halo-color': css('--land'), 'text-halo-width': 1.2 } }
+            paint: { 'text-color': css('--muted'), 'text-halo-color': css('--land'), 'text-halo-width': 1.2 } },
+          { id: 'mask', type: 'fill', source: 'mask', paint: { 'fill-color': css('--water') } }   // the other states: out of the picture (WA's border is 129°E)
         ] };
     }
     function initMap() {
       map = new maplibregl.Map({ container: 'map', style: style(), attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
-        bounds: [[112.6, -35.4], [129.2, -13.5]], fitBoundsOptions: { padding: 24 }, minZoom: 3, maxZoom: 13 });
+        bounds: [[112.6, -35.3], [129.0, -13.6]], fitBoundsOptions: { padding: 16 }, maxBounds: [[100, -42], [140, -8]], minZoom: 3, maxZoom: 13 });
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
@@ -393,7 +438,10 @@
       map.on('mousemove', 'g', function (e) {
         map.getCanvas().style.cursor = 'pointer';
         var g = byId(e.features[0].properties.id); if (!g) return;
-        tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(g.rate)) + (g.q != null && !g.off_air ? '<br>Flow ' + fq(g.q) : '') + (g.rain && (g.rain.s9 || g.rain.to9) ? '<br>Rain nearby ' + mm((g.rain.s9 || 0) + (g.rain.to9 || 0)) + ' since 9 am yesterday' : '') + (fcls(g) ? '<br><b>' + FLOOD[fcls(g)][0] + '</b>' : '')).addTo(map);
+        var up = g.up && (g.up.s9 || g.up.to9) ? (g.up.s9 ? g.up.s9[1] : 0) + (g.up.to9 ? g.up.to9[1] : 0) : 0;
+        tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(rr(g))) + (g.q != null ? '<br>Flow ' + fq(g.q) : '')
+          + (pk(g) ? '<br>Highest ' + PERS[PER][1] + ': ' + m2(pk(g)[0]) + (pkPct(g) != null ? ' (' + pkPct(g) + '% of record)' : '') : '')
+          + (up ? '<br>Rain upstream: up to ' + mm(up) + ' since 9 am yesterday' : g.rain && (g.rain.s9 || g.rain.to9) ? '<br>Rain nearby ' + mm((g.rain.s9 || 0) + (g.rain.to9 || 0)) + ' since 9 am yesterday' : '') + (fcls(g) ? '<br><b>' + FLOOD[fcls(g)][0] + '</b>' : '')).addTo(map);
       });
       map.on('mouseleave', 'g', function () { map.getCanvas().style.cursor = ''; tip.remove(); });
       map.on('click', 'g', function (e) { tip.remove(); pick(e.features[0].properties.id, false); });
@@ -401,7 +449,7 @@
     function byId(id) { for (var i = 0; i < G.length; i++) if (G[i].id === id) return G[i]; return null; }
     function drawKey() {
       $('key').innerHTML = ['fast', 'rise', 'steady', 'fall', 'tide', 'off'].map(function (k) {
-        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span style="color:var(--muted)">Bigger dot: closer to its record</span>';
+        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span style="color:var(--muted)">Bigger dot: ' + (PER === 'now' ? 'closer to its record' : 'higher peak ' + PERS[PER][1] + ', against its record') + '</span>';
     }
 
     // ---- one gauge: the numbers and a 7-day chart
@@ -415,16 +463,18 @@
       var bom = g.src === 'bom', gid = bom ? 'Bureau gauge ' + g.id.slice(1) : 'gauge ' + g.id;
       el.innerHTML = '<div class="hd"><h2>' + esc(g.river) + '<small>' + esc(g.name) + ' · ' + gid + '</small></h2><button class="x" type="button" aria-label="Close">×</button></div>'
         + '<div class="facts"><div><b>' + m2(g.lvl) + '</b><span>Level, ' + esc(when(g.at)) + '</span></div>'
-        + '<div><b style="color:var(' + s[1] + ')">' + (g.off_air ? 'Off air' : cmh(g.rate)) + '</b><span>' + s[0] + (g.off_air ? '' : ' · last hour') + '</span></div>'
+        + '<div><b style="color:var(' + s[1] + ')">' + (g.off_air ? 'Off air' : cmh(rr(g))) + '</b><span>' + s[0] + (g.off_air ? '' : ' · per hour, last 3 hours') + '</span></div>'
         + '<div><b>' + (g.d24 == null ? '–' : cm(g.d24)) + '</b><span>Change in 24 hours</span></div>'
-        + '<div><b>' + (g.q == null || g.off_air ? '–' : (g.qx ? 'over ' : '') + fq(g.q)) + '</b><span>' + (g.q == null ? 'No flow rating' : 'Flow' + (g.dq != null && Math.abs(g.dq) >= 0.001 && !g.off_air ? ', ' + (g.dq > 0 ? '+' : '−') + fq(Math.abs(g.dq)) + ' in the hour' : ' (estimated)')) + '</span></div></div>'
+        + '<div><b>' + (g.q == null ? '–' : fq(g.q)) + '</b><span>' + (g.q == null ? 'No flow published' : 'Flow, ' + esc(whenK(g.qat)) + (g.dq != null && Math.abs(g.dq) >= 0.001 ? ' · ' + (g.dq > 0 ? '+' : '−') + fq(Math.abs(g.dq)) + ' in the hour' : '')) + '</span></div></div>'
         + rainLine(g)
         + floodBox(g)
+        + peakLine(g)
         + (g.q != null ? '<div class="seg" role="group" aria-label="Chart"><button type="button" data-v="lvl" aria-pressed="' + (chartVar === 'lvl') + '">Level</button><button type="button" data-v="q" aria-pressed="' + (chartVar === 'q') + '">Flow</button></div>' : '')
         + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level or flow over the last 7 days"></svg><div class="tipc" id="tipc" hidden></div></div>'
         + '<div class="more">' + (g.rec != null ? '<p>Record: <b>' + m2(g.rec) + '</b> (' + yearOf(g.recd) + ')' + (g.pct != null ? ', so it\'s at <b>' + g.pct + '%</b> of its record now.' : '.') + '</p>' : '')
         + (g.hi8 != null ? '<p>Highest in the last week: ' + m2(g.hi8) + '.</p>' : '')
-        + (g.q != null ? '<p>Flow is worked out from the level, using five years of the Bureau\'s measured levels and flows at this gauge' + (g.qx ? '; the level is above anything in those records, so treat it as a rough guide' : '') + '.</p>' : '')
+        + (g.q != null ? '<p>Flow is DWER\'s own figure from its hourly discharge report for this gauge (provisional).</p>' : '')
+        + (g.still ? '<p>A lake, inlet or weir pool: its level isn\'t compared with river records on this page.</p>' : '')
         + (g.tidal ? '<p>This gauge rises and falls with the tide, so it isn\'t counted as rising.</p>' : '')
         + (g.note ? '<p>Gauge note: ' + esc(g.note) + '</p>' : '')
         + (bom ? '<p>One of the Bureau of Meteorology\'s flood-warning gauges (run by another agency, read from the Bureau). Its readings stop between floods at some sites.</p>'
@@ -438,9 +488,17 @@
       chart(g);
       if (window.innerWidth <= 1000 && !fly) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
-    var chartVar = 'lvl', RT = null;
+    var chartVar = 'lvl';
     var mm = function (v) { return v == null ? null : (v >= 10 ? Math.round(v) : +v.toFixed(1)) + ' mm'; };
-    function rainLine(g) {   // the nearest rain gauge, within 25 km
+    function rainLine(g) {   // the rain gauges in the catchment upstream; else the nearest rain gauge, within 25 km
+      var u = g.up;
+      if (u && (u.s9 || u.to9 || u.d3)) {
+        var part = function (a, lab) { return a ? '<b>' + mm(a[0]) + '</b> ' + lab + ' (most ' + mm(a[1]) + ')' : null; };
+        var b2 = [part(u.s9, 'since 9 am'), part(u.to9, 'in the 24 hours to 9 am'), u.d3 ? mm(u.d3[0]) + ' over 3 days (most ' + mm(u.d3[1]) + ')' : null].filter(Boolean);
+        var t = u.top, tw = (t.s9 || 0) + (t.to9 || 0);
+        return '<div class="rain">Rain upstream, average of ' + u.n + (u.n === 1 ? ' gauge' : ' gauges') + ' in the catchment: ' + b2.join(' · ')
+          + (tw > 0 ? '<span class="tops">Wettest: ' + esc(t.n) + ', ' + mm(tw) + ' since 9 am yesterday (' + (t.src === 'BoM' ? 'Bureau' : 'DWER') + ')</span>' : '') + '</div>';
+      }
       var r = g.rain; if (!r) return '';
       var bits = [];
       if (r.s9 != null) bits.push('<b>' + mm(r.s9) + '</b> since 9 am');
@@ -448,6 +506,10 @@
       if (r.d3 != null) bits.push(mm(r.d3) + ' over 3 days');
       if (!bits.length) return '';
       return '<div class="rain">Rain nearby: ' + bits.join(' · ') + '<span>' + esc(r.n) + (r.km >= 1 ? ', ' + Math.round(r.km) + ' km away' : ', at the gauge') + ' (' + (r.src === 'BoM' ? 'Bureau' : 'DWER') + ')</span></div>';
+    }
+    function peakLine(g) {
+      var k = pk(g); if (!k) return '';
+      return '<div class="rain">Highest ' + PERS[PER][1] + ': <b>' + m2(k[0]) + '</b>, ' + esc(whenK(k[1])) + (k[2] != null ? ' · peak flow ' + fq(k[2]) : '') + (pkPct(g) != null && !g.still ? ' · ' + pkPct(g) + '% of its record' : '') + '</div>';
     }
     function floodBox(g) {
       var f = g.fl; if (!f || f.minor == null) return '';
@@ -458,26 +520,18 @@
       return '<div class="flood">' + t + '<div class="lv">' + lv + '</div><div style="color:var(--muted);font-size:11.5px;margin-top:5px">Flood levels from the Bureau of Meteorology (' + esc(f.bomname) + ')</div></div>';
     }
     function loadHistory(cb) {
-      if (H && RT) return cb();
-      Promise.all([fetch(DATA + 'rivers-history.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }),
-                   fetch(DATA + 'rivers-ratings.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })])
-        .then(function (j) { H = j[0] || { h: {} }; RT = (j[1] && j[1].r) || {}; cb(); });
-    }
-    function flowAt(k, l) {   // the same rating as the data job: straight lines between the points, the last slope carried on above
-      if (!k || l == null) return null;
-      if (l <= k[0][0]) return l >= k[0][0] - 0.05 ? k[0][1] : 0;
-      for (var i = 1; i < k.length; i++) if (l <= k[i][0]) return k[i - 1][1] + (k[i][1] - k[i - 1][1]) * (l - k[i - 1][0]) / (k[i][0] - k[i - 1][0]);
-      var a = k[k.length - 2], b = k[k.length - 1], sl = b[0] > a[0] ? (b[1] - a[1]) / (b[0] - a[0]) : 0; return Math.max(b[1], b[1] + sl * (l - b[0]));
+      if (H) return cb();
+      fetch(DATA + 'rivers-history.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+        .then(function (j) { H = j || { h: {}, q: {} }; cb(); });
     }
     function chart(g) {
       var svg = $('chartSvg'); svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + css('--muted') + '" font-size="13">Loading the last 7 days…</text>';
       loadHistory(function () {
         if (sel !== g.id) return;
-        var h = H.h[g.id] || {}, now = Date.now(), from = now - 7 * 864e5;
+        var isQ = chartVar === 'q' && H.q && H.q[g.id];
+        var h = (isQ ? H.q[g.id] : H.h[g.id]) || {}, now = Date.now(), from = now - 7 * 864e5;
         var pts = Object.keys(h).sort().map(function (k) { return [new Date(k + ':00+08:00').getTime(), h[k]]; }).filter(function (p) { return p[0] >= from; });
-        if (g.at && !g.off_air) pts.push([new Date(g.at).getTime(), g.lvl]);
-        var isQ = chartVar === 'q' && RT[g.id];
-        if (isQ) pts = pts.map(function (p) { return [p[0], flowAt(RT[g.id], p[1])]; });
+        if (!isQ && g.at && !g.off_air) pts.push([new Date(g.at).getTime(), g.lvl]);
         if (pts.length < 2) { svg.innerHTML = '<text x="50%" y="50%" text-anchor="middle" fill="' + css('--muted') + '" font-size="13">No recent readings to chart.</text>'; return; }
         var W = svg.clientWidth || 340, Hh = 190, L = 40, R = 8, T = 10, B = 24;
         var lo = Math.min.apply(null, pts.map(function (p) { return p[1]; })), hi = Math.max.apply(null, pts.map(function (p) { return p[1]; }));
@@ -544,10 +598,10 @@
         return fetch(DATA + 'rivers-roads.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
       }).then(function (rd) {
         if (rd && rd.features) ROADS = rd;
-        $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' gauges reporting';
-        drawState(); drawLists(); drawTable();
+        $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' of ' + G.length + ' gauges reporting';
+        drawPills(); drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap(); }
-        else { H = null; RT = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
+        else { H = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
       });
     }
     load(true).catch(function () {
@@ -556,7 +610,7 @@
     });
     setInterval(function () { if (!document.hidden) load(false).catch(function () {}); }, 15 * 60 * 1000);
     window.riverRoads = function (fc) { ROADS = fc; drawState(); drawLists(); if (map && map.getSource('froads')) { map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } };   // for testing
-    window.riverPick = function (id) { var w = G.filter(function (g) { return g.rain && g.rain.s9 > 1 && g.q != null; })[0]; pick(id || (w ? w.id : byId('616011') ? '616011' : G[0].id), true); };   // for testing
+    window.riverPick = function (id) { var w = G.filter(function (g) { return g.up && g.q != null; })[0]; pick(id || (w ? w.id : byId('616011') ? '616011' : G[0].id), true); };   // for testing
   })();
   </script>
 </body>
