@@ -253,7 +253,7 @@
     var PER = '1';
     try { var sp = localStorage.getItem('wwxw-river-per'); if (sp && PERS[sp]) PER = sp; } catch (e) {}
     var pk = function (g) { return g.pk && g.pk[PER] ? g.pk[PER] : null; };          // [peak level, when, peak flow, rise to the peak]
-    var rise = function (g) { var k = pk(g); return k && k[3] != null && !g.still && !g.tidal && !g.off_air ? k[3] : null; };
+    var riseOf = function (g) { var k = pk(g); return k && k[3] != null && !g.still && !g.tidal && !g.off_air ? k[3] : null; };
     var pkQ = function (g) { var k = pk(g); return k && k[2] != null && !g.still ? k[2] : null; };
     var whenK = function (k) { if (!k) return ''; if (k.length === 10) return new Date(k + 'T12:00:00+08:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Perth' });
       return new Date(k.slice(0, 16) + ':00+08:00').toLocaleString('en-AU', { weekday: 'short', day: 'numeric', hour: 'numeric', timeZone: 'Australia/Perth' }); };
@@ -291,8 +291,8 @@
       var top = fast.concat(rise).sort(function (a, b) { return rr(b) - rr(a); })[0];
       if (!n) {
         $('stHead').textContent = 'No rivers rising right now';
-        var hi = G.filter(function (g) { return rise(g) != null; }).sort(function (a, b) { return rise(b) - rise(a); })[0];
-        $('stSub').textContent = hi && rise(hi) >= 0.05 ? 'Biggest rise ' + PERS[PER][1] + ': ' + place(hi) + ', ' + cm(rise(hi)) + '.' : 'All ' + live.length + ' reporting gauges are steady or falling.';
+        var hi = G.filter(function (g) { return riseOf(g) != null; }).sort(function (a, b) { return riseOf(b) - riseOf(a); })[0];
+        $('stSub').textContent = hi && riseOf(hi) >= 0.05 ? 'Biggest rise ' + PERS[PER][1] + ': ' + place(hi) + ', ' + cm(riseOf(hi)) + '.' : 'All ' + live.length + ' reporting gauges are steady or falling.';
       } else {
         $('stHead').textContent = (n === 1 ? '1 river gauge rising' : n + ' river gauges rising') + (fast.length ? ', ' + fast.length + ' fast' : '');
         $('stSub').textContent = 'Fastest: ' + place(top) + ', ' + cmh(rr(top)) + ' over the last 3 hours' + '.';
@@ -311,7 +311,7 @@
       var R = live.filter(function (g) { var s = status(g); return s === 'fast' || s === 'rise'; }).sort(function (a, b) { return rr(b) - rr(a); });
       $('nowCard').hidden = !R.length;                                 // rising right now: only when something is
       $('risingNow').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(rr(g)), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : '')); }).join('');
-      var B = G.filter(function (g) { return rise(g) != null && rise(g) >= 0.02; }).sort(function (a, b) { return rise(b) - rise(a); });
+      var B = G.filter(function (g) { return riseOf(g) != null && riseOf(g) >= 0.02; }).sort(function (a, b) { return riseOf(b) - riseOf(a); });
       $('risingH').textContent = 'Biggest rises ' + PERS[PER][1];
       $('rising').innerHTML = B.length ? B.slice(0, 8).map(function (g) { var k = pk(g); return row(g, cm(k[3]), 'to ' + m2(k[0]) + ', ' + esc(whenK(k[1])) + ' · now ' + STATUS[status(g)][0].toLowerCase()); }).join('')
         : '<div class="none">No river rose more than 2 cm ' + PERS[PER][1] + '.</div>';
@@ -339,7 +339,7 @@
       var key = function (g) {
         if (sortBy === 'status') return STATUS[status(g)][2] * 1000 - rr(g) * 100;
         if (sortBy === 'pk') return pkQ(g) == null ? 1e9 : -pkQ(g);
-        if (sortBy === 'rise') return rise(g) == null ? 1e9 : -rise(g);
+        if (sortBy === 'rise') return riseOf(g) == null ? 1e9 : -riseOf(g);
         if (sortBy === 'r3') return g.off_air ? 1e9 : -rr(g);
         if (sortBy === 'river') return (g.river + ' ' + g.name).toLowerCase();
         if (sortBy === 'at') return g.at || '';
@@ -354,7 +354,7 @@
         var s = STATUS[status(g)], k = pk(g);
         return '<tr data-id="' + g.id + '" tabindex="0"><td><span class="st" style="--c:var(' + s[1] + ')"><i></i>' + s[0] + '</span></td>'
           + '<td>' + esc(g.river) + '<br><small>' + esc(g.name) + '</small></td><td class="n">' + m2(g.lvl) + '</td><td class="n">' + (k ? m2(k[0]) + '<br><small>' + esc(whenK(k[1])) + '</small>' : '–') + '</td>'
-          + '<td class="n hide-xs">' + (rise(g) == null ? '–' : cm(rise(g))) + '</td><td class="n">' + (g.off_air ? '–' : cmh(rr(g))) + '</td>'
+          + '<td class="n hide-xs">' + (riseOf(g) == null ? '–' : cm(riseOf(g))) + '</td><td class="n">' + (g.off_air ? '–' : cmh(rr(g))) + '</td>'
           + '<td class="n hide-xs">' + (g.q == null ? '–' : fq(g.q)) + '</td>'
           + '<td class="n hide-s">' + (fcls(g) ? '<b style="color:var(' + FLOOD[fcls(g)][1] + ')">' + FLOOD[fcls(g)][0] + '</b>' : toMinor(g) != null ? '<small>' + m2(toMinor(g)) + ' below minor</small>' : '<small>–</small>') + '</td><td class="n hide-s"><small>' + esc(when(g.at)) + '</small></td></tr>';
       }).join('') + '</tbody>';
@@ -375,7 +375,7 @@
       return { type: 'FeatureCollection', features: G.filter(function (g) { return g.lat != null; }).map(function (g) {
         var s = status(g);
         var f = fcls(g);
-        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: rise(g) == null ? 0 : Math.min(100, Math.sqrt(Math.max(0, rise(g)) / 1.5) * 100), f: f ? css(FLOOD[f][1]) : '' },
+        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: riseOf(g) == null ? 0 : Math.min(100, Math.sqrt(Math.max(0, riseOf(g)) / 1.5) * 100), f: f ? css(FLOOD[f][1]) : '' },
                  geometry: { type: 'Point', coordinates: [g.lng, g.lat] } }; }) };
     }
     function style() {
@@ -459,7 +459,7 @@
         var g = byId(e.features[0].properties.id); if (!g) return;
         var up = g.up && (g.up.s9 || g.up.to9) ? (g.up.s9 ? g.up.s9[1] : 0) + (g.up.to9 ? g.up.to9[1] : 0) : 0;
         tip.setLngLat(e.lngLat).setHTML('<b>' + esc(g.river) + '</b><br>' + esc(g.name) + ': ' + m2(g.lvl) + (g.off_air ? '' : ', ' + cmh(rr(g))) + (g.q != null ? '<br>Flow ' + fq(g.q) : '')
-          + (pk(g) ? '<br>Highest ' + PERS[PER][1] + ': ' + m2(pk(g)[0]) + (rise(g) ? ' (up ' + cm(rise(g)).slice(1) + ')' : '') : '')
+          + (pk(g) ? '<br>Highest ' + PERS[PER][1] + ': ' + m2(pk(g)[0]) + (riseOf(g) ? ' (up ' + cm(riseOf(g)).slice(1) + ')' : '') : '')
           + (up ? '<br>Rain upstream: up to ' + mm(up) + ' since 9 am yesterday' : g.rain && (g.rain.s9 || g.rain.to9) ? '<br>Rain nearby ' + mm((g.rain.s9 || 0) + (g.rain.to9 || 0)) + ' since 9 am yesterday' : '') + (fcls(g) ? '<br><b>' + FLOOD[fcls(g)][0] + '</b>' : '')).addTo(map);
       });
       map.on('mouseleave', 'g', function () { map.getCanvas().style.cursor = ''; tip.remove(); });
@@ -529,7 +529,7 @@
     }
     function peakLine(g) {
       var k = pk(g); if (!k) return '';
-      return '<div class="rain">Highest ' + PERS[PER][1] + ': <b>' + m2(k[0]) + '</b>, ' + esc(whenK(k[1])) + (k[2] != null ? ' · peak flow ' + fq(k[2]) : '') + (rise(g) ? ' · rose ' + cm(rise(g)).slice(1) : '') + '</div>';
+      return '<div class="rain">Highest ' + PERS[PER][1] + ': <b>' + m2(k[0]) + '</b>, ' + esc(whenK(k[1])) + (k[2] != null ? ' · peak flow ' + fq(k[2]) : '') + (riseOf(g) ? ' · rose ' + cm(riseOf(g)).slice(1) : '') + '</div>';
     }
     function floodBox(g) {
       var f = g.fl; if (!f || f.minor == null) return '';
@@ -677,7 +677,7 @@
         else { H = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
       });
     }
-    load(true).catch(function () {
+    load(true).catch(function (e) { if (window.console) console.error('River page:', e);
       $('msg').hidden = false; $('msg').textContent = 'The river levels didn’t load. Check your connection and refresh the page.';
       $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now';
     });
