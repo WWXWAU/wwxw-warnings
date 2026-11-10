@@ -8,8 +8,8 @@
    "type": "Severe Thunderstorm Warning",
    "status": "current",
    "headline": "Severe Thunderstorm Warning for Pilbara, Gascoyne, Goldfields, North Interior and South Interior forecast districts",
-   "sent": "2026-11-10T11:20:10+00:00",
-   "expires": "2026-11-10T16:20:03+00:00",
+   "sent": "2026-11-10T12:04:03+00:00",
+   "expires": "2026-11-10T15:03:58+00:00",
    "hazards": [
     "damaging winds",
     "heavy rainfall"
@@ -22,14 +22,16 @@
     "South Interior"
    ],
    "towns": [
+    "Newman",
     "Parnngurr",
     "Telfer",
     "Jigalong"
    ],
    "townsPlaced": [
+    "Newman",
     "Telfer"
    ],
-   "description": "Severe thunderstorms are likely to produce damaging winds over the next several hours in parts of the Pilbara, North Interior, South Interior and Gascoyne districts. Locations which may be affected include Parnngurr, Telfer and Jigalong.  \n          \n          Severe thunderstorms are likely to produce damaging winds and heavy rainfall that may lead to flash flooding over the next several hours in parts of the Gascoyne and Goldfields districts. Locations which may be affected include Mount Magnet and Sandstone.  \n          \n          \n          96 km/h wind gust was recorded at Ironbridge Mine Airport at 4:58pm.\n          39mm was recorded at Mount Magnet Airport in the 3 hours to 7pm, with 25 mm falling in the 30 minutes to 4:45pm.",
+   "description": "Severe thunderstorms are likely to produce damaging winds over the next several hours in parts of the Pilbara, North Interior, South Interior and Gascoyne districts. Locations which may be affected include Newman, Parnngurr, Telfer and Jigalong.  \n          \n          Severe thunderstorms are likely to produce damaging winds and heavy rainfall that may lead to flash flooding over the next several hours in parts of the Gascoyne and Goldfields districts. Locations which may be affected include Mount Magnet and Sandstone.  \n          \n          \n          96 km/h wind gust was recorded at Ironbridge Mine Airport at 4:58pm.\n          39mm was recorded at Mount Magnet Airport in the 3 hours to 7pm, with 25 mm falling in the 30 minutes to 4:45pm.",
    "areaSource": "image",
    "area": {
     "type": "MultiPolygon",
@@ -229,28 +231,28 @@
         -29.212
        ],
        [
-        117.691,
-        -29.137
+        117.751,
+        -29.185
        ],
        [
-        117.603,
-        -29.115
+        117.73,
+        -29.116
        ],
        [
-        117.57,
-        -29.053
+        117.687,
+        -29.071
        ],
        [
-        117.533,
-        -29.018
+        117.598,
+        -29.055
        ],
        [
-        117.49,
-        -29.005
+        117.515,
+        -29.001
        ],
        [
-        117.411,
-        -29.009
+        117.41,
+        -29.008
        ],
        [
         117.203,
@@ -281,56 +283,76 @@
      [
       [
        [
-        120.122,
-        -22.753
+        119.431,
+        -23.294
        ],
        [
-        120.121,
-        -22.557
+        119.432,
+        -23.001
        ],
        [
-        120.145,
-        -22.497
+        119.485,
+        -22.833
        ],
        [
-        120.148,
-        -22.388
+        119.584,
+        -22.669
        ],
        [
-        120.2,
-        -22.217
+        119.886,
+        -22.364
        ],
        [
-        120.377,
-        -21.863
+        120.042,
+        -22.266
        ],
        [
-        120.441,
-        -21.771
+        120.12,
+        -22.196
        ],
        [
-        120.456,
-        -21.696
+        120.213,
+        -22.152
+       ],
+       [
+        120.278,
+        -22.094
+       ],
+       [
+        120.382,
+        -21.854
+       ],
+       [
+        120.47,
+        -21.751
+       ],
+       [
+        120.48,
+        -21.653
        ],
        [
         120.505,
         -21.601
        ],
        [
-        120.815,
-        -21.099
+        120.684,
+        -21.293
        ],
        [
-        121.165,
-        -20.771
+        120.818,
+        -21.095
        ],
        [
-        121.222,
-        -20.741
+        121.144,
+        -20.789
        ],
        [
-        121.359,
-        -20.693
+        121.271,
+        -20.719
+       ],
+       [
+        121.363,
+        -20.692
        ],
        [
         121.722,
@@ -369,184 +391,276 @@
         -21.316
        ],
        [
-        124.39,
-        -21.576
-       ],
-       [
-        124.437,
-        -21.612
-       ],
-       [
-        124.927,
-        -21.838
-       ],
-       [
-        125.588,
-        -22.181
+        124.345,
+        -21.555
        ],
        [
         126.487,
         -22.619
        ],
        [
-        126.644,
-        -22.716
-       ],
-       [
         126.776,
         -22.813
        ],
        [
-        126.998,
-        -23.018
+        126.995,
+        -23.015
        ],
        [
-        127.076,
-        -23.162
+        127.101,
+        -23.204
        ],
        [
-        127.078,
-        -23.29
+        127.308,
+        -23.4
        ],
        [
-        126.996,
-        -23.557
+        127.375,
+        -23.523
        ],
        [
-        126.858,
-        -23.768
+        127.43,
+        -23.582
        ],
        [
-        126.743,
-        -23.98
+        127.455,
+        -23.668
        ],
        [
-        126.591,
-        -24.144
+        127.589,
+        -23.844
        ],
        [
-        126.105,
-        -24.587
+        127.714,
+        -24.12
        ],
        [
-        125.928,
-        -24.722
+        127.719,
+        -24.234
        ],
        [
-        125.595,
-        -24.909
+        127.743,
+        -24.294
        ],
        [
-        125.359,
-        -24.98
+        127.745,
+        -24.42
        ],
        [
-        125.17,
-        -24.981
+        127.768,
+        -24.476
        ],
        [
-        124.778,
-        -24.817
+        127.77,
+        -24.583
        ],
        [
-        124.094,
-        -24.388
+        127.793,
+        -24.639
        ],
        [
-        123.906,
-        -24.291
+        127.796,
+        -24.746
        ],
        [
-        123.676,
-        -24.198
+        127.819,
+        -24.806
        ],
        [
-        123.318,
-        -24.094
+        127.819,
+        -25.151
        ],
        [
-        123.231,
-        -24.055
+        127.794,
+        -25.227
        ],
        [
-        123.167,
+        127.793,
+        -25.53
+       ],
+       [
+        127.712,
+        -25.698
+       ],
+       [
+        127.667,
+        -25.741
+       ],
+       [
+        127.389,
+        -25.944
+       ],
+       [
+        127.278,
+        -25.973
+       ],
+       [
+        127.171,
+        -25.996
+       ],
+       [
+        127.015,
+        -25.997
+       ],
+       [
+        126.765,
+        -25.928
+       ],
+       [
+        126.673,
+        -25.928
+       ],
+       [
+        126.603,
+        -25.951
+       ],
+       [
+        126.222,
+        -25.951
+       ],
+       [
+        126.153,
+        -25.928
+       ],
+       [
+        126.032,
+        -25.926
+       ],
+       [
+        125.788,
+        -25.84
+       ],
+       [
+        125.622,
+        -25.811
+       ],
+       [
+        125.456,
+        -25.748
+       ],
+       [
+        124.852,
+        -25.58
+       ],
+       [
+        124.649,
+        -25.509
+       ],
+       [
+        124.588,
+        -25.472
+       ],
+       [
+        124.449,
+        -25.442
+       ],
+       [
+        124.391,
+        -25.405
+       ],
+       [
+        124.06,
+        -25.303
+       ],
+       [
+        123.725,
+        -25.164
+       ],
+       [
+        123.625,
+        -25.084
+       ],
+       [
+        123.396,
+        -24.966
+       ],
+       [
+        123.272,
+        -24.935
+       ],
+       [
+        123.112,
+        -24.826
+       ],
+       [
+        122.822,
+        -24.73
+       ],
+       [
+        122.761,
+        -24.724
+       ],
+       [
+        122.55,
+        -24.617
+       ],
+       [
+        122.363,
+        -24.545
+       ],
+       [
+        122.275,
+        -24.539
+       ],
+       [
+        121.862,
+        -24.445
+       ],
+       [
+        121.688,
+        -24.379
+       ],
+       [
+        121.559,
+        -24.376
+       ],
+       [
+        121.406,
+        -24.333
+       ],
+       [
+        121.304,
+        -24.329
+       ],
+       [
+        121.095,
+        -24.282
+       ],
+       [
+        120.895,
+        -24.216
+       ],
+       [
+        120.818,
+        -24.213
+       ],
+       [
+        120.69,
+        -24.169
+       ],
+       [
+        120.532,
+        -24.142
+       ],
+       [
+        120.275,
         -24.048
        ],
        [
-        122.685,
-        -23.912
+        120.104,
+        -23.945
        ],
        [
-        122.527,
-        -23.885
+        119.841,
+        -23.817
        ],
        [
-        121.758,
-        -23.673
+        119.561,
+        -23.559
        ],
        [
-        121.319,
-        -23.51
-       ],
-       [
-        121.273,
-        -23.412
-       ],
-       [
-        121.219,
-        -23.376
-       ],
-       [
-        121.075,
-        -23.372
-       ],
-       [
-        120.972,
-        -23.394
-       ],
-       [
-        120.71,
-        -23.299
-       ],
-       [
-        120.641,
-        -23.257
-       ],
-       [
-        120.625,
-        -23.158
-       ],
-       [
-        120.583,
-        -23.107
-       ],
-       [
-        120.535,
-        -23.09
-       ],
-       [
-        120.445,
-        -23.089
-       ],
-       [
-        120.353,
-        -23.107
-       ],
-       [
-        120.225,
-        -22.995
-       ],
-       [
-        120.15,
-        -22.878
-       ],
-       [
-        120.144,
-        -22.806
-       ],
-       [
-        120.122,
-        -22.753
+        119.431,
+        -23.294
        ]
       ]
      ]
@@ -554,17 +668,20 @@
    },
    "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
    "image": "img/IDW21041.png",
-   "people": 1528,
+   "people": 13910,
    "peopleTowns": [
+    "Newman",
     "Mount Magnet",
     "Telfer",
     "Sandstone",
     "Agnew",
+    "Gibson Desert South",
     "Lake Austin"
    ],
-   "post": "img/IDW21033-202611101120-post.png",
-   "story": "img/IDW21033-202611101120-story.png"
+   "_sat_time": "2026-11-10T11:50:00+00:00",
+   "post": "img/IDW21033-202611101204-post.png",
+   "story": "img/IDW21033-202611101204-story.png"
   }
  ],
- "updated": "2026-11-10T11:23:34+00:00"
+ "updated": "2026-11-10T12:05:00+00:00"
 }
