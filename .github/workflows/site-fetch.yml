@@ -1,0 +1,19 @@
+name: Fetch live pages
+# Copies the live site's own pages (home, rainfall, obs and the rest) to the previews branch, to work on them.
+on:
+  workflow_dispatch:
+    inputs:
+      paths: { default: '/ /rainfall/ /obs/ /ripper/ /rivers/' }
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          mkdir -p previews/live && cd previews/live
+          for p in ${{ inputs.paths }}; do n=$(echo "$p" | sed 's#^/##; s#/$##; s#/#-#g'); [ -z "$n" ] && n=home
+            curl -sSL -o "$n.html" "https://westweatherwatchers.com$p?nocache=$(date +%s)" || echo "fail $p"; echo "$p $(wc -c < $n.html)"; done
+          cd .. && git init -q -b previews && git add -A
+          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Live pages"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" previews
