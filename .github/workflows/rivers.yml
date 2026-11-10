@@ -1,10 +1,16 @@
 name: River levels
 # WA river levels from DWER's telemetered gauges, every 15 minutes, for the River Levels page.
-# Published to its own branch: https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/river-data/rivers.json
+# GitHub only starts scheduled runs about once an hour, so each run keeps going for most of the hour and
+# refreshes every 15 minutes itself. Published to its own branch:
+# https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/river-data/rivers.json
 on:
   schedule:
-    - cron: '7,22,37,52 * * * *'
+    - cron: '7 * * * *'
   workflow_dispatch:
+    inputs:
+      once:
+        description: 'Run once only (no 15-minute loop)'
+        default: 'false'
 permissions:
   contents: write
 concurrency:
@@ -13,22 +19,34 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Bring in the record so far
+      - name: Every 15 minutes, for most of the hour
+        env:
+          ONCE: ${{ inputs.once }}
         run: |
-          mkdir -p out
-          if git fetch -q --depth 1 origin river-data 2>/dev/null; then
-            for f in rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json; do git show origin/river-data:$f > out/$f 2>/dev/null || rm -f out/$f; done
-          fi
-      - run: python rivers/rivers.py out
-      - name: Publish to the river-data branch
-        run: |
-          mkdir -p pub && cd pub && git init -q -b river-data
-          cp ../out/rivers.json ../out/rivers-roads.json ../out/rivers-history.json ../out/rivers-sites.json ../out/rivers-flood.json ../out/rivers-upstream.json ../out/rivers-daily.json ../out/rivers-lines.json ../out/rivers-basins.json . && git add -A
-          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "River levels"
-          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" river-data
+          FILES="rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json"
+          start=$(date +%s)
+          for cycle in 1 2 3 4; do
+            t0=$(date +%s)
+            rm -rf out pub && mkdir -p out
+            if git fetch -q --depth 1 origin river-data 2>/dev/null; then
+              for f in $FILES; do git show FETCH_HEAD:$f > out/$f 2>/dev/null || rm -f out/$f; done
+            fi
+            if python rivers/rivers.py out; then
+              mkdir -p pub && ( cd pub && git init -q -b river-data && cp ../out/rivers.json $(for f in $FILES; do echo ../out/$f; done) . && git add -A \
+                && git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "River levels" \
+                && git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" river-data ) || echo "Publish failed (cycle $cycle)"
+            else
+              echo "River levels run failed (cycle $cycle)"
+            fi
+            [ "$ONCE" = "true" ] && break
+            next=$(( t0 + 900 ))
+            # stop before the next hour's run is due to start
+            [ $(( next - start )) -gt 3000 ] && break
+            now=$(date +%s); [ $next -gt $now ] && sleep $(( next - now ))
+          done
