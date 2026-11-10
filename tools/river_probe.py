@@ -12,8 +12,8 @@ def one(g):
 n4 = n2 = 0; ex = None
 with cf.ThreadPoolExecutor(8) as X:
     for g, o in X.map(one, G):
-        if o['te4']: n4 += 1; ex = ex or (g, o['te4'])
-        if o['te2']: n2 += 1
+        if o['te4.htm']: n4 += 1; ex = ex or (g, o['te4.htm'])
+        if o['te2.htm']: n2 += 1
 print('gauges', len(G), 'with te4', n4, 'with te2', n2)
 g, c = ex; pre = re.search(r'(?s)<pre>(.*?)</pre>', c).group(1); print(g['id'], re.sub(r'<[^>]+>', '', pre)[:3000])
 def J(u):
