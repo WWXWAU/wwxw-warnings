@@ -25,12 +25,12 @@
   </script>
   <style>
     :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
-            --land: #F3F6F4; --water: #C9E2EA; --river: #6FB3CC; --course: #2A86AE; --road: #E1E6E3; --border: #9AAFB5;
+            --land: #F3F6F4; --water: #C9E2EA; --river: #6FB3CC; --course: #2A86AE; --basin: #9A8F7A; --road: #E1E6E3; --border: #9AAFB5;
             --fast: #D32F2F; --rise: #EF8A17; --steady: #7FA2AA; --fall: #2F7FC1; --tide: #8C7BBF; --off: #B7C2C5;
             --minor: #D9A400; --moderate: #E8590C; --major: #A61B1B;
             color-scheme: light; }
     [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
-            --land: #1B323B; --water: #0E2229; --river: #2F6C82; --course: #5FB4D6; --road: #24414B; --border: #4E6E78;
+            --land: #1B323B; --water: #0E2229; --river: #2F6C82; --course: #5FB4D6; --basin: #7E8C86; --road: #24414B; --border: #4E6E78;
             --steady: #6E929A; --off: #4F6369; color-scheme: dark; }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
@@ -220,7 +220,7 @@
     var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
     var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
     var $ = function (id) { return document.getElementById(id); };
-    var ROADS = { type: 'FeatureCollection', features: [] }, LINES = { type: 'FeatureCollection', features: [] };
+    var ROADS = { type: 'FeatureCollection', features: [] }, LINES = { type: 'FeatureCollection', features: [] }, BASINS = { type: 'FeatureCollection', features: [] };
     var roadClosed = function (f) { return /clos/i.test(f.properties.type) && !/open/i.test(f.properties.type); };
     var D = null, G = [], H = null, map = null, sel = null, sortBy = 'status', sortDir = 1, allRows = false;
 
@@ -375,7 +375,7 @@
       return { type: 'FeatureCollection', features: G.filter(function (g) { return g.lat != null; }).map(function (g) {
         var s = status(g);
         var f = fcls(g);
-        return { type: 'Feature', id: +g.id, properties: { id: g.id, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: riseOf(g) == null ? 0 : Math.min(100, Math.sqrt(Math.max(0, riseOf(g)) / 1.5) * 100), f: f ? css(FLOOD[f][1]) : '' },
+        return { type: 'Feature', id: +g.id, properties: { id: g.id, nm: g.name, rv: g.river, s: s, c: css(STATUS[s][1]), o: STATUS[s][2] - (f ? 10 : 0), p: riseOf(g) == null ? 0 : Math.min(100, Math.sqrt(Math.max(0, riseOf(g)) / 1.5) * 100), f: f ? css(FLOOD[f][1]) : '' },
                  geometry: { type: 'Point', coordinates: [g.lng, g.lat] } }; }) };
     }
     function style() {
@@ -403,7 +403,7 @@
     }
     function initMap() {
       map = new maplibregl.Map({ container: 'map', style: style(), attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
-        bounds: WA, fitBoundsOptions: { padding: fitPad() }, maxBounds: [[100, -42], [140, -8]], minZoom: 3, maxZoom: 13 });
+        bounds: WA, fitBoundsOptions: { padding: fitPad() }, minZoom: 3, maxZoom: 13 });
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
@@ -437,11 +437,18 @@
         map.on('mousemove', l, function (e) { var p = e.features[0].properties; map.getCanvas().style.cursor = 'pointer'; rtip.setLngLat(e.lngLat).setHTML('<b>' + esc(p.road || '') + '</b><br>' + esc(p.type) + '<br><span style="color:var(--muted)">' + esc(p.where) + '</span>').addTo(map); });
         map.on('mouseleave', l, function () { map.getCanvas().style.cursor = ''; rtip.remove(); });
       });
+      map.addSource('basins', { type: 'geojson', data: BASINS });
+      map.addLayer({ id: 'basins', type: 'line', source: 'basins', filter: ['!', ['has', 'label']],
+        paint: { 'line-color': css('--basin'), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 9, 1.2], 'line-dasharray': [4, 3] } }, 'froads');
+      map.addLayer({ id: 'basin-names', type: 'symbol', source: 'basins', filter: ['==', ['get', 'label'], 1], minzoom: 4.6,
+        layout: { 'text-field': ['upcase', ['get', 'name']], 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 5, 9.5, 9, 12],
+                  'text-letter-spacing': 0.12, 'text-max-width': 8, 'text-padding': 6 },
+        paint: { 'text-color': css('--basin'), 'text-halo-color': css('--land'), 'text-halo-width': 1.2 } });
       map.addSource('glines', { type: 'geojson', data: LINES });
       map.addLayer({ id: 'glines-case', type: 'line', source: 'glines', layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': css('--land'), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.6, 8, 4.5, 11, 6] } }, 'froads');
+        paint: { 'line-color': css('--land'), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.6, 8, 2.8, 11, 4] } }, 'froads');
       map.addLayer({ id: 'glines', type: 'line', source: 'glines', layout: { 'line-join': 'round', 'line-cap': 'round' },
-        paint: { 'line-color': css('--course'), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 1.3, 8, 2.6, 11, 3.6] } }, 'froads');
+        paint: { 'line-color': css('--course'), 'line-width': ['interpolate', ['linear'], ['zoom'], 4, 0.6, 7, 1.1, 10, 1.8, 12, 2.4] } }, 'froads');
       map.addLayer({ id: 'glines-name', type: 'symbol', source: 'glines', minzoom: 6.5,
         layout: { 'symbol-placement': 'line', 'symbol-spacing': 400, 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Italic'], 'text-size': 11.5 },
         paint: { 'text-color': css('--course'), 'text-halo-color': css('--land'), 'text-halo-width': 1.4 } });
@@ -453,6 +460,11 @@
         paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 4, ['*', r, 0.85], 9, ['*', r, 1.25]], 'circle-color': ['case', ['==', ['get', 's'], 'off'], 'rgba(0,0,0,0)', ['get', 'c']],
                  'circle-stroke-color': ['case', ['==', ['get', 's'], 'off'], ['get', 'c'], ['boolean', ['feature-state', 'sel'], false], css('--text'), ['!=', ['get', 'f'], ''], ['get', 'f'], css('--surface')],
                  'circle-stroke-width': ['case', ['boolean', ['feature-state', 'sel'], false], 3, ['!=', ['get', 'f'], ''], 4, 1.5] } });
+      map.addLayer({ id: 'g-name', type: 'symbol', source: 'g', minzoom: 7,
+        layout: { 'text-field': ['step', ['zoom'], ['get', 'nm'], 9, ['format', ['get', 'nm'], {}, '\n', {}, ['get', 'rv'], { 'font-scale': 0.85 }]],
+                  'text-font': ['Noto Sans Regular'], 'text-size': 11.5, 'text-variable-anchor': ['left', 'right', 'top', 'bottom'], 'text-radial-offset': 0.9,
+                  'text-justify': 'auto', 'text-max-width': 12, 'text-padding': 3, 'symbol-sort-key': ['get', 'o'] },
+        paint: { 'text-color': css('--text'), 'text-halo-color': css('--land'), 'text-halo-width': 1.5 } });
       var tip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 10 });
       map.on('mousemove', 'g', function (e) {
         map.getCanvas().style.cursor = 'pointer';
@@ -673,7 +685,9 @@
         drawPills(); drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap();
           fetch(DATA + 'rivers-lines.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) {
-            if (j && j.features) { LINES = j; if (map && map.getSource('glines')) map.getSource('glines').setData(LINES); } }); }
+            if (j && j.features) { LINES = j; if (map && map.getSource('glines')) map.getSource('glines').setData(LINES); } });
+          fetch(DATA + 'rivers-basins.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) {
+            if (j && j.features) { BASINS = j; if (map && map.getSource('basins')) map.getSource('basins').setData(BASINS); } }); }
         else { H = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
       });
     }
@@ -683,6 +697,7 @@
     });
     setInterval(function () { if (!document.hidden) load(false).catch(function () {}); }, 15 * 60 * 1000);
     window.riverRoads = function (fc) { ROADS = fc; drawState(); drawLists(); if (map && map.getSource('froads')) { map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } };   // for testing
+    window.riverMap = function () { return map; };   // for testing
     window.riverPick = function (id) { var w = G.filter(function (g) { return g.up && g.q != null; })[0]; pick(id || (w ? w.id : byId('616011') ? '616011' : G[0].id), true); };   // for testing
   })();
   </script>

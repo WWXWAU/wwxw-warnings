@@ -8,7 +8,7 @@ async def run():
     os.makedirs('previews', exist_ok=True)
     async with async_playwright() as p:
         b = await p.chromium.launch()
-        for name, opts in (('desktop', dict(viewport={'width': 1400, 'height': 900})), ('phone', p.devices['Pixel 7']),
+        for name, opts in (('wide', dict(viewport={'width': 1900, 'height': 940})), ('desktop', dict(viewport={'width': 1400, 'height': 900})), ('phone', p.devices['Pixel 7']),
                            ('desktop-dark', dict(viewport={'width': 1400, 'height': 900}, color_scheme='dark'))):
             ctx = await b.new_context(**opts); pg = await ctx.new_page()
             pg.on('console', lambda m: print('console:', m.text))
@@ -38,6 +38,11 @@ async def run():
                       {type:'Feature',properties:{road:'Great Northern Hwy',type:'Road closes',where:'Great Northern Hwy at Fitzroy River (Willare Bridge) - Flooding',note:'Water over road. Road closed to all vehicles.',updated:'09/11/2026 21:00:00'},geometry:{type:'LineString',coordinates:[[123.60,-17.73],[123.70,-17.76],[123.85,-17.80]]}},
                       {type:'Feature',properties:{road:'Gibb River Rd',type:'Road open with caution',where:'Gibb River Rd, Pentecost River crossing - Flooding',note:'Water over road, 4WD only.',updated:'09/11/2026 20:10:00'},geometry:{type:'LineString',coordinates:[[127.88,-15.78],[127.92,-15.80]]}}]})""")
                     await pg.wait_for_timeout(1500); await pg.screenshot(path='previews/desktop-roads.png')
+                if await pg.evaluate("typeof window.riverMap === 'function'"):
+                    await pg.evaluate("window.riverMap().jumpTo({center: [125.6, -17.6], zoom: 8.2})"); await pg.wait_for_timeout(3000)
+                    await pg.screenshot(path='previews/desktop-zoom.png')
+                    await pg.evaluate("window.riverMap().jumpTo({center: [116.3, -32.6], zoom: 6})"); await pg.wait_for_timeout(3000)
+                    await pg.screenshot(path='previews/desktop-sw.png')
                 if await pg.evaluate("typeof window.riverPick === 'function'"):
                     await pg.evaluate("window.riverPick()"); await pg.wait_for_timeout(3500)
                     await pg.screenshot(path='previews/desktop-detail.png')
