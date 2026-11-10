@@ -263,7 +263,7 @@
         return '<button type="button" data-p="' + k + '" aria-pressed="' + (PER === k) + '">' + PERS[k][0] + '</button>'; }).join('');
       el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
         PER = b.getAttribute('data-p'); try { localStorage.setItem('wwxw-river-per', PER); } catch (e) {}
-        drawPills(); drawKey(); drawLists(); drawTable(); if (map && map.getSource('g')) map.getSource('g').setData(gaugesFC()); if (sel) pick(sel, false); }); });
+        drawPills(); drawKey(); drawState(); drawLists(); drawTable(); if (map && map.getSource('g')) map.getSource('g').setData(gaugesFC()); if (sel) pick(sel, false); }); });
     }
 
     // ---- the state of the rivers (flood first)
@@ -291,8 +291,8 @@
       var top = fast.concat(rise).sort(function (a, b) { return rr(b) - rr(a); })[0];
       if (!n) {
         $('stHead').textContent = 'No rivers rising right now';
-        var hi = live.filter(function (g) { return g.d24 != null && !g.dry && !g.still; }).sort(function (a, b) { return b.d24 - a.d24; })[0];
-        $('stSub').textContent = hi && hi.d24 >= 0.05 ? 'Biggest rise in the last 24 hours: ' + place(hi) + ', ' + cm(hi.d24) + '.' : 'All ' + live.length + ' reporting gauges are steady or falling.';
+        var hi = G.filter(function (g) { return rise(g) != null; }).sort(function (a, b) { return rise(b) - rise(a); })[0];
+        $('stSub').textContent = hi && rise(hi) >= 0.05 ? 'Biggest rise ' + PERS[PER][1] + ': ' + place(hi) + ', ' + cm(rise(hi)) + '.' : 'All ' + live.length + ' reporting gauges are steady or falling.';
       } else {
         $('stHead').textContent = (n === 1 ? '1 river gauge rising' : n + ' river gauges rising') + (fast.length ? ', ' + fast.length + ' fast' : '');
         $('stSub').textContent = 'Fastest: ' + place(top) + ', ' + cmh(rr(top)) + ' over the last 3 hours' + '.';
