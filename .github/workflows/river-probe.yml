@@ -8,3 +8,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: python tools/river_probe.py
+        env:
+          ORION_API_KEY: ${{ secrets.ORION_API_KEY }}
