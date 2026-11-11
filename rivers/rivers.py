@@ -1055,7 +1055,7 @@ def travel(G, H, now):
         kp = max(last, key=lambda k: hh[k]); vp = hh[kp]
         before = [hh[k] for k in hh if (dt.datetime.fromisoformat(kp) - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00') <= k < kp]
         rise = vp - min(before) if before else 0
-        if rise < r.get('rise', 0.3): continue
+        if rise < max(0.3, 0.5 * r.get('rise', 0.3)): continue          # a live rise: half the record's flood size is enough to follow
         tp = dt.datetime.fromisoformat(kp).replace(tzinfo=AWST)
         peaked = kp < last[-1] and g['lvl'] < vp - 0.05 and now - tp >= dt.timedelta(hours=2)
         lag = d['big'] if rise >= 2 * r.get('rise', 0.3) else d['med']
@@ -1077,8 +1077,16 @@ def travel(G, H, now):
                 if not any(e['a'] == g['id'] and e['pk'] == d['pk'] for e in W['log']):
                     W['open'][key] = {'a': g['id'], 'b': b['id'], 'pk': d['pk'], 'pred': lag, 'rise': d['rise'], 'first': d.get('first'),
                                       'base': H['h'].get(b['id'], {}).get(kp), 'win': min(KEEP_H - 12, int(2.5 * max(lag, r['hi']) + 24))}
-            if eta > now - dt.timedelta(hours=6): d['eta'] = eta.isoformat(timespec='minutes')
-            else: d.pop('st'); continue                                   # long since passed downstream
+            d['eta'] = eta.isoformat(timespec='minutes')
+            # has it got there? the downstream gauge's rise since this peak (0.2 m+ = arriving; logged by learn() = peaked there)
+            if any(e['a'] == g['id'] and e['pk'] == d['pk'] for e in W['log']):
+                d.pop('st'); continue                                     # arrived and peaked there: the next reach takes over
+            hb = H['h'].get(b['id'], {}); since = [hb[k] for k in hb if k >= kp]
+            base_b = hb.get(kp, since[0] if since else None)
+            if since and base_b is not None and max(since) - base_b >= 0.2:
+                d['arr'] = round(max(since) - base_b, 2)                  # arriving now
+            elif now > eta + dt.timedelta(hours=max(6, r['hi'] - r['med'] + 3)):
+                d.pop('st'); continue                                     # well past due and not seen there: dropped
         b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag})
     act = [g for g in G if g.get('dn', {}).get('st')]
     log('Travel times: %d gauges; flood waves under way: %s' % (n, ', '.join('%s %s -> %s (%s%s)' % (g['river'], g['name'], g['dn']['tn'], g['dn']['st'],
