@@ -1,13 +1,21 @@
-"""Probe 31: Port Hedland's (and Iron Bridge's) BoM record around the 146 km/h gust on 10 Nov."""
-import sys, json
+"""Probe 32: shire road report pages (northern WA): format, links, latest report."""
+import sys, re, urllib.parse
 sys.path.insert(0, 'rivers'); import rivers as RV
-for sid in ('94312', '95316', '94316'):
-    for host in ('reg.bom.gov.au', 'www.bom.gov.au'):
-        try:
-            d = json.loads(RV.get('http://%s/fwo/IDW60801/IDW60801.%s.json' % (host, sid), 60, 2)); break
-        except Exception as e: print(sid, host, e); d = None
-    if not d: continue
-    obs = d['observations']['data']; print('\n==', obs[0]['name'], len(obs))
-    for o in sorted(obs, key=lambda o: o['local_date_time_full']):
-        if '20261110150000' <= o['local_date_time_full'] <= '20261110220000':
-            print(o['local_date_time_full'][8:12], 'wind', o.get('wind_spd_kmh'), 'gust', o.get('gust_kmh'), o.get('wind_dir'), 'T', o.get('air_temp'), 'rain', o.get('rain_trace'), 'p', o.get('press'))
+PAGES = {
+  'SWEK': ['https://www.swek.wa.gov.au/road-conditions.aspx'],
+  'Broome': ['https://www.broome.wa.gov.au/Shire-Services/Infrastructure/Road-Condition-Report-and-Planned-Maintenance'],
+  'SDWK': ['https://www.sdwk.wa.gov.au/road-conditions', 'https://www.sdwk.wa.gov.au/services/road-conditions', 'https://www.sdwk.wa.gov.au/road-condition-report', 'https://www.sdwk.wa.gov.au/'],
+  'HallsCreek': ['https://www.hallscreek.wa.gov.au/services/road-conditions'],
+  'EastPilbara': ['https://eastpilbara.wa.gov.au/roadreport'],
+  'Ashburton': ['https://www.ashburton.wa.gov.au/road-conditions', 'https://www.ashburton.wa.gov.au/'],
+}
+for shire, urls in PAGES.items():
+    for u in urls:
+        try: t = RV.get(u, 60, 1)
+        except Exception as e: print('\n##', shire, u, 'ERR', str(e)[:80]); continue
+        links = re.findall(r'href="([^"]+)"[^>]*>(.*?)</a>', t, re.S)
+        rl = [(urllib.parse.urljoin(u, h), RV.clean(x)[:80]) for h, x in links if re.search(r'(?i)road|condition|closure', h + x) and not re.search(r'(?i)facebook|twitter|mailto', h)]
+        body = RV.clean(re.sub(r'(?is)<(script|style|nav|header|footer).*?</\1>', ' ', t))
+        i = body.lower().find('road')
+        print('\n##', shire, u, len(t)); print(' links:', rl[:25]); print(' text:', body[max(0, i - 200):i + 1800])
+        break
