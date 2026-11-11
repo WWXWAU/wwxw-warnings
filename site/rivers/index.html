@@ -662,7 +662,10 @@
     }
     function wavesFC() {
       return { type: 'FeatureCollection', features: waves().map(function (g) { var b = byIdT(g.dn.to); if (!b || g.lat == null || b.lat == null) return null;
-        return { type: 'Feature', properties: { t: (g.dn.st === 'peaked' && g.dn.eta ? '→ ' + when(g.dn.eta) : '→ ' + hrs(g.dn.med) + ' after peak') }, geometry: { type: 'LineString', coordinates: [[g.lng, g.lat], [b.lng, b.lat]] } }; }).filter(Boolean) };
+        var t = g.dn.st === 'peaked' && g.dn.eta ? when(g.dn.eta) : hrs(g.dn.med) + ' after peak';
+        // labels along a line are kept upright, so on a line running west the text reads the other way: put the arrow on that side
+        t = b.lng >= g.lng ? '→ ' + t : t + ' ←';
+        return { type: 'Feature', properties: { t: t }, geometry: { type: 'LineString', coordinates: [[g.lng, g.lat], [b.lng, b.lat]] } }; }).filter(Boolean) };
     }
     function peakLine(g) {
       var k = pk(g); if (!k) return '';
