@@ -116,6 +116,7 @@
     .road:hover { background: var(--bg); }
     .road b { display: block; }
     .road .t { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; color: #fff; background: var(--c); margin: 2px 0; }
+    .road.hl { background: color-mix(in srgb, var(--rise) 22%, transparent); box-shadow: inset 4px 0 0 var(--rise); transition: background .3s; }
     .rain.wave { border-left: 3px solid var(--accent); padding-left: 8px; }
     .road small { display: block; color: var(--muted); font-size: 12px; }
     details.shire { border-top: 1px solid var(--line); }
@@ -300,6 +301,16 @@
 
     // ---- the state of the rivers (flood first)
     function shireWhen(t) { if (!t) return 'unknown'; var d = new Date(t + ':00+08:00'); return isNaN(d) ? t : d.toLocaleString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }); }
+    // a road clicked on the map: its entry in the side panel (opening its shire's section), scrolled into view and lit up
+    function roadShow(id) {
+      var i = -1; ROADS.features.forEach(function (f, k) { if (f.properties.id === id) i = k; });
+      var b = i < 0 ? null : document.querySelector('.road[data-i="' + i + '"]'); if (!b) return;
+      if ($('detail') && !$('detail').hidden) { var x = $('detail').querySelector('.x'); if (x) x.click(); }
+      var d = b.closest('details'); if (d) d.open = true;
+      document.querySelectorAll('.road.hl').forEach(function (o) { o.classList.remove('hl'); });
+      b.classList.add('hl'); b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(function () { b.classList.remove('hl'); }, 4000);
+    }
     function roadNote() {
       var M = mrRoads(), n = M.length, c = M.filter(roadClosed).length;
       var S = ROADS.features.filter(isShire), sc = S.filter(roadClosed).length, su = S.length - sc;
@@ -561,6 +572,12 @@
       });
       map.on('mouseleave', 'g', function () { map.getCanvas().style.cursor = ''; tip.remove(); });
       map.on('click', 'g', function (e) { tip.remove(); pick(e.features[0].properties.id, false); });
+      ['froads', 'sroads'].forEach(function (l) {
+        map.on('click', l, function (e) {
+          if (map.queryRenderedFeatures(e.point, { layers: ['g'] }).length) return;    // a gauge on top wins
+          rtip.remove(); roadShow(e.features[0].properties.id);
+        });
+      });
     }
     function byId(id) { for (var i = 0; i < G.length; i++) if (G[i].id === id) return G[i]; return null; }
     function drawKey() {
