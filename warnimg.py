@@ -879,7 +879,7 @@ def render_brand(item, post_path, story_path, style):
             lo = [min(p[0] for p in pts), max(p[0] for p in pts)]; la = [min(p[1] for p in pts), max(p[1] for p in pts)]
             step = max(1, len(pts) // 60)
             item = dict(item, _span=3.0, _big=1.6, _area_big=True,
-                        _near=alertimg.nearby([lo[0] - 1, lo[1] + 1], [la[0] - 1, la[1] + 1], pts[::step], n=3),
+                        _near=alertimg.nearby([lo[0] - 1, lo[1] + 1], [la[0] - 1, la[1] + 1], pts[::step], n=0),   # towns of 100+ people only
                         _lines=alertimg.rivers([lo[0] - 2, lo[1] + 2], [la[0] - 2, la[1] + 2]))
         except Exception as e:  # noqa: BLE001
             print('warning map extras skipped:', e)
@@ -898,7 +898,7 @@ def render_brand(item, post_path, story_path, style):
         """Draws the legend panel from y down; returns the bottom. Run once on a scratch image to measure."""
         y = legend(d, pad, y, OUT_SEV[0] if 'Severe Thunderstorm' in item.get('type', '') else col, 'Warning area', ppl or ('Includes ' + ', '.join(towns[:3]) if towns else ''), th, size) + int(18 * S)
         if hz: y = chips(d, hz, pad, y, Wd - 2 * pad, size * 0.82) + int(18 * S)
-        if reps: y = rep_pills(d, reps[:4], pad, y, Wd - 2 * pad, th, size * 0.9) + int(20 * S)
+        if reps: y = rep_pills(d, reps[:4 if extra else 2], pad, y, Wd - 2 * pad, th, size * 0.9) + int(20 * S)
         y = textbox(d, pad, y, Wd - 2 * pad, 'Weather situation', situ, size * 0.92, situ_lines, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)
         if extra:
             if more: y = textbox(d, pad, y + 8 * S, Wd - 2 * pad, 'What to expect', ' '.join(more), size * 0.86, 4, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)
@@ -910,7 +910,7 @@ def render_brand(item, post_path, story_path, style):
         d.text((pad, Hd - fh / 2), 'Warning © Bureau of Meteorology', font=font(500, size), fill=th['muted'], anchor='lm')
         d.text((Wd - pad, Hd - fh / 2), 'Unofficial copy · official warnings: bom.gov.au', font=font(400, size), fill=th['muted'], anchor='rm')
 
-    for path, Wd, Hd, hh, tsize, size, lines, extra in ((post_path, 1080, 1080, 130, 42, 24, 3, False),
+    for path, Wd, Hd, hh, tsize, size, lines, extra in ((post_path, 1080, 1080, 130, 42, 19, 2, False),
                                                          (story_path, 1080, 1920, 170, 44, 30, 5, True)):
         if not path: continue
         Wd, Hd, hh = Wd * S, Hd * S, hh * S
@@ -919,7 +919,7 @@ def render_brand(item, post_path, story_path, style):
         ph = panel(scratch, Wd, 0, pad, size, lines, extra) + 28 * S      # panel height
         map_bot = Hd - fh - ph - 20 * S
         img = Image.new('RGB', (Wd, Hd), th['bg']); d = ImageDraw.Draw(img)
-        credit = draw_map(img, (0, hh, Wd, map_bot), item, col, style, rounded=False, brand=True)
+        credit = draw_map(img, (0, hh, Wd, map_bot), (dict(item, _big=1.25) if not extra and item.get('_big') else item), col, style, rounded=False, brand=True)
         brand_header(img, d, Wd, hh, title, stamp(item), tsize)
         if credit:
             d.text((Wd - 16 * S, map_bot - 12 * S), credit, font=font(500, 15 if not extra else 18), fill=(235, 241, 243), anchor='rs',
