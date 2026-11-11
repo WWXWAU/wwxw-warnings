@@ -92,6 +92,9 @@ def situation(desc):
     for b in blocks:
         for sent in re.split(r'(?<=[.!])\s+(?=[A-Z0-9])', clean(b)):
             if sent and not _OBS.search(sent) and sent not in keep and not re.match(r'(?i)this warning is now cancelled', sent): keep.append(sent)
+    lead = re.compile(r'^Severe thunderstorms are (likely|possible) to produce ', re.I)
+    if len(keep) > 1 and lead.match(keep[0]):                # one area after another: say the repeated part once
+        keep = [keep[0]] + [lead.sub('Also ', re.sub(r' over the next (?:several|few|couple of) hours', '', k)) if lead.match(k) else k for k in keep[1:]]
     return ' '.join(keep) if keep else clean(re.split(r'Locations which may be affected include', d, flags=re.I)[0])
 
 def details(desc, situ):
