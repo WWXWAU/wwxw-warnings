@@ -1042,6 +1042,7 @@ def travel(G, H, now):
     for g in G:
         r = T.get(g['id'])
         if not r or 'med' not in r or r['to'] not in by: continue
+        if r['n'] < 10 and r['hi'] - r['lo'] > r['med']: continue           # too few floods, too spread out to be a useful guide
         b = by[r['to']]
         r = calibrated(r, [e for e in W['log'] if e['a'] == g['id'] and e['b'] == b['id']])
         d = {'to': b['id'], 'tn': b['name'], 'tr': b['river'], 'n': r['n'], 'med': r['med'], 'lo': r['lo'], 'hi': r['hi'], 'big': r['big']}
