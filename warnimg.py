@@ -39,8 +39,8 @@ HAZ = {   # label, chip colour
 }
 
 STYLE = os.environ.get('WARN_STYLE', '')                       # one style for both images, if set
-POST_STYLE = os.environ.get('WARN_POST_STYLE', 'clouds')       # default: the latest Himawari clouds on the post
-STORY_STYLE = os.environ.get('WARN_STORY_STYLE', 'clouds')     # and on the story
+POST_STYLE = os.environ.get('WARN_POST_STYLE', 'light')       # default: the latest Himawari clouds on the post
+STORY_STYLE = os.environ.get('WARN_STORY_STYLE', 'light')     # and on the story
 STYLES = ['classic', 'light', 'dark', 'satellite', 'clouds']   # (night and poster: earlier trials, still drawable)
 BRAND = ('light', 'dark', 'satellite', 'clouds')                # the website's look: outlook-image layout
 LIGHT = dict(bg=BG, text=TEXT, muted=MUTED, accent=ACCENT, rule=(201, 216, 220), stamp=(157, 205, 211))
@@ -569,8 +569,8 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     named = [t for t in item.get('towns', []) if norm(t) in G['places']]
     near = [n for n in item.get('_near', []) if norm(n) in G['places']]   # (alert images: places around the stations)
     others = near + [t['n'] for t in G['towns'][:40] if t['n'] not in near]
-    big = 2.1 if item.get('_marks') else 1.0   # alert images: story-sized writing on the map
-    placed, ft_b, ft_r = [], font(700 if dark else 600, 23 if dark else 21), font(600 if near else 500, int(19 * big) if near else 18)
+    big = item.get('_big') or (2.1 if item.get('_marks') else 1.0)   # alert and warning images: story-sized writing on the map
+    placed, ft_b, ft_r = [], font(700 if dark else 600, int((23 if dark else 21) * (big * 1.12 if item.get('_area_big') else 1))), font(600 if near else 500, int(19 * big) if near else 18)
     fm, fn, fw = font(800, 26), font(800, int(26 * big)), font(600, int(22 * big))
     boxes = []
     for mk in item.get('_marks', []): mk.pop('box', None)   # placed afresh for each image size
@@ -607,9 +607,13 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         if not (24 * S < px < W - 24 * S and 20 * S < py < H - 20 * S): continue
         if any(abs(X(mk['lng']) - ox - px) < 40 * S and abs(Y(mk['lat']) - oy - py) < 24 * S for mk in item.get('_marks', [])): continue   # under an alert mark
         tw = d.textlength(n, font=f); left = px + 10 * S * big + tw > W - 10 * S
-        tx = px - 10 * S * big - tw if left else px + 10 * S * big
-        bb = (min(px, tx) - 4 * S, py - 14 * S * big, max(px, tx + tw) + 4 * S, py + 14 * S * big)
-        if any(bb[0] < q[2] and bb[2] > q[0] and bb[1] < q[3] and bb[3] > q[1] for q in placed):
+        hit = lambda b: any(b[0] < q[2] and b[2] > q[0] and b[1] < q[3] and b[3] > q[1] for q in placed)
+        for side in ((left, not left) if big > 1 else (left,)):   # the other side when that one's taken (story-sized writing)
+            if side and px - 10 * S * big - tw < 10 * S: continue
+            tx = px - 10 * S * big - tw if side else px + 10 * S * big
+            bb = (min(px, tx) - 4 * S, py - 14 * S * big, max(px, tx + tw) + 4 * S, py + 14 * S * big)
+            if not hit(bb): break
+        else:
             continue
         if n not in named and len(placed) > len(named) + 6 + 2 * len(item.get('_marks', [])) + (4 if big > 1 else 0): break
         placed.append(bb)
@@ -716,7 +720,7 @@ def stamp(item):
 
 
 # ---------------------------------------------------------------- the two images
-LAYOUT = os.environ.get('WARN_LAYOUT', 'yellow')   # 'yellow' (warning-colour header stripe) or 'site' (outlook-image layout)
+LAYOUT = os.environ.get('WARN_LAYOUT', 'site')   # 'yellow' (warning-colour header stripe) or 'site' (outlook-image layout)
 
 def render(item, post_path=None, story_path=None, style=None, layout=None):
     style = style or STYLE
@@ -864,7 +868,21 @@ def brand_header(img, d, Wd, h, title, sub, size):
     d.rectangle([0, h - 6 * S, Wd, h], fill=ACCENT)
 
 def render_brand(item, post_path, story_path, style):
-    th = LIGHT if style in ('light', 'satellite') else DARK
+    # like the heavy rain alert images: a plain map with rivers and the places around the area named in big writing,
+    # under the dark header and panel
+    th = DARK
+    if style == 'light' and item.get('area') and '_near' not in item:
+        try:
+            import alertimg
+            ga = item['area']; cs = ga['coordinates'] if ga['type'] == 'MultiPolygon' else [ga['coordinates']]
+            pts = [p for poly in cs for ring in poly[:1] for p in ring]
+            lo = [min(p[0] for p in pts), max(p[0] for p in pts)]; la = [min(p[1] for p in pts), max(p[1] for p in pts)]
+            step = max(1, len(pts) // 60)
+            item = dict(item, _span=3.0, _big=1.6, _area_big=True,
+                        _near=alertimg.nearby([lo[0] - 1, lo[1] + 1], [la[0] - 1, la[1] + 1], pts[::step], n=3),
+                        _lines=alertimg.rivers([lo[0] - 2, lo[1] + 2], [la[0] - 2, la[1] + 2]))
+        except Exception as e:  # noqa: BLE001
+            print('warning map extras skipped:', e)
     col = TYPE_COL.get(item.get('type'), (242, 194, 0))
     situ = situation(item.get('description', ''))
     more = [x for x in details(item.get('description', ''), situ) if not _OBS.search(x)]
@@ -878,7 +896,7 @@ def render_brand(item, post_path, story_path, style):
 
     def panel(d, Wd, y, pad, size, situ_lines, extra):
         """Draws the legend panel from y down; returns the bottom. Run once on a scratch image to measure."""
-        y = legend(d, pad, y, col, 'Warning area', ppl or ('Includes ' + ', '.join(towns[:3]) if towns else ''), th, size) + int(18 * S)
+        y = legend(d, pad, y, OUT_SEV[0] if 'Severe Thunderstorm' in item.get('type', '') else col, 'Warning area', ppl or ('Includes ' + ', '.join(towns[:3]) if towns else ''), th, size) + int(18 * S)
         if hz: y = chips(d, hz, pad, y, Wd - 2 * pad, size * 0.82) + int(18 * S)
         if reps: y = rep_pills(d, reps[:4], pad, y, Wd - 2 * pad, th, size * 0.9) + int(20 * S)
         y = textbox(d, pad, y, Wd - 2 * pad, 'Weather situation', situ, size * 0.92, situ_lines, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)
@@ -918,5 +936,5 @@ if __name__ == '__main__':
     for w in json.load(open(src)).get('warnings', []):
         for stl in styles:
             base = os.path.join(out, w['id'] + ('-' + stl if len(styles) > 1 else ''))
-            render(w, base + '-post.png', base + '-story.png', style=stl, layout='site' if '--brand' in sys.argv else 'yellow')
+            render(w, base + '-post.png', base + '-story.png', style=stl, layout='site' if '--brand' in sys.argv else 'yellow' if '--yellow' in sys.argv else None)
             print('made', base + '-post.png', base + '-story.png')

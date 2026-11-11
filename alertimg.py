@@ -1,6 +1,6 @@
 """Facebook story (1080 x 1920) and square post (1080 x 1080) images for the Rainfall project's extreme alerts:
 heavy rainfall at gauges, and damaging wind gusts at stations. Drawn like the warning images (warnimg.py): the
-site's header, the latest Himawari-9 satellite picture under the map, each station marked with its value, then the
+site's header, a plain map with rivers and the places around, each station marked with its value, then the
 readings, what to do, and the source line.
 
 Input: the alert queue the Rainfall web app serves (?page=alertimg): a list of
