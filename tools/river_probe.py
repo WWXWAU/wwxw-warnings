@@ -1,16 +1,18 @@
-"""Probe 39: which long hourly level series Water Data Online has for WA gauges (for flood travel times)."""
-import sys, json, urllib.parse
-sys.path.insert(0, 'rivers'); import rivers as RV
-q = RV.KIWIS + urllib.parse.urlencode({'request': 'getTimeseriesList', 'station_no': '802055,802006,802137', 'parametertype_name': 'Water Course Level',
-                                       'returnfields': 'station_no,ts_id,ts_name,coverage'})
-rows = json.loads(RV.get(q, 120))
-for r in rows: print(r)
-# try 10 years of one series
-for name in ('DMQaQc.Merged.HourlyMean.HR', 'DMQaQc.Merged.AsStored.1', 'Received.Provisional.AsStored.1'):
-    ts = [r for r in rows[1:] if r[0] == '802055' and r[2] == name]
-    if not ts: continue
-    q = RV.KIWIS + urllib.parse.urlencode({'request': 'getTimeseriesValues', 'ts_id': ts[0][1], 'from': '2016-01-01', 'to': '2026-11-01', 'returnfields': 'Timestamp,Value'})
-    try:
-        res = json.loads(RV.get(q, 300)); d = res[0]['data']
-        print(name, len(d), d[:2], d[-2:], len(json.dumps(res)) // 1024, 'KB')
-    except Exception as e: print(name, 'ERR', e)
+"""Probe 40: draw example alert story images with the live satellite picture (handed over on the review branch)."""
+import subprocess, sys, json, os, datetime as dt
+subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'pillow', 'numpy', 'h5py'], check=True)
+sys.path.insert(0, '.')
+import alertimg
+os.makedirs('review', exist_ok=True)
+now = dt.datetime.now(dt.timezone.utc).isoformat()
+alertimg.render({'id': 'ex-rain', 'kind': 'rain', 'title': 'Heavy rainfall', 'time': now, 'items': [
+    {'name': 'Dimond Gorge', 'district': 'Kimberley', 'src': 'DWER', 'lat': -17.03, 'lng': 126.30, 'vals': [{'v': 30.2, 'unit': 'mm', 'label': '1 hr'}]}]},
+    'review/ex-rain-story.png', 'review/ex-rain-post.png')
+alertimg.render({'id': 'ex-rain2', 'kind': 'rain', 'title': 'Heavy rainfall', 'time': now, 'items': [
+    {'name': 'Mount Magnet', 'district': 'Central West', 'src': 'BOM', 'lat': -28.06, 'lng': 117.84, 'vals': [{'v': 31.4, 'unit': 'mm', 'label': '1 hr'}, {'v': 62.0, 'unit': 'mm', 'label': '3 hrs'}]},
+    {'name': 'Yalgoo', 'district': 'Central West', 'src': 'DPIRD', 'lat': -28.34, 'lng': 116.68, 'vals': [{'v': 26.2, 'unit': 'mm', 'label': '1 hr'}]}]},
+    'review/ex-rain2-story.png', None)
+alertimg.render({'id': 'ex-gust', 'kind': 'gust', 'title': 'Damaging wind gusts', 'time': now, 'items': [
+    {'name': 'Iron Bridge Mine', 'district': 'Pilbara', 'src': 'BOM', 'lat': -21.3, 'lng': 118.9, 'vals': [{'v': 96, 'unit': 'km/h', 'label': 'gust'}]}]},
+    'review/ex-gust-story.png', None)
+print(os.listdir('review'))
