@@ -22,6 +22,7 @@ KIWIS = 'http://www.bom.gov.au/waterdata/services?service=kisters&type=queryServ
 AWST = dt.timezone(dt.timedelta(hours=8))
 KEEP_H = 8 * 24
 KNOWN_POS = {'B509440': [-31.9595, 115.8577]}   # Bureau gauges Water Data Online doesn't list (Barrack Street Jetty)
+NOT_TIDAL = {'803001'}   # inland gauges whose storm pulses fooled the tide test (Lennard River at Mt Joseph)
 TIDAL = {'616004', '616094', 'B509440'}   # known tide-affected gauges (Swan estuary at Guildford; below Kent Street Weir; Barrack Street Jetty), on top of the test below
 
 
@@ -125,13 +126,19 @@ def tidal(v):
     """A tide gauge (estuary, weir pool below a weir): the level swings up and down twice a day. Count the swings of
     5 cm or more over the last three days (Perth tides are mostly once a day); three or more and the 'rising' is the tide, not a flood."""
     if len(v) < 36: return False
-    swings, ext, up = 0, v[0], None
-    for x in v[1:]:
+    swings, ext, up, at, peaks = 0, v[0], None, 0, []
+    for i, x in enumerate(v[1:], 1):
         if up is None:
-            if abs(x - ext) >= 0.05: up = x > ext; ext = x
+            if abs(x - ext) >= 0.05: up = x > ext; ext = x; at = i
             continue
-        if (up and x > ext) or (not up and x < ext): ext = x
-        elif abs(x - ext) >= 0.05: swings += 1; up = not up; ext = x
+        if (up and x > ext) or (not up and x < ext): ext = x; at = i
+        elif abs(x - ext) >= 0.05:
+            swings += 1
+            if up: peaks.append(at)
+            up = not up; ext = x; at = i
+    # the tide comes in on a clock: high tides about 12 or 24 hours apart; storm pulses come whenever
+    gaps = [b - a for a, b in zip(peaks, peaks[1:])]
+    if not gaps or sum(1 for g in gaps if 10 <= g <= 15 or 21 <= g <= 27) < max(1, 0.7 * len(gaps)): return False
     # and the tide rises about as slowly as it falls; a flood jumps up in an hour or two and drains away for days
     ups = sum(1 for a, b in zip(v, v[1:]) if b - a >= 0.01); downs = sum(1 for a, b in zip(v, v[1:]) if a - b >= 0.01)
     return swings >= 3 and ups >= 6 and downs >= 6 and 0.4 <= ups / downs <= 2.5
@@ -909,7 +916,7 @@ def main(out_dir):
             try: g['age'] = round((now - dt.datetime.fromisoformat(g['at'])).total_seconds() / 3600, 1)
             except Exception: g['age'] = None  # noqa: BLE001
             g['off_air'] = g['age'] is None or g['age'] > 48
-        g['tidal'] = g['id'] in TIDAL or tidal([v for k, v in sorted(hh.items()) if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00')])
+        g['tidal'] = g['id'] in TIDAL or g['id'] not in NOT_TIDAL and tidal([v for k, v in sorted(hh.items()) if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00')])
         # the rise over the last 3 hours, per hour (steadier than one hour's change)
         g['r3'] = None
         if g.get('at'):
