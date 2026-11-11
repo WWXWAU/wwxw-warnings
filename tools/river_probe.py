@@ -1,19 +1,13 @@
-"""Probe 30: what road closure data Main Roads' ArcGIS account offers (layers, incident types, local roads)."""
-import sys, json, collections, urllib.parse
+"""Probe 31: Port Hedland's (and Iron Bridge's) BoM record around the 146 km/h gust on 10 Nov."""
+import sys, json
 sys.path.insert(0, 'rivers'); import rivers as RV
-B = 'https://services2.arcgis.com/cHGEnmsJ165IBJRM/arcgis/rest/services'
-d = json.loads(RV.get(B + '?f=json', 60, 2))
-names = [s['name'] for s in d.get('services', [])]
-print('services', len(names)); print([n for n in names if re.search('(?i)clos|incident|road|webeoc|flood|travel|event|condition', n)] if (re := __import__('re')) else '')
-for svc in ('WebEoc_RoadClosures', 'WebEoc_RoadIncidents'):
-    try: s = json.loads(RV.get(B + '/%s/FeatureServer?f=json' % svc, 60, 2))
-    except Exception as e: print(svc, e); continue
-    for L in s.get('layers', []):
-        q = B + '/%s/FeatureServer/%d/query?' % (svc, L['id']) + urllib.parse.urlencode({'where': '1=1', 'outFields': '*', 'returnGeometry': 'false', 'f': 'json'})
-        try: r = json.loads(RV.get(q, 60, 2))
-        except Exception as e: print(svc, L, e); continue
-        F = [f['attributes'] for f in r.get('features', [])]
-        print('\n==', svc, L['id'], L['name'], len(F), 'fields', list(F[0].keys()) if F else '')
-        for k in ('IncidentTy', 'ClosureTyp', 'publishExt', 'Region', 'RoadOwner', 'Owner', 'Authority', 'RoadType'):
-            if F and k in F[0]: print(' ', k, collections.Counter(f[k] for f in F).most_common(15))
-        for f in [f for f in F if 'lood' in json.dumps(f) or 'ater' in json.dumps(f)][:6]: print('  ', {k: v for k, v in f.items() if v not in (None, '')})
+for sid in ('94312', '95316', '94316'):
+    for host in ('reg.bom.gov.au', 'www.bom.gov.au'):
+        try:
+            d = json.loads(RV.get('http://%s/fwo/IDW60801/IDW60801.%s.json' % (host, sid), 60, 2)); break
+        except Exception as e: print(sid, host, e); d = None
+    if not d: continue
+    obs = d['observations']['data']; print('\n==', obs[0]['name'], len(obs))
+    for o in sorted(obs, key=lambda o: o['local_date_time_full']):
+        if '20261110150000' <= o['local_date_time_full'] <= '20261110220000':
+            print(o['local_date_time_full'][8:12], 'wind', o.get('wind_spd_kmh'), 'gust', o.get('gust_kmh'), o.get('wind_dir'), 'T', o.get('air_temp'), 'rain', o.get('rain_trace'), 'p', o.get('press'))
