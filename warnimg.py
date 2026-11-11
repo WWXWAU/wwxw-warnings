@@ -560,7 +560,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     for r in G['districts']:
         od.line([(X(p[0]) - ox, Y(p[1]) - oy) for p in r], fill=st['dist'], width=int(1.1 * S), joint='curve')
     for ln in item.get('_lines', []):   # (alert images: rivers, for bearings)
-        od.line([(X(p[0]) - ox, Y(p[1]) - oy) for p in ln], fill=(110, 170, 205, 255), width=int(1.6 * S), joint='curve')
+        od.line([(X(p[0]) - ox, Y(p[1]) - oy) for p in ln], fill=(110, 170, 205, 255), width=int(2.4 * S), joint='curve')
     for name, gj in G['states'].items():
         for r in rings(gj):
             if len(r) > 2: od.line(r + [r[0]], fill=st['coast'], width=int((1.3 if base else 1.6) * S), joint='curve')
@@ -569,14 +569,27 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     named = [t for t in item.get('towns', []) if norm(t) in G['places']]
     near = [n for n in item.get('_near', []) if norm(n) in G['places']]   # (alert images: places around the stations)
     others = near + [t['n'] for t in G['towns'][:40] if t['n'] not in near]
-    placed, ft_b, ft_r = [], font(700 if dark else 600, 23 if dark else 21), font(500, 21 if near else 18)
-    fm, fn, fw = font(800, 26), font(700, 25), font(500, 21)
-    def callout(mk, px, py):   # where an alert mark's callout box goes
+    big = 1.6 if item.get('_marks') else 1.0   # alert images: story-sized writing on the map
+    placed, ft_b, ft_r = [], font(700 if dark else 600, 23 if dark else 21), font(600 if near else 500, int(19 * big) if near else 18)
+    fm, fn, fw = font(800, 26), font(800, int(26 * big)), font(600, int(22 * big))
+    boxes = []
+    for mk in item.get('_marks', []): mk.pop('box', None)   # placed afresh for each image size
+    def callout(mk, px, py):   # where an alert mark's callout box goes: beside it, else above or below, clear of the others
+        if 'box' in mk: return mk['box']
         l1, l2 = mk['name'], mk['label'] + (' · ' + mk['when'] if mk.get('when') else '')
-        bw = max(d.textlength(l1, font=fn), d.textlength(l2, font=fw)) + 28 * S; bh = 74 * S
-        left = px + 24 * S + bw > W - 10 * S
-        bx = px - 24 * S - bw if left else px + 24 * S; by = max(8 * S, min(H - bh - 8 * S, py - bh / 2))
-        return l1, l2, bx, by, bw, bh, left
+        bw = max(d.textlength(l1, font=fn), d.textlength(l2, font=fw)) + 32 * S * big; bh = 76 * S * big
+        gap = (26 if big > 1 else 24) * S * big
+        best = None
+        for side, dy in ((1, 0), (-1, 0), (1, -1), (1, 1), (-1, -1), (-1, 1), (1, -2), (1, 2), (-1, -2), (-1, 2)):
+            bx = px + gap if side > 0 else px - gap - bw
+            by = py - bh / 2 + dy * (bh * 0.75 + 10 * S)
+            if bx < 6 * S or bx + bw > W - 6 * S or by < 6 * S or by + bh > H - 6 * S: continue
+            hit = any(bx < q[2] and bx + bw > q[0] and by < q[3] and by + bh > q[1] for q in boxes)
+            if not hit: best = (bx, by, side < 0); break
+            if best is None: best = (bx, by, side < 0)
+        if best is None: best = (max(6 * S, min(W - bw - 6 * S, px + gap)), max(6 * S, min(H - bh - 6 * S, py - bh / 2)), False)
+        bx, by, left = best; boxes.append((bx - 8 * S, by - 8 * S, bx + bw + 8 * S, by + bh + 8 * S))
+        mk['box'] = (l1, l2, bx, by, bw, bh, left); return mk['box']
     for mk in item.get('_marks', []):   # keep town names clear of the marks and their callouts
         px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
         placed.append((px - 20 * S, py - 20 * S, px + 20 * S, py + 20 * S))
@@ -592,30 +605,31 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         px, py = X(lng) - ox, Y(lat) - oy
         if not (24 * S < px < W - 24 * S and 20 * S < py < H - 20 * S): continue
         if any(abs(X(mk['lng']) - ox - px) < 40 * S and abs(Y(mk['lat']) - oy - py) < 24 * S for mk in item.get('_marks', [])): continue   # under an alert mark
-        tw = d.textlength(n, font=f); left = px + 10 * S + tw > W - 10 * S
-        tx = px - 10 * S - tw if left else px + 10 * S
-        bb = (min(px, tx) - 4 * S, py - 14 * S, max(px, tx + tw) + 4 * S, py + 14 * S)
+        tw = d.textlength(n, font=f); left = px + 10 * S * big + tw > W - 10 * S
+        tx = px - 10 * S * big - tw if left else px + 10 * S * big
+        bb = (min(px, tx) - 4 * S, py - 14 * S * big, max(px, tx + tw) + 4 * S, py + 14 * S * big)
         if any(bb[0] < q[2] and bb[2] > q[0] and bb[1] < q[3] and bb[3] > q[1] for q in placed):
             continue
-        if n not in named and len([q for q in placed]) > len(named) + 6: break
+        if n not in named and len(placed) > len(named) + 6 + 2 * len(item.get('_marks', [])) + (4 if big > 1 else 0): break
         placed.append(bb)
-        r = 5 * S if n in named else 4 * S
+        r = (5 * S if n in named else 4 * S) * big
         d.ellipse([px - r, py - r, px + r, py + r], fill=dot, outline=st['halo'] if dark else (255, 255, 255), width=int(1.5 * S))
-        d.text((tx, py - (14 if dark and n in named else 13) * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=st['halo'])
+        if big > 1: d.text((tx, py), n, font=f, fill=(40, 58, 66), anchor='lm', stroke_width=int(4 * S), stroke_fill=st['halo'])
+        else: d.text((tx, py - (14 if dark and n in named else 13) * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=st['halo'])
     # marked places (alert images): a coloured dot and its value, drawn last so they sit on top
     for mk in item.get('_marks', []):
         px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
         if not (0 < px < W and 0 < py < H): continue
-        r = 13 * S
-        d.ellipse([px - r - 3 * S, py - r - 3 * S, px + r + 3 * S, py + r + 3 * S], fill=(255, 255, 255))
+        r = 13 * S * big
+        d.ellipse([px - r - 4 * S, py - r - 4 * S, px + r + 4 * S, py + r + 4 * S], fill=(255, 255, 255))
         d.ellipse([px - r, py - r, px + r, py + r], fill=mk['col'])
         if mk.get('name'):   # a callout: the station's name, then what it recorded and when
             l1, l2, bx, by, bw, bh, left = callout(mk, px, py)
             d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=12 * S, fill=(255, 255, 255), outline=mk['col'], width=int(3 * S))
-            tip = bx + bw if left else bx
-            d.polygon([(tip, py - 9 * S), (tip, py + 9 * S), (px + (-16 if left else 16) * S, py)], fill=mk['col'])
-            d.text((bx + 14 * S, by + 10 * S), l1, font=fn, fill=(13, 29, 35))
-            d.text((bx + 14 * S, by + 42 * S), l2, font=fw, fill=mk['col'])
+            tip = bx + bw if left else bx; ty = max(by + 14 * S, min(by + bh - 14 * S, py))
+            d.polygon([(tip, ty - 11 * S * big), (tip, ty + 11 * S * big), (px + (-1 if left else 1) * (r + 2 * S), py)], fill=mk['col'])
+            d.text((bx + 16 * S * big, by + 10 * S * big), l1, font=fn, fill=(13, 29, 35))
+            d.text((bx + 16 * S * big, by + 43 * S * big), l2, font=fw, fill=mk['col'])
             continue
         lab = mk['label']; tw = d.textlength(lab, font=fm); left = px + 22 * S + tw > W - 10 * S
         d.text((px - 22 * S - tw if left else px + 22 * S, py), lab, font=fm, fill=(255, 255, 255), anchor='lm', stroke_width=int(4 * S), stroke_fill=(13, 29, 35))

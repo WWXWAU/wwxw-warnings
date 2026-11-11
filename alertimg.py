@@ -48,7 +48,7 @@ def nearby(lo, la, centre, n=30):
     G = W.geo(); big, rest = [], []
     for k, v in G['places'].items():
         if v[3] != 'P' or not (la[0] <= v[0] <= la[1] and lo[0] <= v[1] <= lo[1]): continue
-        if re.search(r'\b(range|ranges|river|hills?|plateau|gorge|island)\b', k): continue
+        if re.search(r'\b(range|ranges|river|hills?|plateau|gorge|island|pilbara|kimberley|gascoyne|goldfields|wheatbelt|murchison)\b', k): continue
         dist = min((v[0] - c[1]) ** 2 + (v[1] - c[0]) ** 2 for c in centre)
         (big if v[2] >= 100 else rest).append((-v[2] if v[2] >= 100 else dist, k))
     return [k.title() for _, k in sorted(big)[:10] + sorted(rest)[:n]]
