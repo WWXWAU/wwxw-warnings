@@ -1,42 +1,23 @@
-"""Probe 24: match IDW65900/65901/65902 site ids to the Bureau metadata and the Rainfall page."""
-import ftplib, io, re, sys, json, csv, math, collections
+"""Probe 25: are the 17 Bureau water-level sites missing from the River page live anywhere?"""
+import ftplib, io, re, sys, collections
 sys.path.insert(0, 'rivers'); import rivers as RV
-M = {r['BOM_STATION_NUMBER']: r for r in csv.DictReader(open('data/bom-rain-sites.csv'))}
+MISS = {'509516':'609039','509475':'609045','510503':'609021','109508':'610300','509531':'612032','508036':'701011','508042':'701016',
+        '508039':'701014','509368':'','508035':'617013','510522':'614126','510506':'614105','509428':'614121','502014':'',
+        '509525':'611006','509476':'616082','509492':''}
 f = ftplib.FTP('ftp.bom.gov.au', timeout=60); f.login()
-def raw(p):
-    b = io.BytesIO(); f.retrbinary('RETR ' + p, b.write); return b.getvalue().decode('latin-1')
 names = sorted(n.split('/')[-1] for n in f.nlst('/anon/gen/fwo'))
-S = {}
-for pre in ('IDW65900_', 'IDW65901_', 'IDW65902_'):
-    fl = [n for n in names if n.startswith(pre) and n.endswith('.hcs')]
-    print(pre, len(fl), 'files', fl[-1] if fl else '-')
-    if not fl: continue
-    rows = [l.split(',') for l in raw('/anon/gen/fwo/' + fl[-1]).splitlines() if l and l[0].isdigit()]
-    ids = collections.defaultdict(list)
-    for r in rows: ids[r[4].strip('"')].append((r[5].strip('"'), r[6]))
-    S[pre] = ids
-    sp = [r[5] for r in rows[:3]]; print('  sites', len(ids), 'example', rows[0][:9])
-    print('  in metadata:', sum(k in M for k in ids), 'types', collections.Counter(M[k]['TYPE'] for k in ids if k in M))
-all_ids = set().union(*[set(v) for v in S.values()])
-print('union of sites:', len(all_ids), 'metadata WA sites:', len(M))
-t = RV.get('https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec', 150, 2)
-for _ in range(3): t = re.sub(r'\\x([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1), 16)), t).replace('\\\\', '\\').replace('\\/', '/').replace('\\"', '"')
-pts = [json.loads(m.group(0)) for m in re.finditer(r'\{[^{}]*?"m60_daily"[^{}]*\}', t)]
-print('rainfall page point keys', list(pts[0].keys()))
-def near(la, lo):
-    best = 9e9
-    for p in pts:
-        try: d = math.hypot(float(p['lat']) - la, (float(p['lng']) - lo) * math.cos(math.radians(la))) * 111
-        except Exception: continue
-        best = min(best, d)
-    return best
-new = []
-for k in sorted(all_ids):
-    m = M.get(k)
-    if not m: continue
-    d = near(float(m['LATITUDE']), float(m['LONGITUDE']))
-    if d > 2: new.append((k, m['SHORT_NAME'], m['TYPE'], m['RIVER_BASIN_NAME'], round(d, 1)))
-print('NEW sites (>2 km from any Rainfall page gauge):', len(new))
-print(collections.Counter(n[3] for n in new).most_common(40))
-for n in new: print(n)
-print('not in metadata:', sorted(k for k in all_ids if k not in M)[:60])
+fl = [n for n in names if n.startswith('IDW65910') and n.endswith('.hcs')]
+b = io.BytesIO(); f.retrbinary('RETR /anon/gen/fwo/' + fl[-1], b.write)
+last = {}
+for l in b.getvalue().decode('latin-1').splitlines():
+    p = l.split(',')
+    if len(p) > 6 and p[4].strip('"') in MISS: last[p[4].strip('"')] = (p[5].strip('"'), p[6])
+print('IDW65910 file', fl[-1])
+stage = RV.get('https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm', 60, 2)
+for bom, dw in MISS.items():
+    on = bool(dw) and dw in stage
+    te = ''
+    if dw:
+        try: t = RV.get(RV.PUB % (dw, 'te2.htm'), 40, 1); te = 'te2 ok %d rows' % len(RV.hourly_table(t))
+        except Exception as e: te = 'te2 ' + str(e)[:40]
+    print(bom, dw or '-', 'BoM latest:', last.get(bom, 'none'), '| on DWER stage list:', on, '|', te)
