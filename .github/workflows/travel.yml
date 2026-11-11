@@ -1,0 +1,31 @@
+name: River travel times
+# Flood travel times between river gauges, learnt from past floods (rivers/travel.py -> data/rivers-travel.json).
+# Monthly, or run by hand. The river job reads the file from the repo.
+on:
+  schedule:
+    - cron: '23 19 3 * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: travel
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Learn travel times
+        run: |
+          mkdir -p rd && git fetch -q --depth 1 origin river-data
+          for f in rivers.json rivers-upstream.json; do git show FETCH_HEAD:$f > rd/$f; done
+          python rivers/travel.py rd data/rivers-travel.json
+      - name: Save
+        run: |
+          git config user.name wwxw-bot && git config user.email actions@users.noreply.github.com
+          git add data/rivers-travel.json && git commit -qm "River travel times" || exit 0
+          for k in 1 2 3; do git pull -q --rebase && git push -q && break; sleep 5; done
