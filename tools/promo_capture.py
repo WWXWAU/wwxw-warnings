@@ -44,9 +44,11 @@ async def film(b, mode, opts):
     await pg.goto(SITE + '/rainfall/', wait_until='domcontentloaded'); f = await app_frame(pg, '#top10', 60000); await W(9000)
     await shot(pg, mode + '-rain-1-start')
     if f:
-        for i, t in enumerate(('24 hrs', '7 Days', 'Max 1 hr', 'Lightning 24 hrs')):
+        for i, t in enumerate(('24 Hrs', '7 Days', 'Max 1 hr')):
             if await click_text(f, t): await W(3500); await shot(pg, '%s-rain-%d-%s' % (mode, i + 2, t.replace(' ', '')))
-        await click_text(f, 'Total'); await click_text(f, '24 hrs'); await W(3000)
+        try: await f.click('[data-p=lightning]', timeout=5000); await W(4000); await shot(pg, mode + '-rain-5-lightning')
+        except Exception as e: print('  lightning', str(e)[:80])
+        await click_text(f, 'Total'); await click_text(f, '7 Days'); await W(3000)
         try:
             await f.evaluate("document.getElementById('top10').scrollIntoView({block:'center'})"); await W(1200); await shot(pg, mode + '-rain-6-top10')
             await f.click('#top10 .t10.go', timeout=5000); await W(4500); await shot(pg, mode + '-rain-7-flyto')
@@ -66,9 +68,10 @@ async def film(b, mode, opts):
     await pg.goto(SITE + '/rivers/', wait_until='domcontentloaded'); await W(12000)
     await shot(pg, mode + '-river-1-start')
     try:
-        await pg.evaluate("window.riverMap && window.riverMap.jumpTo({center:[125.8,-18.0],zoom:6.6})"); await W(3500); await shot(pg, mode + '-river-2-kimberley')
-        await pg.evaluate("window.riverPick && window.riverPick('802203')"); await W(3500); await shot(pg, mode + '-river-3-gauge')
-        await pg.evaluate("window.riverMap && window.riverMap.jumpTo({center:[117.5,-21.8],zoom:6.0})"); await W(3500); await shot(pg, mode + '-river-4-pilbara')
+        await pg.evaluate("window.riverMap().jumpTo({center:[125.8,-18.0],zoom:6.4})"); await W(4000); await shot(pg, mode + '-river-2-kimberley')
+        await pg.evaluate("var c=document.getElementById('wavesCard'); c && !c.hidden && c.scrollIntoView({block:'center'})"); await W(1500); await shot(pg, mode + '-river-3-waves')
+        await pg.evaluate("window.scrollTo(0,0)"); await pg.evaluate("window.riverPick('802203')"); await W(4000); await shot(pg, mode + '-river-4-gauge')
+        await pg.evaluate("var d=document.querySelector('details.shire'); if(d){d.open=true; d.scrollIntoView({block:'center'});}"); await W(1500); await shot(pg, mode + '-river-6-shire')
     except Exception as e: print('  river', str(e)[:100])
     await shot(pg, mode + '-river-5-full', full=True)
     # ---- Ripper Weather
