@@ -713,7 +713,7 @@ def render(item, post_path=None, story_path=None, style=None, layout=None):
         side = (int(Wd * 0.43), map_top, Wd - 36 * S, Hd - 70 * S)
         if map_scale(item, wide) * 1.15 < map_scale(item, side):
             box = side
-            ty = textbox(d, 36 * S, map_top, side[0] - 36 * S - 24 * S, 'Weather situation', situ, 22, 9 if not towns else 7, hc, th, plain)
+            ty = textbox(d, 36 * S, map_top, side[0] - 36 * S - 24 * S, 'Weather situation', situ, 22, max(7, int((Hd - 70 * S - map_top - (120 * S if towns else 0)) / (22 * 1.42 * S)) - 2), hc, th, plain)   # use the room beside the map
             if towns: textbox(d, 36 * S, ty + 12 * S, side[0] - 36 * S - 24 * S, 'Locations which may be affected', ', '.join(towns), 20, max(2, int((Hd - 80 * S - ty) / (20 * 1.42 * S)) - 2), hc, th, plain)
         else:
             box = wide
