@@ -28,6 +28,20 @@ def val(v):
     return ('%g' % v['v']) + (' ' + v['unit'] if v['unit'] else '')
 
 
+def summary(a):
+    """The alert in words, as the email's copy-and-paste story text says it."""
+    items = a['items']; i = items[0]
+    where = i['name'] + (' (' + i['district'] + ')' if i.get('district') else '')
+    if a['kind'] == 'gust':
+        s = where + ' has recorded a wind gust of ' + val(i['vals'][0]) + '.'
+    else:
+        parts = [val(v) + ' in ' + v['label'] for v in i['vals']]
+        s = where + ' has recorded heavy rainfall of ' + (', '.join(parts[:-1]) + ' and ' + parts[-1] if len(parts) > 1 else parts[0]) + '.'
+    if len(items) > 1:
+        s += ' ' + str(len(items) - 1) + ' more ' + ('station' if a['kind'] == 'gust' else 'gauge') + ('s' if len(items) > 2 else '') + ' below.'
+    return s
+
+
 def render(a, story_path, post_path, style='clouds'):
     col, title, todo = KIND.get(a['kind'], KIND['rain'])
     th = W.DARK
@@ -41,6 +55,7 @@ def render(a, story_path, post_path, style='clouds'):
 
     def panel(d, Wd, y, pad, size, story):
         fp, fl, fs = W.font(700, size * 1.05), W.font(600, size * 0.86), W.font(400, size * 0.72)
+        y = W.textbox(d, pad, y, Wd - 2 * pad, 'Heavy rainfall' if a['kind'] == 'rain' else 'Damaging winds', summary(a), size * (0.95 if story else 0.85), 4, th['accent'], th) + int(16 * S)
         for i in items:
             hh = int(size * 2.0 * S); x = pad
             for v in i['vals'][:3]:                        # value pills: 31.4 mm in 1 hr
