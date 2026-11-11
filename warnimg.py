@@ -449,7 +449,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     st = MAPS.get(style, MAPS['classic']); credit = ''
     ga = item.get('area') or None
     polys = (ga['coordinates'] if ga['type'] == 'MultiPolygon' else [ga['coordinates']]) if ga else []
-    pts = [pt for poly in polys for ring in poly[:1] for pt in ring]
+    pts = [pt for poly in polys for ring in poly[:1] for pt in ring] or item.get('_frame') or []   # (_frame: points to fit when there's no area)
     if pts:
         a, c = min(p[0] for p in pts), max(p[0] for p in pts); b, e = min(p[1] for p in pts), max(p[1] for p in pts)
     else:
@@ -583,6 +583,16 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         r = 5 * S if n in named else 4 * S
         d.ellipse([px - r, py - r, px + r, py + r], fill=dot, outline=st['halo'] if dark else (255, 255, 255), width=int(1.5 * S))
         d.text((tx, py - (14 if dark and n in named else 13) * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=st['halo'])
+    # marked places (alert images): a coloured dot and its value, drawn last so they sit on top
+    fm = font(800, 26)
+    for mk in item.get('_marks', []):
+        px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
+        if not (0 < px < W and 0 < py < H): continue
+        r = 13 * S
+        d.ellipse([px - r - 3 * S, py - r - 3 * S, px + r + 3 * S, py + r + 3 * S], fill=(255, 255, 255))
+        d.ellipse([px - r, py - r, px + r, py + r], fill=mk['col'])
+        lab = mk['label']; tw = d.textlength(lab, font=fm); left = px + 22 * S + tw > W - 10 * S
+        d.text((px - 22 * S - tw if left else px + 22 * S, py), lab, font=fm, fill=(255, 255, 255), anchor='lm', stroke_width=int(4 * S), stroke_fill=(13, 29, 35))
     # rounded corners
     mask = Image.new('L', (W, H), 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], radius=18 * S if rounded else 0, fill=255)
     img.paste(layer.convert('RGB'), (x0, y0), mask)

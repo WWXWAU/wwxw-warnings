@@ -28,6 +28,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - run: pip install -q pillow numpy h5py
       - name: Watch DWER and rebuild on new readings
         env:
           ONCE: ${{ inputs.once }}
@@ -44,8 +45,26 @@ jobs:
           stamp() { curl -s --max-time 40 https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm | grep -o '[0-9][0-9]:[0-9][0-9] [0-9][0-9][A-Za-z][a-z][a-z][0-9]\{4\}' | md5sum | cut -c1-12; }
           # the Bureau's rain files (a new 15-minute file about every 15 minutes)
           bstamp() { curl -s --max-time 40 --list-only ftp://ftp.bom.gov.au/anon/gen/fwo/ | grep -E '^IDW659(00|01|02|10)_' | md5sum | cut -c1-12; }
-          start=$(date +%s); seen=""; bseen=""; built=0
+          # story images for the Rainfall project's extreme alerts (heavy rain, damaging gusts): its web app queues them
+          # (?page=alertimg); new ones are drawn (alertimg.py) and published on the alert-images branch, newest 30 kept
+          WEBAPP="https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec"
+          alerts() {
+            curl -sL --max-time 60 "$WEBAPP?page=alertimg" -o aq.json 2>/dev/null || return 0
+            ids=$(python -c "import json;print(' '.join(a['id'] for a in json.load(open('aq.json'))))" 2>/dev/null) || return 0
+            [ -z "$ids" ] || [ "$ids" = "$aseen" ] && return 0
+            rm -rf ai && mkdir ai && ( cd ai && git init -q -b alert-images \
+              && { git fetch -q --depth 1 "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" alert-images 2>/dev/null && git checkout -q FETCH_HEAD -- . 2>/dev/null; true; } )
+            python alertimg.py aq.json ai | tee ai.log
+            if grep -q '^made' ai.log; then
+              ( cd ai && ls -t *.png 2>/dev/null | tail -n +31 | xargs -r rm -f; git add -A \
+                && git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Alert images" \
+                && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" alert-images ) || echo "Alert images not published"
+            fi
+            aseen="$ids"
+          }
+          start=$(date +%s); seen=""; bseen=""; aseen=""; built=0
           while :; do
+            alerts || true
             now=$(date +%s); s=$(stamp); b=$(bstamp)
             river=0; [ -n "$s" ] && [ "$s" != "d41d8cd98f00" ] && [ "$s" != "$seen" ] && river=1; [ $(( now - built )) -ge 900 ] && river=1
             rain=$river; [ -n "$b" ] && [ "$b" != "d41d8cd98f00" ] && [ "$b" != "$bseen" ] && rain=1
