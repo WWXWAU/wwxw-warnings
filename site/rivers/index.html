@@ -302,7 +302,10 @@
     function shireWhen(t) { if (!t) return 'unknown'; var d = new Date(t + ':00+08:00'); return isNaN(d) ? t : d.toLocaleString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }); }
     function roadNote() {
       var M = mrRoads(), n = M.length, c = M.filter(roadClosed).length;
-      return n ? ' ' + (c ? c + (c === 1 ? ' road closed' : ' roads closed') + ' by flooding' + (n > c ? ', ' + (n - c) + ' open with caution' : '') : n + (n === 1 ? ' road' : ' roads') + ' open with caution after flooding') + '.' : '';
+      var S = ROADS.features.filter(isShire), sc = S.filter(roadClosed).length, su = S.length - sc;
+      var mr = n ? 'Main Roads: ' + (c ? c + (c === 1 ? ' road closed' : ' roads closed') + ' by flooding' + (n > c ? ', ' + (n - c) + ' open with caution' : '') : n + (n === 1 ? ' road' : ' roads') + ' open with caution after flooding') + '.' : '';
+      var sh = S.length ? 'Shire road reports: ' + (sc ? sc + ' closed' : '') + (sc && su ? ', ' : '') + (su ? su + ' open with caution' : '') + '.' : '';
+      return (mr || sh) ? ' ' + [mr, sh].filter(Boolean).join(' ') : '';
     }
     function drawState() {
       drawState0(); $('stSub').textContent += roadNote();
