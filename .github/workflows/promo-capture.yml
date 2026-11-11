@@ -1,0 +1,23 @@
+name: Promo footage
+# Films the public pages for the promo video (tools/promo_capture.py) and saves the shots on the promo-shots branch.
+on:
+  workflow_dispatch:
+    inputs:
+      modes:
+        description: 'phone-dark phone-light desk-dark (blank = all)'
+        default: ''
+permissions:
+  contents: write
+jobs:
+  film:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install -q playwright && python -m playwright install --with-deps chromium > /dev/null
+      - run: python tools/promo_capture.py ${{ inputs.modes }}
+      - name: Save to the promo-shots branch
+        run: |
+          cd shots && git init -q -b promo-shots && git add -A
+          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Promo footage"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" promo-shots
