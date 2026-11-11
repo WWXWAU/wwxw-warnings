@@ -6,14 +6,14 @@ hourly levels (DMQaQc.Merged.HourlyMean.HR) since 2006, each flood peak at the u
 peak it produced at the downstream gauge, and the delay is recorded. Per pair: how many floods, the median delay,
 the range most fell in (the middle half), and the median in the bigger floods (the top third by rise).
 
-Run by travel.yml (weekly, or by hand). Only gauges north of LAT_MAX for now (the northern rivers).
+Run by travel.yml (weekly, or by hand). All WA gauges north of LAT_MAX (north first on 11 Nov 2026, then the southern rivers).
 Usage: python rivers/travel.py <river-data dir with rivers.json and rivers-upstream.json> [out file]
 """
 import datetime as dt, json, os, sys, time, urllib.parse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from rivers import KIWIS, get, log
 
-LAT_MAX = -28.0          # gauges north of this latitude
+LAT_MAX = -36.0          # gauges north of this latitude (all of WA since 11 Nov 2026; the north first)
 FROM = '2006-01-01'
 MAX_LAG_H = 240          # a downstream peak more than 10 days later isn't counted
 MIN_EVENTS = 3           # fewer matched floods than this: no travel time
