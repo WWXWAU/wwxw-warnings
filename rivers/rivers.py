@@ -365,9 +365,23 @@ SHIRE_LINKS = [('Broome', 'https://www.broome.wa.gov.au/Shire-Services/Infrastru
                ('Halls Creek', 'https://www.hallscreek.wa.gov.au/services/road-conditions'),
                ('Derby–West Kimberley', 'https://www.sdwk.wa.gov.au/services/roads/road-conditions.aspx'),
                ('Ashburton', 'https://www.ashburton.wa.gov.au/services/emergency-safety/road-report.aspx')]
-NOT_WEATHER = re.compile(r'(?i)road ?works|construction|reconstruct|resurfac|bitumen|sealing works|lane closure|stabilisation|asphalt|kerb|drainage works|maintenance works|event')
+NOT_WEATHER = re.compile(r'(?i)road ?works|construction|reconstruct|resurfac|re-?sheet|bitumen|sealing|lane closure|stabilisation|asphalt|kerb|\bworks\b|maintenance|'
+                         r'playground|beach access|stairs|intersection|temporary|event|parade|market')
 BROWSER = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
            'Accept': 'application/json, */*', 'X-Requested-With': 'XMLHttpRequest'}
+
+
+def thin_line(pts, tol=0.0015):
+    """A road line with only the points needed to draw it within ~150 m (Douglas-Peucker), to 4 decimals."""
+    if len(pts) < 3: return [[round(x, 4), round(y, 4)] for x, y in pts]
+    keep = [False] * len(pts); keep[0] = keep[-1] = True; stack = [(0, len(pts) - 1)]
+    while stack:
+        a, b = stack.pop(); (x1, y1), (x2, y2) = pts[a], pts[b]; dx, dy = x2 - x1, y2 - y1; L = math.hypot(dx, dy) or 1e-12; far, fi = 0, -1
+        for i in range(a + 1, b):
+            d = abs(dy * (pts[i][0] - x1) - dx * (pts[i][1] - y1)) / L
+            if d > far: far, fi = d, i
+        if far > tol: keep[fi] = True; stack += [(a, fi), (fi, b)]
+    return [[round(x, 4), round(y, 4)] for (x, y), k in zip(pts, keep) if k]
 
 
 def shire_status(name):
@@ -398,7 +412,7 @@ def shire_one(host, shire, now):
         try: md = json.loads(m.get('MappingData') or 'null')
         except ValueError: md = None
         if isinstance(md, list):
-            lines = [[[round(p['lng'], 4), round(p['lat'], 4)] for p in x.get('data') or [] if 'lat' in p and 'lng' in p] for x in md if isinstance(x, dict)]
+            lines = [thin_line([[p['lng'], p['lat']] for p in x.get('data') or [] if 'lat' in p and 'lng' in p]) for x in md if isinstance(x, dict)]
             lines = [l for l in lines if len(l) >= 2]
             if lines: geo = {'type': 'MultiLineString', 'coordinates': lines}
         elif isinstance(md, dict) and md.get('Latitude'):
@@ -406,7 +420,7 @@ def shire_one(host, shire, now):
         typ = (m.get('Type') or {}).get('Name') or ''
         feats.append({'type': 'Feature', 'geometry': geo, 'properties': {
             'id': 'S:%s:%s' % (host.replace('www.', '').split('.')[0], m.get('EntityId')), 'src': 'shire', 'shire': shire,
-            'road': title.split(':')[0].split(' - ')[0].strip().title() if title.isupper() else title.split(':')[0].strip(),
+            'road': (lambda r: r.title() if r.isupper() else r)(re.split(r':| - | \(', title)[0].strip()),
             'where': title + (' · ' + sub if sub and sub.lower() not in title.lower() and sub.lower() not in ('road closure', 'road conditions') else ''),
             'type': typ, 'closed': 1 if st == 'closed' else 0, 'note': desc[:300],
             'updated': when, 'url': m.get('ShareUrl') or ''}})
