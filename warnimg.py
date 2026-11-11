@@ -85,8 +85,14 @@ def situation(desc):
     m = re.search(r'Weather Situation:?\s*(.+?)(?:\n\s*\n|$)', d, re.I | re.S)
     if m:
         return clean(m.group(1))
-    d = re.split(r'Locations which may be affected include', d, flags=re.I)[0]
-    return clean(d)
+    # thunderstorm warnings: one block per area ('Severe thunderstorms are likely ... Locations ... include X.'); take each block's
+    # opening, not the locations or the recorded values
+    blocks = re.split(r'Locations which may be affected include[^.]*\.', d, flags=re.I)
+    keep = []
+    for b in blocks:
+        for sent in re.split(r'(?<=[.!])\s+(?=[A-Z0-9])', clean(b)):
+            if sent and not _OBS.search(sent) and sent not in keep and not re.match(r'(?i)this warning is now cancelled', sent): keep.append(sent)
+    return ' '.join(keep) if keep else clean(re.split(r'Locations which may be affected include', d, flags=re.I)[0])
 
 def details(desc, situ):
     """Other sentences about the threats (e.g. 'DAMAGING WINDS, averaging 60 km/h with gusts to 100 km/h...')."""
@@ -113,10 +119,11 @@ def reports(desc):
     [{'kind': 'wind'|'rain'|'hail', 'value': '91 km/h', 'label': 'Wind gust', 'where': 'Newman Airport', 'when': '2:25 pm'}]"""
     out = []
     parts = []
-    for sent in re.split(r'(?<=[.!])\s+(?=[A-Z])', clean(desc)):
-        if _OBS.search(sent):   # 'X recorded 98 km/h and Y recorded 30 mm': one report each
-            parts += [p for p in re.split(r';\s*|,?\s+and\s+(?=[A-Z])', sent) if re.search(r'\d|sized? hail', p, re.I)]
-    for s in parts:
+    for sent in re.split(r'(?<=[.!])\s+(?=[A-Z0-9])', clean(desc)):   # sentences can start with the value: '96 km/h wind gust was recorded...'
+        if _OBS.search(sent):   # 'X recorded 98 km/h and Y recorded 30 mm', '39mm ... in 3 hours, with 25 mm in 30 minutes': one report each
+            bits = [p for p in re.split(r';\s*|,?\s+and\s+(?=[A-Z0-9])|,\s*with\s+(?=\d)|,\s*including\s+(?=\d)', sent) if re.search(r'\d|sized? hail', p, re.I)]
+            parts += [(p, sent) for p in bits]
+    for s, sent in parts:
         kind = val = None; label = ''
         m = re.search(r'(\d{2,3})\s*km/?h', s)
         if m and re.search(r'wind|gust', s, re.I):
@@ -132,26 +139,36 @@ def reports(desc):
                 kind, val, num, label = 'hail', re.sub(r'\s+', ' ', mw.group(1)).capitalize() + ' size', 0, 'Hail'
             else:
                 m = re.search(r'(\d+(?:\.\d+)?)\s*mm\b', s)
-                if m and re.search(r'rain|fell|recorded|total', s, re.I):
+                if m and re.search(r'rain|fell|fall|recorded|total', s, re.I):
                     per = re.search(r'\bin (?:the |just |about |under |less than )?((?:\d+|one|two|three|six|twelve|24) (?:minutes?|hours?)|(?:half an |an )?hour)', s, re.I)
-                    label = 'Rain' + (' in ' + re.sub(r'^(?:an |)hour$', '1 hour', re.sub(r'^half an hour$', '30 minutes', per.group(1))) if per else '')
+                    span = per.group(1) if per else ''
+                    span = re.sub(r'^(?:an |one )?hour$', '1 hour', re.sub(r'^half an hour$', '30 minutes', span))
+                    span = re.sub(r'^(one|two|three|six|twelve)\b', lambda w: {'one': '1', 'two': '2', 'three': '3', 'six': '6', 'twelve': '12'}[w.group(1)], span)
+                    label = 'Rain' + (' in ' + span if span else '')
                     kind, val, num = 'rain', m.group(1) + ' mm', float(m.group(1))
         if not kind: continue
-        where = ''
-        ps = _PLACE_SUBJ.search(s)
-        if ps and ps.group(1) not in ('A', 'An', 'The', 'Wind', 'Large', 'Heavy', 'Hail', 'Rainfall'):
-            where = ps.group(1)
-        else:
-            for pm in _PLACE.finditer(s):
+        def place_of(t):
+            ps = _PLACE_SUBJ.search(t)
+            if ps and ps.group(1) not in ('A', 'An', 'The', 'Wind', 'Large', 'Heavy', 'Hail', 'Rainfall'): return ps.group(1)
+            pr = re.search(r"\b(?:recorded|observed|reported|measured|registered) (?:at|near|in) ((?:[A-Z][\w'’\-]*|Mt)(?: (?:[A-Z][\w'’\-]*|\(\w+\)|of))*)", t)
+            if pr: return re.sub(r' (?:of)$', '', pr.group(1))    # the place right after 'recorded at'
+            for pm in _PLACE.finditer(t):
                 w = pm.group(1)
-                if re.match(r'(the )?(hour|minutes?|warning|area|last|past)', w, re.I): continue
-                where = re.sub(r' (?:the|of|and)$', '', w); break
+                if not re.search(r'[A-Z]', w) or re.match(r'(the )?(hour|minutes?|warning|area|last|past|\w+ district)', w, re.I) or re.search(r'\bdistricts?\b', t[pm.end():pm.end() + 10]): continue
+                return re.sub(r' (?:the|of|and)$', '', w)
+            return ''
+        where = place_of(s) or place_of(sent)        # '..., with 25 mm in 30 minutes': same place as the rest of the sentence
         tm = _TIME.search(s)
         when = re.sub(r'\s*([ap])\.?m\.?', r' \1m', tm.group(1).lower()) if tm else ''
+        if when and kind == 'rain' and re.search(r'\bto\s+' + re.escape(tm.group(1)), s): when = 'to ' + when      # '39 mm in the 3 hours to 7 pm'
         out.append({'kind': kind, 'value': val, 'num': num, 'label': label, 'where': where, 'when': when, 'text': s})
     rank = {'wind': 0, 'hail': 1, 'rain': 2}
-    out.sort(key=lambda r: (rank[r['kind']], -r['num']))
-    return out[:4]
+    seen, uniq = set(), []
+    for r in out:                                   # the same value repeated (warnings repeat earlier reports)
+        k = (r['kind'], r['value'], r['where'], r['label'])
+        if k not in seen: seen.add(k); uniq.append(r)
+    uniq.sort(key=lambda r: (rank[r['kind']], -r['num']))
+    return uniq[:4]
 
 
 def when(iso):
@@ -680,7 +697,7 @@ def render(item, post_path=None, story_path=None, style=None, layout=None):
         if ppl:
             d.text((36 * S, y + 12 * S), ppl, font=font(600, 21), fill=th['text']); y += 40 * S
         if reps:
-            y = report_cards(d, reps[:2], 36 * S, y + 20 * S, Wd - 72 * S, th, 1.0, 2, hc)
+            y = report_cards(d, reps[:4], 36 * S, y + 20 * S, Wd - 72 * S, th, 1.0, 2, hc)
         map_top = y + 18 * S
         towns = item.get('towns') or []
         sl = 2 if reps and towns else 3 if (reps or towns) else 4          # situation lines
@@ -804,7 +821,7 @@ def render_brand(item, post_path, story_path, style):
         """Draws the legend panel from y down; returns the bottom. Run once on a scratch image to measure."""
         y = legend(d, pad, y, col, 'Warning area', ppl or ('Includes ' + ', '.join(towns[:3]) if towns else ''), th, size) + int(18 * S)
         if hz: y = chips(d, hz, pad, y, Wd - 2 * pad, size * 0.82) + int(18 * S)
-        if reps: y = rep_pills(d, reps[:extra and 4 or 2], pad, y, Wd - 2 * pad, th, size * 0.9) + int(20 * S)
+        if reps: y = rep_pills(d, reps[:4], pad, y, Wd - 2 * pad, th, size * 0.9) + int(20 * S)
         y = textbox(d, pad, y, Wd - 2 * pad, 'Weather situation', situ, size * 0.92, situ_lines, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)
         if extra:
             if more: y = textbox(d, pad, y + 8 * S, Wd - 2 * pad, 'What to expect', ' '.join(more), size * 0.86, 4, th['accent'] if th is DARK else ACCENT, th) + int(10 * S)

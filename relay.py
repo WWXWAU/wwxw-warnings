@@ -150,11 +150,13 @@ def parse_cap(raw, code):
 
 
 def towns_in(desc):
-    m = re.search(r'Locations which may be affected include ([^.]+)\.', desc, re.I)
-    if not m:
-        return []
-    s = re.sub(r'\s+and\s+', ', ', m.group(1))
-    return [t.strip() for t in s.split(',') if t.strip()]
+    """Every 'Locations which may be affected include ...' list (a warning can have one per area), in order."""
+    out = []
+    for m in re.finditer(r'Locations which may be affected include ([^.]+)\.', desc, re.I):
+        for t in re.sub(r'\s+and\s+', ', ', m.group(1)).split(','):
+            t = t.strip()
+            if t and t not in out: out.append(t)
+    return out
 
 
 def hazards_in(txt):
