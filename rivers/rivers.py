@@ -1017,7 +1017,7 @@ def learn(W, by, H, now):
             tb = dt.datetime.fromisoformat(kb).replace(tzinfo=AWST)
             if vb - base >= 0.2 and kb != ks[-1] and len(after) >= 3 and max(after[-3:]) <= vb - 0.05:
                 lag = int(round((tb - ta).total_seconds() / 3600))
-                W['log'].append({'a': w['a'], 'b': w['b'], 'pk': w['pk'], 'pkb': tb.isoformat(timespec='minutes'), 'lag': lag, 'pred': w['pred'],
+                W['log'].append({'a': w['a'], 'b': w['b'], 'pk': w['pk'], 'pkb': tb.isoformat(timespec='minutes'), 'lag': lag, 'pred': w['pred'], 'first': w.get('first'),
                                  'err': lag - w['pred'], 'rise': w['rise'], 'riseb': round(vb - base, 2)})
                 log('Flood wave learnt: %s %s -> %s %s took %d h (predicted %d h)' % (by.get(w['a'], {}).get('river', ''), by.get(w['a'], {}).get('name', w['a']),
                     by.get(w['b'], {}).get('river', ''), by.get(w['b'], {}).get('name', w['b']), lag, w['pred']))
@@ -1058,6 +1058,15 @@ def travel(G, H, now):
         tp = dt.datetime.fromisoformat(kp).replace(tzinfo=AWST)
         peaked = kp < last[-1] and g['lvl'] < vp - 0.05 and now - tp >= dt.timedelta(hours=2)
         lag = d['big'] if rise >= 2 * r.get('rise', 0.3) else d['med']
+        # first flow of the season: no flood here for FIRST_GAP_D days (the record's last flood, or one this job saw)
+        hp = int(tp.timestamp() // 3600)
+        prev = [x for x in (r.get('lastpk'), W.setdefault('lastpk', {}).get(g['id'])) if x and x < hp - 72]
+        gap = (hp - max(prev)) / 24 if prev else None
+        if gap is not None and gap >= 60:
+            d['first'] = round(gap)
+            if r.get('first'): lag = max(lag, r['first']['med']); d['fmed'] = r['first']['med']; d['fn'] = r['first']['n']
+            if r.get('wet'): d['wmed'] = r['wet']['med']
+        if not W['lastpk'].get(g['id']) or W['lastpk'][g['id']] < hp: W['lastpk'][g['id']] = hp
         d['st'] = 'peaked' if peaked else 'rising'
         d['rise'] = round(rise, 2)
         if peaked:
@@ -1065,7 +1074,7 @@ def travel(G, H, now):
             key = g['id'] + '>' + b['id']
             if key not in W['open'] or W['open'][key]['pk'] != d['pk']:      # a new wave: watch for it downstream, to learn from it
                 if not any(e['a'] == g['id'] and e['pk'] == d['pk'] for e in W['log']):
-                    W['open'][key] = {'a': g['id'], 'b': b['id'], 'pk': d['pk'], 'pred': lag, 'rise': d['rise'],
+                    W['open'][key] = {'a': g['id'], 'b': b['id'], 'pk': d['pk'], 'pred': lag, 'rise': d['rise'], 'first': d.get('first'),
                                       'base': H['h'].get(b['id'], {}).get(kp), 'win': min(KEEP_H - 12, int(2.5 * max(lag, r['hi']) + 24))}
             if eta > now - dt.timedelta(hours=6): d['eta'] = eta.isoformat(timespec='minutes')
             else: d.pop('st'); continue                                   # long since passed downstream

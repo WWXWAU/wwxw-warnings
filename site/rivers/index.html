@@ -653,10 +653,11 @@
       });
       if (!d) return h;
       var rng = d.lo + '–' + d.hi + ' h over ' + d.n + ' past floods' + (d.big !== d.med ? '; ' + d.big + ' h in the bigger ones' : '');
+      var fst = d.first ? ' <b>First flow here in ' + d.first + ' days:</b> on a dry bed the front of the wave soaks in' + (d.fmed ? ', and past first flows took about ' + d.fmed + ' h (' + d.fn + ' floods' + (d.wmed ? ', vs ' + d.wmed + ' h once the river is running' : '') + '), so that time is used.' : ', so it may arrive later than usual.') : '';
       var cal = d.cal && d.last ? ' Learnt from ' + d.cal + ' flood' + (d.cal > 1 ? 's' : '') + ' watched live too; the last (' + esc(whenK(d.last.pk.slice(0, 10))) + ') was predicted at ' + d.last.pred + ' h and took ' + d.last.lag + ' h.' : '';
-      if (d.st === 'peaked' && d.eta) h += '<div class="rain wave"><b>Flood wave on its way</b> to ' + esc(d.tr) + ' at ' + esc(d.tn) + ': peaked here ' + esc(when(d.pk)) + ', so expect the peak there around <b>' + esc(when(d.eta)) + '</b> (' + rng + ').' + cal + '</div>';
-      else if (d.st === 'rising') h += '<div class="rain wave"><b>Rising:</b> once it peaks here, the peak usually reaches ' + esc(d.tr) + ' at ' + esc(d.tn) + ' ' + hrs(d.med) + ' later (' + rng + ').' + cal + '</div>';
-      else h += '<div class="rain">Downstream: ' + esc(d.tr) + ' at ' + esc(d.tn) + '. Flood peaks usually take ' + hrs(d.med) + ' to get there (' + rng + ').' + cal + '</div>';
+      if (d.st === 'peaked' && d.eta) h += '<div class="rain wave"><b>Flood wave on its way</b> to ' + esc(d.tr) + ' at ' + esc(d.tn) + ': peaked here ' + esc(when(d.pk)) + ', so expect the peak there around <b>' + esc(when(d.eta)) + '</b> (' + rng + ').' + fst + cal + '</div>';
+      else if (d.st === 'rising') h += '<div class="rain wave"><b>Rising:</b> once it peaks here, the peak usually reaches ' + esc(d.tr) + ' at ' + esc(d.tn) + ' ' + hrs(d.med) + ' later (' + rng + ').' + fst + cal + '</div>';
+      else h += '<div class="rain">Downstream: ' + esc(d.tr) + ' at ' + esc(d.tn) + '. Flood peaks usually take ' + hrs(d.med) + ' to get there (' + rng + ').' + fst + cal + '</div>';
       return h;
     }
     function wavesFC() {

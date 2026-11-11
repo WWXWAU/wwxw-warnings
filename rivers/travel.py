@@ -17,6 +17,7 @@ LAT_MAX = -36.0          # gauges north of this latitude (all of WA since 11 Nov
 FROM = '2006-01-01'
 MAX_LAG_H = 240          # a downstream peak more than 10 days later isn't counted
 MIN_EVENTS = 3           # fewer matched floods than this: no travel time
+FIRST_GAP_D = 60         # a flood with no flood at the upstream gauge in the 60 days before = a first flow (dry bed, slower)
 MIN_SHARE = 0.05         # a gauge draining less than this share of the downstream gauge's catchment isn't paired
 
 
@@ -66,7 +67,8 @@ def match(PA, sb, maxlag=MAX_LAG_H):
         if len(win) < maxlag * 0.7: continue
         kb, vb = max(win, key=lambda x: x[1])
         if vb - base < 0.2 or kb >= h + maxlag - 6 or kb == h: continue
-        out.append((kb - h, rise, h))
+        gap = (h - PA[n - 1][0]) / 24 if n else 9999                      # days since the previous flood here
+        out.append((kb - h, rise, h, round(gap)))
     return out
 
 
@@ -77,7 +79,18 @@ def stats(m):
     bl = sorted(x[0] for x in big)
     return {'n': len(lags), 'med': q(0.5), 'lo': q(0.25), 'hi': q(0.75), 'big': bl[len(bl) // 2],
             'last': dt.datetime.utcfromtimestamp(max(x[2] for x in m) * 3600).strftime('%Y-%m-%d'),
-            'ev': [[x[0], round(x[1], 2), x[2]] for x in sorted(m, key=lambda x: x[2])]}    # each flood: [delay h, rise m, upstream peak hour]
+            'ev': [[x[0], round(x[1], 2), x[2], min(x[3], 999)] for x in sorted(m, key=lambda x: x[2])]}    # each flood: [delay h, rise m, upstream peak hour, days since the last flood]
+
+
+def split(m):
+    """Travel times for first flows (no flood upstream in FIRST_GAP_D days: the bed is dry and soaks up the front of the
+    wave) and for the others, when each has 3+ floods."""
+    out = {}
+    for k, sub in (('first', [x for x in m if x[3] >= FIRST_GAP_D]), ('wet', [x for x in m if x[3] < FIRST_GAP_D])):
+        if len(sub) >= MIN_EVENTS:
+            l = sorted(x[0] for x in sub); q = lambda p: l[min(len(l) - 1, int(p * (len(l) - 1) + 0.5))]
+            out[k] = {'n': len(l), 'med': q(0.5), 'lo': q(0.25), 'hi': q(0.75)}
+    return out
 
 
 def main(data_dir, out_path):
@@ -110,12 +123,13 @@ def main(data_dir, out_path):
         m = match(PA, S[b])
         if len(m) >= MIN_EVENTS:                                             # second pass: a window fitted to this pair, to drop chance matches
             lags = sorted(x[0] for x in m); m = match(PA, S[b], min(MAX_LAG_H, int(2.5 * lags[len(lags) // 2] + 24)))
-        rec = {'to': b, 'peaks': len(PA), 'rise': round(R, 2), 'share': share}
+        rec = {'to': b, 'peaks': len(PA), 'rise': round(R, 2), 'share': share, 'lastpk': PA[-1][0] if PA else None}
         if share < MIN_SHARE: m = []                                         # a small side creek: the downstream peak mostly comes from elsewhere
-        if len(m) >= MIN_EVENTS: rec.update(stats(m))
+        if len(m) >= MIN_EVENTS: rec.update(stats(m)); rec.update(split(m))
         out[a] = rec
-        log('%-30s -> %-30s peaks %3d matched %3d %s' % (G[a]['river'] + ' ' + G[a]['name'], G[b]['river'] + ' ' + G[b]['name'], len(PA), len(m),
-            ('median %d h (%d-%d), big floods %d h' % (rec['med'], rec['lo'], rec['hi'], rec['big'])) if 'med' in rec else ''))
+        log('%-30s -> %-30s peaks %3d matched %3d %s%s' % (G[a]['river'] + ' ' + G[a]['name'], G[b]['river'] + ' ' + G[b]['name'], len(PA), len(m),
+            ('median %d h (%d-%d), big floods %d h' % (rec['med'], rec['lo'], rec['hi'], rec['big'])) if 'med' in rec else '',
+            (' | first flows %d h (n %d) vs %s' % (rec['first']['med'], rec['first']['n'], ('%d h' % rec['wet']['med']) if 'wet' in rec else '-')) if 'first' in rec else ''))
     json.dump({'built': dt.date.today().isoformat(), 'from': FROM, 'pairs': out}, open(out_path, 'w'), separators=(',', ':'), sort_keys=True, indent=0)
     log('Travel times: %d pairs with enough floods, %d without' % (sum('med' in r for r in out.values()), sum('med' not in r for r in out.values())))
 
