@@ -355,7 +355,7 @@
       var FL = G.filter(function (g) { return fcls(g) && !g.off_air; }).sort(function (a, b) { return FLOOD[fcls(b)][2] - FLOOD[fcls(a)][2] || b.lvl - a.lvl; });
       $('floodCard').hidden = !FL.length;
       $('flooded').innerHTML = FL.map(function (g) { var f = FLOOD[fcls(g)]; return row(g, '<span style="color:var(' + f[1] + ')">' + f[0] + '</span>', m2(g.lvl) + ' · ' + STATUS[status(g)][0].toLowerCase()); }).join('');
-      var R = live.filter(function (g) { var s = status(g); return s === 'fast' || s === 'rise'; }).sort(function (a, b) { return rr(b) - rr(a); });
+      var R = live.filter(function (g) { var s = status(g); return !g.still && (s === 'fast' || s === 'rise'); }).sort(function (a, b) { return rr(b) - rr(a); });
       $('nowCard').hidden = !R.length;                                 // rising right now: only when something is
       $('risingNow').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(rr(g)), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : '')); }).join('');
       var W = waves();
