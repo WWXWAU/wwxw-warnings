@@ -76,7 +76,8 @@ def stats(m):
     big = sorted(m, key=lambda x: -x[1])[:max(1, len(m) // 3)]
     bl = sorted(x[0] for x in big)
     return {'n': len(lags), 'med': q(0.5), 'lo': q(0.25), 'hi': q(0.75), 'big': bl[len(bl) // 2],
-            'last': dt.datetime.utcfromtimestamp(max(x[2] for x in m) * 3600).strftime('%Y-%m-%d')}
+            'last': dt.datetime.utcfromtimestamp(max(x[2] for x in m) * 3600).strftime('%Y-%m-%d'),
+            'ev': [[x[0], round(x[1], 2), x[2]] for x in sorted(m, key=lambda x: x[2])]}    # each flood: [delay h, rise m, upstream peak hour]
 
 
 def main(data_dir, out_path):

@@ -949,7 +949,12 @@ def main(out_dir):
         log('Peaks skipped: %s' % e)
     for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json', 'rivers-basins.json'):                 # always something to publish
         if not os.path.exists(os.path.join(out_dir, f)): json.dump({}, open(os.path.join(out_dir, f), 'w'))
-    try: travel(G, H, now)
+    wp = os.path.join(out_dir, 'rivers-waves.json')
+    try: WAVES.update(json.load(open(wp)))
+    except Exception: pass  # noqa: BLE001
+    try:
+        travel(G, H, now)
+        json.dump(WAVES, open(wp, 'w'), separators=(',', ':'), sort_keys=True)
     except Exception as e:  # noqa: BLE001
         log('Travel times skipped: %s' % e)
     try: districts(G)
@@ -973,6 +978,53 @@ RISE, FAST = 0.02, 0.10   # metres an hour, averaged over 3 hours: rising, and r
 
 
 TRAVEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'rivers-travel.json')
+WAVES = {'open': {}, 'log': []}   # loaded from / saved to rivers-waves.json by main()
+
+
+def calibrated(r, live):
+    """A pair's travel times from its past floods (r['ev'], from the quality-coded records) plus the floods this
+    job has watched itself (live, from rivers-waves.json), each of those counted twice: recent floods count for
+    more, and they reach the quality-coded records only months later (an event already there isn't counted again)."""
+    ev = [(x[0], x[1]) for x in r.get('ev', [])]
+    hist_h = [x[2] for x in r.get('ev', [])]
+    add = []
+    for e in live:
+        ha = int(dt.datetime.fromisoformat(e['pk']).timestamp() // 3600)
+        if any(abs(ha - h) <= 48 for h in hist_h): continue
+        add += [(e['lag'], e['rise'])] * 2
+    if not add or not ev: return r
+    m = ev + add; lags = sorted(x[0] for x in m)
+    q = lambda p: lags[min(len(lags) - 1, int(p * (len(lags) - 1) + 0.5))]
+    big = sorted(x[0] for x in sorted(m, key=lambda x: -x[1])[:max(1, len(m) // 3)])
+    last = max(live, key=lambda e: e['pk'])
+    return dict(r, n=len(ev) + len(add) // 2, med=q(0.5), lo=q(0.25), hi=q(0.75), big=big[len(big) // 2], cal=len(add) // 2,
+                lastlive={'pk': last['pk'], 'lag': last['lag'], 'pred': last['pred']})
+
+
+def learn(W, by, H, now):
+    """Close the flood waves being watched: once the downstream gauge has peaked (risen 0.2 m+ above its level when
+    the upstream gauge peaked, then dropped 5 cm+ for 3 hours) or the watch window has run out, log the real delay
+    beside the predicted one. Each logged flood then counts in that pair's travel times (calibrated)."""
+    for key, w in list(W['open'].items()):
+        ta = dt.datetime.fromisoformat(w['pk']); end = ta + dt.timedelta(hours=w['win'])
+        hb = H['h'].get(w['b'], {})
+        ks = sorted(k for k in hb if ta.strftime('%Y-%m-%dT%H:00') <= k <= end.strftime('%Y-%m-%dT%H:00'))
+        base = w.get('base') if w.get('base') is not None else (hb[ks[0]] if ks else None)
+        done = now > end
+        if ks and base is not None:
+            kb = max(ks, key=lambda k: hb[k]); vb = hb[kb]
+            after = [hb[k] for k in ks if k > kb]
+            tb = dt.datetime.fromisoformat(kb).replace(tzinfo=AWST)
+            if vb - base >= 0.2 and kb != ks[-1] and len(after) >= 3 and max(after[-3:]) <= vb - 0.05:
+                lag = int(round((tb - ta).total_seconds() / 3600))
+                W['log'].append({'a': w['a'], 'b': w['b'], 'pk': w['pk'], 'pkb': tb.isoformat(timespec='minutes'), 'lag': lag, 'pred': w['pred'],
+                                 'err': lag - w['pred'], 'rise': w['rise'], 'riseb': round(vb - base, 2)})
+                log('Flood wave learnt: %s %s -> %s %s took %d h (predicted %d h)' % (by.get(w['a'], {}).get('river', ''), by.get(w['a'], {}).get('name', w['a']),
+                    by.get(w['b'], {}).get('river', ''), by.get(w['b'], {}).get('name', w['b']), lag, w['pred']))
+                del W['open'][key]; continue
+        if done:
+            log('Flood wave not seen downstream: %s -> %s (peak %s)' % (w['a'], w['b'], w['pk'])); del W['open'][key]
+    W['log'] = W['log'][-500:]
 
 
 def travel(G, H, now):
@@ -984,12 +1036,16 @@ def travel(G, H, now):
     try: T = json.load(open(TRAVEL))['pairs']
     except Exception as e:  # noqa: BLE001
         log('No travel times (%s)' % e); return
+    W = WAVES                                                               # live flood waves and what they did (rivers-waves.json)
     by = {g['id']: g for g in G}; n = 0
+    learn(W, by, H, now)
     for g in G:
         r = T.get(g['id'])
         if not r or 'med' not in r or r['to'] not in by: continue
         b = by[r['to']]
+        r = calibrated(r, [e for e in W['log'] if e['a'] == g['id'] and e['b'] == b['id']])
         d = {'to': b['id'], 'tn': b['name'], 'tr': b['river'], 'n': r['n'], 'med': r['med'], 'lo': r['lo'], 'hi': r['hi'], 'big': r['big']}
+        if r.get('cal'): d['cal'] = r['cal']; d['last'] = r['lastlive']
         g['dn'] = d; n += 1
         hh = H['h'].get(g['id'], {})
         if g.get('off_air') or not hh: continue
@@ -1006,6 +1062,11 @@ def travel(G, H, now):
         d['rise'] = round(rise, 2)
         if peaked:
             d['pk'] = tp.isoformat(timespec='minutes'); eta = tp + dt.timedelta(hours=lag)
+            key = g['id'] + '>' + b['id']
+            if key not in W['open'] or W['open'][key]['pk'] != d['pk']:      # a new wave: watch for it downstream, to learn from it
+                if not any(e['a'] == g['id'] and e['pk'] == d['pk'] for e in W['log']):
+                    W['open'][key] = {'a': g['id'], 'b': b['id'], 'pk': d['pk'], 'pred': lag, 'rise': d['rise'],
+                                      'base': H['h'].get(b['id'], {}).get(kp), 'win': min(KEEP_H - 12, int(2.5 * max(lag, r['hi']) + 24))}
             if eta > now - dt.timedelta(hours=6): d['eta'] = eta.isoformat(timespec='minutes')
             else: d.pop('st'); continue                                   # long since passed downstream
         b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag})
