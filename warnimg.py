@@ -573,6 +573,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
             t = next(t for t in G['towns'] if t['n'] == n); lat, lng = t['lat'], t['lng']; f, dot = ft_r, st['town']
         px, py = X(lng) - ox, Y(lat) - oy
         if not (24 * S < px < W - 24 * S and 20 * S < py < H - 20 * S): continue
+        if any(abs(X(mk['lng']) - ox - px) < 40 * S and abs(Y(mk['lat']) - oy - py) < 24 * S for mk in item.get('_marks', [])): continue   # under an alert mark
         tw = d.textlength(n, font=f); left = px + 10 * S + tw > W - 10 * S
         tx = px - 10 * S - tw if left else px + 10 * S
         bb = (min(px, tx) - 4 * S, py - 14 * S, max(px, tx + tw) + 4 * S, py + 14 * S)
