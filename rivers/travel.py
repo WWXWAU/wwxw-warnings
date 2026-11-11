@@ -4,7 +4,7 @@ For each river gauge, the next gauge downstream comes from DWER's subcatchments 
 is downstream of another when its catchment contains the other's). Then, from Water Data Online's quality-coded
 hourly levels (DMQaQc.Merged.HourlyMean.HR) since 2006, each flood peak at the upstream gauge is matched to the
 peak it produced at the downstream gauge, and the delay is recorded. Per pair: how many floods, the median delay,
-the range most fell in (the middle 80%), and the median in the bigger floods (the top third by rise).
+the range most fell in (the middle half), and the median in the bigger floods (the top third by rise).
 
 Run by travel.yml (weekly, or by hand). Only gauges north of LAT_MAX for now (the northern rivers).
 Usage: python rivers/travel.py <river-data dir with rivers.json and rivers-upstream.json> [out file]
@@ -17,6 +17,7 @@ LAT_MAX = -28.0          # gauges north of this latitude
 FROM = '2006-01-01'
 MAX_LAG_H = 240          # a downstream peak more than 10 days later isn't counted
 MIN_EVENTS = 3           # fewer matched floods than this: no travel time
+MIN_SHARE = 0.05         # a gauge draining less than this share of the downstream gauge's catchment isn't paired
 
 
 def series(sid, tsid):
@@ -51,20 +52,20 @@ def peaks(s):
     return out, R
 
 
-def match(PA, sb):
+def match(PA, sb, maxlag=MAX_LAG_H):
     """For each upstream peak, the downstream peak it produced: the highest downstream level within MAX_LAG_H
     after it, which must have risen 0.2 m+ above the level when the upstream gauge peaked and must not be at the
     window's end (still rising). Skipped when another big upstream peak follows within the window (two waves)."""
     out = []
     for n, (h, v, rise) in enumerate(PA):
-        nxt = [p for p in PA[n + 1:] if p[0] - h <= MAX_LAG_H]
+        nxt = [p for p in PA[n + 1:] if p[0] - h <= maxlag]
         if nxt and max(p[2] for p in nxt) >= 0.5 * rise: continue
         base = sb.get(h)
         if base is None: continue
-        win = [(k, sb[k]) for k in range(h, h + MAX_LAG_H + 1) if k in sb]
-        if len(win) < MAX_LAG_H * 0.7: continue
+        win = [(k, sb[k]) for k in range(h, h + maxlag + 1) if k in sb]
+        if len(win) < maxlag * 0.7: continue
         kb, vb = max(win, key=lambda x: x[1])
-        if vb - base < 0.2 or kb >= h + MAX_LAG_H - 12 or kb == h: continue
+        if vb - base < 0.2 or kb >= h + maxlag - 6 or kb == h: continue
         out.append((kb - h, rise, h))
     return out
 
@@ -74,7 +75,7 @@ def stats(m):
     q = lambda p: lags[min(len(lags) - 1, int(p * (len(lags) - 1) + 0.5))]
     big = sorted(m, key=lambda x: -x[1])[:max(1, len(m) // 3)]
     bl = sorted(x[0] for x in big)
-    return {'n': len(lags), 'med': q(0.5), 'lo': q(0.1), 'hi': q(0.9), 'big': bl[len(bl) // 2],
+    return {'n': len(lags), 'med': q(0.5), 'lo': q(0.25), 'hi': q(0.75), 'big': bl[len(bl) // 2],
             'last': dt.datetime.utcfromtimestamp(max(x[2] for x in m) * 3600).strftime('%Y-%m-%d')}
 
 
@@ -103,9 +104,13 @@ def main(data_dir, out_path):
     out = {}
     for a, b in sorted(down.items()):
         if a not in S or b not in S: continue
+        share = round(len(use[a]) / len(use[b]), 2)                          # how much of the downstream catchment is above this gauge
         PA, R = peaks(S[a])
         m = match(PA, S[b])
-        rec = {'to': b, 'peaks': len(PA), 'rise': round(R, 2)}
+        if len(m) >= MIN_EVENTS:                                             # second pass: a window fitted to this pair, to drop chance matches
+            lags = sorted(x[0] for x in m); m = match(PA, S[b], min(MAX_LAG_H, int(2.5 * lags[len(lags) // 2] + 24)))
+        rec = {'to': b, 'peaks': len(PA), 'rise': round(R, 2), 'share': share}
+        if share < MIN_SHARE: m = []                                         # a small side creek: the downstream peak mostly comes from elsewhere
         if len(m) >= MIN_EVENTS: rec.update(stats(m))
         out[a] = rec
         log('%-30s -> %-30s peaks %3d matched %3d %s' % (G[a]['river'] + ' ' + G[a]['name'], G[b]['river'] + ' ' + G[b]['name'], len(PA), len(m),
