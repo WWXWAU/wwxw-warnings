@@ -1,6 +1,7 @@
 """Probe 40: draw example alert story images with the live satellite picture (handed over on the review branch)."""
 import subprocess, sys, json, os, datetime as dt
-subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', 'pillow', 'numpy', 'h5py'], check=True)
+subprocess.run([sys.executable, '-m', 'pip', 'install', '-q', '--user', 'pillow', 'numpy', 'h5py'], check=True)
+import site, importlib; sys.path.insert(0, site.getusersitepackages()); importlib.invalidate_caches()
 sys.path.insert(0, '.')
 import alertimg
 os.makedirs('review', exist_ok=True)
