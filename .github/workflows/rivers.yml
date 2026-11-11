@@ -1,5 +1,6 @@
 name: River levels
-# WA river levels from DWER's telemetered gauges, for the River Levels page.
+# WA river levels from DWER's telemetered gauges, for the River Levels page, and the Bureau's flood-warning
+# rain gauges for the Rainfall page (bom-rain.json, rebuilt as each new 15-minute Bureau file appears).
 # Each run watches DWER's table for about 55 minutes: it checks every 2 minutes and rebuilds as soon as any gauge posts
 # a new reading (and at least every 15 minutes), then starts the next run itself, so there's no wait for GitHub's
 # (often late) scheduler. The half-hourly schedule only restarts the chain if it has stopped.
@@ -33,7 +34,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          FILES="rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json"
+          FILES="rivers.json bom-rain.json bom-rain-state.json rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json"
           # a scheduled run is only a backstop: skip it if the river data was published in the last 20 minutes
           if [ "$EVENT" = "schedule" ] && git fetch -q --depth 1 origin river-data 2>/dev/null; then
             last=$(git log -1 --format=%ct FETCH_HEAD); age=$(( $(date +%s) - last ))
@@ -41,24 +42,31 @@ jobs:
           fi
           # a fingerprint of every gauge's reading time: it changes as soon as any gauge posts a new reading
           stamp() { curl -s --max-time 40 https://kumina.water.wa.gov.au/waterinformation/telem/stage.cfm | grep -o '[0-9][0-9]:[0-9][0-9] [0-9][0-9][A-Za-z][a-z][a-z][0-9]\{4\}' | md5sum | cut -c1-12; }
-          start=$(date +%s); seen=""; built=0
+          # the Bureau's rain files (a new 15-minute file about every 15 minutes)
+          bstamp() { curl -s --max-time 40 --list-only ftp://ftp.bom.gov.au/anon/gen/fwo/ | grep -E '^IDW659(00|01|02|10)_' | md5sum | cut -c1-12; }
+          start=$(date +%s); seen=""; bseen=""; built=0
           while :; do
-            now=$(date +%s); s=$(stamp)
-            if [ -n "$s" ] && [ "$s" != "d41d8cd98f00" ] && [ "$s" != "$seen" ] || [ $(( now - built )) -ge 900 ]; then
-              echo "== $(date -u +%H:%M) UTC: DWER says '$s'"
+            now=$(date +%s); s=$(stamp); b=$(bstamp)
+            river=0; [ -n "$s" ] && [ "$s" != "d41d8cd98f00" ] && [ "$s" != "$seen" ] && river=1; [ $(( now - built )) -ge 900 ] && river=1
+            rain=$river; [ -n "$b" ] && [ "$b" != "d41d8cd98f00" ] && [ "$b" != "$bseen" ] && rain=1
+            if [ $rain = 1 ]; then
+              echo "== $(date -u +%H:%M) UTC: DWER says '$s', Bureau '$b' (rivers: $river)"
               rm -rf out pub && mkdir -p out
               if git fetch -q --depth 1 origin river-data 2>/dev/null; then
                 for f in $FILES; do git show FETCH_HEAD:$f > out/$f 2>/dev/null || rm -f out/$f; done
               fi
-              if python rivers/rivers.py out; then
-                mkdir -p pub && ( cd pub && git init -q -b river-data && cp ../out/rivers.json $(for f in $FILES; do echo ../out/$f; done) . && git add -A \
+              python rivers/bomrain.py out || echo "Bureau rain run failed"
+              [ -n "$b" ] && bseen="$b"
+              ok=1
+              if [ $river = 1 ]; then
+                if python rivers/rivers.py out; then [ -n "$s" ] && seen="$s"; built=$(date +%s); else echo "River levels run failed"; ok=0; fi
+              fi
+              if [ -s out/rivers.json ]; then
+                mkdir -p pub && ( cd pub && git init -q -b river-data && for f in $FILES; do [ -f ../out/$f ] && cp ../out/$f .; done; git add -A \
                   && git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "River levels" \
                   && git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" river-data ) || echo "Publish failed"
-                [ -n "$s" ] && seen="$s"
-              else
-                echo "River levels run failed"
               fi
-              built=$(date +%s)
+              [ $ok = 0 ] && built=$(date +%s)
             fi
             [ "$ONCE" = "true" ] && exit 0
             [ $(( $(date +%s) - start )) -ge 3240 ] && break     # about 54 minutes

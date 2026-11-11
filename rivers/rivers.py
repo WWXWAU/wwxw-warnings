@@ -14,7 +14,7 @@ Every 15 minutes (GitHub Actions):
     rivers-daily.json).
 Writes rivers.json (now) and rivers-history.json (the record) into the output folder.
 """
-import concurrent.futures as cf, datetime as dt, ftplib, io, json, math, os, re, sys, time, urllib.parse, urllib.request
+import concurrent.futures as cf, csv, datetime as dt, ftplib, io, json, math, os, re, sys, time, urllib.parse, urllib.request
 
 UA = {'User-Agent': 'Mozilla/5.0 (West WX Watchers river levels; westweatherwatchers.com)'}
 DWER = 'https://kumina.water.wa.gov.au/waterinformation'
@@ -272,6 +272,53 @@ def bom_gauges(rows, F, matched, pos, now):
     log('Bureau-only gauges added: %d (%s); no position: %s' % (len(out), ', '.join(g['river'] + ' at ' + g['name'] for g in out),
         ', '.join(g['river'] + ' at ' + g['name'] for g in out if not pos.get(g['id'])) or 'none'))
     return [g for g in out if pos.get(g['id'])]
+
+
+LEVEL_SITES = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'bom-level-sites.csv')
+
+
+def hcs_rows(prefix, files=None):
+    """Records from the Bureau's HCS files on the FTP site (newest `files` of them): [site id, UTC time, value]."""
+    f = ftplib.FTP('ftp.bom.gov.au', timeout=60); f.login(); f.cwd('/anon/gen/fwo')
+    names = sorted(n for n in f.nlst() if n.startswith(prefix) and n.endswith('.hcs'))
+    out = []
+    for n in names[-files:] if files else names:
+        b = io.BytesIO(); f.retrbinary('RETR ' + n, b.write)
+        for l in b.getvalue().decode('latin-1').splitlines():
+            c = [x.strip().strip('"') for x in l.split(',')]
+            if len(c) > 6 and c[0].isdigit():
+                try: out.append((c[4], dt.datetime.fromisoformat(c[5].replace('Z', '+00:00')), float(c[6])))
+                except ValueError: pass
+    f.quit()
+    return out
+
+
+def hcs_gauges(G, pos, now):
+    """Bureau water-level sites (IDW65910) that neither DWER's table nor the Bureau's river height pages give us,
+    with names, positions and flood levels from the Bureau's site list (data/bom-level-sites.csv)."""
+    try: M = {r['BOM_STATION_NUMBER']: r for r in csv.DictReader(open(LEVEL_SITES))}
+    except Exception as e:  # noqa: BLE001
+        log('Bureau level site list not read: %s' % e); return []
+    have = {g['id'] for g in G} | {(g.get('fl') or {}).get('bom') for g in G} | {g['id'][1:] for g in G if g['id'].startswith('B')}
+    ser = {}
+    for sid, t, v in hcs_rows('IDW65910_'):
+        if sid in M and sid not in have and M[sid]['RIVER_SITEID'] not in have: ser.setdefault(sid, {})[t] = v
+    num_ = lambda v: None if v in ('', 'NaN') else float(v)
+    out = []
+    for sid, s in ser.items():
+        m = M[sid]; ts = sorted(s); last = ts[-1]
+        if now - last > dt.timedelta(hours=48): continue
+        lvl = s[last]; back = [k for k in ts if k <= last - dt.timedelta(minutes=50)]
+        rate = round(lvl - s[back[-1]], 3) if back and last - back[-1] <= dt.timedelta(hours=2) else None
+        mm = re.match(r'(.*?) at (.*)', m['LONG_NAME']); river, place = (mm.group(1), mm.group(2)) if mm else (m['LONG_NAME'], '')
+        gid = 'B' + sid; pos[gid] = [round(float(m['LATITUDE']), 5), round(float(m['LONGITUDE']), 5)]
+        fl = {'bom': sid, 'bomname': m['LONG_NAME'], 'minor': num_(m['MINOR_FCL']), 'moderate': num_(m['MODERATE_FCL']), 'major': num_(m['MAJOR_FCL']), 'bcls': None}
+        fl['cls'] = flood_class(lvl, fl)
+        out.append({'id': gid, 'river': river, 'name': place, 'at': last.astimezone(AWST).isoformat(timespec='seconds'), 'lvl': round(lvl, 3), 'rate': rate,
+                    'trend': 'Rising' if (rate or 0) >= 0.005 else 'Falling' if (rate or 0) <= -0.005 else 'Steady',
+                    'rec': None, 'recd': None, 'off': None, 'cls': 'rowNORM', 'note': '', 'src': 'bom', 'prod': 'IDW65910', 'datum': m['GAUGE_DATUM'], 'fl': fl})
+    log('Bureau water-level sites added: %d (%s)' % (len(out), ', '.join(g['river'] + ' at ' + g['name'] for g in out) or 'none'))
+    return out
 
 
 # ---------------------------------------------------------------- roads closed or affected by flooding (Main Roads WA)
@@ -688,6 +735,9 @@ def main(out_dir):
     try:
         rows, F, matched = flood_levels(G, out_dir, now)
         G += bom_gauges(rows, F, matched, pos, now)
+        try: G += hcs_gauges(G, pos, now)
+        except Exception as e:  # noqa: BLE001
+            log('Bureau water-level sites skipped: %s' % e)
         json.dump(F, open(os.path.join(out_dir, 'rivers-flood.json'), 'w'), separators=(',', ':'), sort_keys=True)
     except Exception as e:  # noqa: BLE001
         log('Flood levels skipped: %s' % e); [g.setdefault('fl', None) for g in G]

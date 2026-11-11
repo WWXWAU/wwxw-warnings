@@ -1,0 +1,218 @@
+BOM_STATION_NUMBER,RIVER_SITEID,STATE,PRODUCT,LATITUDE,LONGITUDE,LONG_NAME,MINOR_FCL,MODERATE_FCL,MAJOR_FCL,RIVER_NAME,RIVER_BASIN_ID,RIVER_BASIN_NAME,TYPE,GAUGE_ZERO,GAUGE_DATUM,CROSSING_TYPE,CROSSING_HEIGHT
+009984,610302,WA,WA,-33.7033,115.4002,Sabina Main Drain at Vasse Highway CB3,2.8,3.3,3.6,Sabina Main Drain,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+109508,610300,WA,WA,-33.744,115.3432,Vasse River at Doyle Road CB1,2.8,3.3,3.6,Vasse River,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+109509,6100301,WA,WA,-33.7371,115.3545,Walsall Brook at Chapman Hill Road CB2,3,3.6,3.7,Walsall Brook,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+501000,809314,WA,WA,-15.7017,128.1203,King River at Cockburn North,2,2.5,3,King River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+501029,809318,WA,WA,-15.615,128.1031,Moochalabra Creek at Moochalabra Dam,2,2.5,3,,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502000,809339,WA,WA,-15.5694,128.6929,Ord River at Tarrara Bar,6,10,12,Ord River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502001,802202,WA,WA,-18.0164,126.3056,Leopold River at Mt Winifred,7.5,9,10,Leopold River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+502005,802203,WA,WA,-18.3333,126.1333,Margaret River at Mount Krauss,6.5,8,11,Margaret River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+502006,802198,WA,WA,-18.4667,126.6,Margaret River at Me No Savvy,7,9,12,Margaret River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+502010,809322,WA,WA,-16.6461,128.0942,Wilson River at Odonnell Range,5,6.5,8.2,Wilson River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502014,,WA,WA,-17.2787,128.057,Fletcher Creek at Frog Hollow,NaN,NaN,NaN,Fletcher Creek,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502015,809310,WA,WA,-17.4333,127.6167,Ord River at Bedford Downs,6.5,7.5,8,Ord River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502024,802213,WA,WA,-16.8714,126.0511,Hann River at Phillips Range,6.5,9,12,Hann River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+502027,802137,WA,WA,-17.6667,126.0333,Fitzroy River at Dimond Gorge,6.5,9,12,Fitzroy River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+502028,,WA,WA,-17.3739,128.8533,Ord River at Old Ord Homestead,6.5,10,15,Ord River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502029,809340,WA,WA,-15.8286,128.6033,Dunham River at Flying Fox Hole,6.5,10,12,Dunham River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502031,809321,WA,WA,-16.1872,128.2969,Dunham River at Dunham Gorge,8,10,12,Dunham River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
+502059,802156,WA,WA,-18.2603,126.305,Margaret River at Margaret Gorge,6.5,8,9.5,Margaret River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+503000,802005,WA,WA,-18.8311,125.8829,Christmas Creek at Homestead,4,6,7.5,Christmas Creek,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+503007,802006,WA,WA,-18.5092,124.8408,Fitzroy River at Noonkanbah,9.5,12,13,Fitzroy River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+503008,,WA,WA,-17.3667,125.1167,Lennard River at Mt Joseph,NaN,NaN,NaN,Lennard River,803,LENNARD RIVER,Automatic,NaN,LGH,,NaN
+503009,804001,WA,WA,-17.0167,125.4167,Isdell River at Dales Yard,NaN,NaN,NaN,Isdell River,804,ISDELL RIVER,Automatic,NaN,LGH,,NaN
+503011,,WA,WA,-17.94,124.795,Mount Wynne Creek at Ellendale,NaN,NaN,NaN,Mount Wynne Creek,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+503013,802008,WA,WA,-17.7356,123.6475,Fitzroy River at Willare Crossing,8,8.8,9.2,Fitzroy River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+503014,802055,WA,WA,-18.2058,125.5806,Fitzroy River at Fitzroy Crossing,9.5,11,12.5,Fitzroy River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+503017,802003,WA,WA,-18.1865,124.4931,Fitzroy River at Fitzroy Barrage,7,9,10,Fitzroy River,802,FITZROY RIVER (WA),Automatic,NaN,LGH,,NaN
+504000,710003,WA,WA,-20.3114,119.2489,De Grey River at Coolenar Pool,5.5,6,8,De Grey River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+504016,710004,WA,WA,-21.8894,120.1097,Nullagine River at Nullagine,0.8,3,4,Nullagine River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+504017,709005,WA,WA,-20.7016,118.2996,Yule River at Jelliabidina Well,2.5,5,6,Yule River,709,PORT HEDLAND COAST,Automatic,NaN,LGH,,NaN
+504032,709010,WA,WA,-21.2353,118.8317,Turner River at Pincunah,NaN,NaN,NaN,Turner River,709,PORT HEDLAND COAST,Automatic,NaN,LGH,,NaN
+504035,710229,WA,WA,-21.0942,119.3172,Shaw River at North Pole Mine,1,3,5,Shaw River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+504036,710008,WA,WA,-21.2258,120.4911,Nullagine River at Tumbinna Pool,1.5,3.5,4,Nullagine River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+504037,710204,WA,WA,-21.1934,119.7149,Coongan River at Marble Bar,1,2.5,3.5,Coongan River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+504039,710005,WA,WA,-21.3158,121.0528,Oakover River at Ripon Hills Road,1.5,5,8,Oakover River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+504040,710007,WA,WA,-20.7104,119.33,Shaw River at Marble Bar Road Crossing,1.5,2.5,3,Shaw River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+504041,710006,WA,WA,-20.9166,119.7877,Coongan River at Marble Bar Road Crossing,2,2.8,3.8,Coongan River,710,DE GREY RIVER,Automatic,NaN,LGH,,NaN
+505000,706003,WA,WA,-22.5442,115.4994,Ashburton River at Nanutarra,6,7.5,8,Ashburton River,706,ASHBURTON RIVER,Automatic,NaN,LGH,,NaN
+505010,708002,WA,WA,-21.5667,116.9167,Fortescue River at Gregory Gorge,4.5,6,7,Fortescue River,708,FORTESCUE RIVER,Automatic,NaN,LGH,,NaN
+505011,,WA,WA,-22.7167,118.9667,Marillana Creek at Flat Rocks,NaN,NaN,NaN,Marillana Creek,708,FORTESCUE RIVER,Automatic,NaN,LGH,,NaN
+505039,708015,WA,WA,-21.2924,116.1443,Fortescue River at Bilanoo Pool,4,7,8,Fortescue River,708,FORTESCUE RIVER,Automatic,NaN,LGH,,NaN
+505040,708014,WA,WA,-22.8844,119.2331,Weeli Wooli Creek at Tarina,NaN,NaN,NaN,Weeli Wooli Creek,708,FORTESCUE RIVER,Automatic,NaN,LGH,,NaN
+505041,,WA,WA,-22.7325,119.3372,Weeli Wooli Creek at Waterloo Bore,NaN,NaN,NaN,Weeli Wooli Creek,708,FORTESCUE RIVER,Automatic,NaN,LGH,,NaN
+505042,709004,WA,WA,-20.8506,116.6111,Maitland River at Miaree Pool,2,5,7,Maitland River,709,PORT HEDLAND COAST,Automatic,NaN,LGH,,NaN
+505054,708005,WA,WA,-21.6062,117.1062,Fortescue River at Deep Reach,NaN,NaN,NaN,Fortescue River,708,FORTESCUE RIVER,Automatic,NaN,LGH,,NaN
+505055,707005,WA,WA,-22.0226,115.5945,Cane River at Toolungu,3,5,6,Cane River,707,ONSLOW COAST,Automatic,NaN,LGH,,NaN
+505059,707002,WA,WA,-21.6162,115.9225,Robe River at Yarraloola,NaN,NaN,NaN,Robe River,707,ONSLOW COAST,Automatic,NaN,LGH,,NaN
+506000,704139,WA,WA,-24.8275,113.7692,Gascoyne River at Nine Mile Bridge,5.5,6.5,7.6,Gascoyne River,704,GASCOYNE RIVER,Automatic,NaN,LGH,,NaN
+506002,,WA,WA,-25.7333,115.1167,Wooramel River at Meedo Pool,NaN,NaN,NaN,Wooramel River,703,WOORAMEL RIVER,Automatic,NaN,LGH,,NaN
+506004,705001,WA,WA,-23.8167,114.0167,Minilya River at Minilya Bridge,3,4,4.5,Minilya River,705,LYNDON-MINILYA RIVERS,Automatic,NaN,LGH,,NaN
+506011,704193,WA,WA,-24.9497,114.6442,Gascoyne River at Fishy Pool,4.5,9,11,Gascoyne River,704,GASCOYNE RIVER,Automatic,NaN,LGH,,NaN
+506012,704194,WA,WA,-25.0469,115.0656,Gascoyne River at Jimba,4,7,8,Gascoyne River,704,GASCOYNE RIVER,Automatic,NaN,LGH,,NaN
+506013,704196,WA,WA,-24.7039,115.3167,Lyons River at Lyons River Crossing,1.5,5,6,Lyons River,704,GASCOYNE RIVER,Automatic,NaN,LGH,,NaN
+506016,704197,WA,WA,-25.1959,115.5175,Gascoyne River at Pells Island,2.5,3.8,4.5,Gascoyne River,704,GASCOYNE RIVER,Automatic,NaN,LGH,,NaN
+507000,704195,WA,WA,-24.6561,116.1647,Gascoyne River at Yinnetharra Crossing,3,4.5,5.5,Gascoyne River,704,GASCOYNE RIVER,Automatic,NaN,LGH,,NaN
+507002,706209,WA,WA,-23.3125,116.8192,Ashburton River at Capricorn Range,5.2,8,10,Ashburton River,706,ASHBURTON RIVER,Automatic,NaN,LGH,,NaN
+507011,708011,WA,WA,-23.4014,119.7944,Fortescue River at Newman Road Bridge,4,6,7.5,Fortescue River,708,FORTESCUE RIVER,Automatic,NaN,LGH,,NaN
+508000,617010,WA,WA,-30.6377,116.0042,Moore River North at Moora Caravan Park,3,3.5,4,Moore River,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+508017,701008,WA,WA,-28.1667,115.6833,Greenough River at Pindarring Rocks,2,2.5,3,Greenough River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508020,701002,WA,WA,-28.8167,114.85,Greenough River at Karlanew Peak,2.5,3.5,4.5,Greenough River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508021,702001,WA,WA,-27.8549,114.5459,Murchison River at Emu Springs,5,6,7,Murchison River,702,MURCHISON RIVER,Automatic,NaN,LGH,,NaN
+508026,701007,WA,WA,-28.7667,114.6667,Chapman River at Utakarra,NaN,NaN,NaN,Chapman River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508030,617011,WA,WA,-30.5764,116.1731,Moore River North at Long Pool Bridge,1.2,2,3,Moore River,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+508032,701009,WA,WA,-29.2358,115.0294,Irwin River at Mountain Bridge,4.5,6.5,7,Irwin River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508035,617013,WA,WA,-30.5161,116.2614,Moore River North at Nardy Road,1,1.2,1.6,Moore River,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+508036,701011,WA,WA,-28.7153,115.0306,Greenough River at Eradu,3.5,4.2,5,Greenough River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508037,701012,WA,WA,-28.5556,115.1608,Greenough River at Mitthutharra,2.5,6.5,7.5,Greenough River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508038,701013,WA,WA,-29.0786,115.4114,Irwin River at Yatharagga,4,6,7,Irwin River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508039,701014,WA,WA,-29.1803,115.4419,Lockier River at Mingenew,2.5,4,4.5,Lockier River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508040,701010,WA,WA,-28.2183,114.38,Hutt River at Yerina,NaN,NaN,NaN,Hut River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508042,701016,WA,WA,-29.2531,114.9481,Iriwn River at Dongara,NaN,NaN,NaN,Iriwn River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+508303,701015,WA,WA,-29.2178,115.2664,Irwin River at Strawberry Bridge,4,6,7,Irwin River,701,GREENOUGH RIVER,Automatic,NaN,LGH,,NaN
+509004,601001,WA,WA,-33.7058,121.1428,Young River at Neds Corner,NaN,NaN,NaN,Young River,601,ESPERANCE COAST,Automatic,NaN,LGH,,NaN
+509011,,WA,WA,-34.9333,118.0833,Goodga River at Black Cat Flat,NaN,NaN,NaN,Goodga River,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+509017,603136,WA,WA,-34.8667,117.3159,Denmark River at Mount Lindesay,NaN,NaN,NaN,Denmark River,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509022,,WA,WA,-34.7037,117.2921,Yate Flat Creek at Woonanup,NaN,NaN,NaN,Yate Flat Creek,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509063,616092,WA,WA,-32.0789,115.9789,Southern River at Anaconda Drive,3,3.5,4,Southern River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509065,,WA,WA,-33.95,115.05,Margaret River at Willmots Farm,NaN,NaN,NaN,Margaret River,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509119,613002,WA,WA,-33.0833,116.0333,Harvey River at Dingo Road,3,3.6,4,Harvey River,613,HARVEY RIVER,Automatic,NaN,LGH,,NaN
+509129,614003,WA,WA,-32.7,115.9667,Marrinup Brook at Brookdale Siding,1.6,1.8,2.2,Marrinup Brook,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509168,617002,WA,WA,-30.2833,115.3667,Hill River at Hill River Springs,1.5,2,2.5,Hill River,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+509190,,WA,WA,-33.7961,115.0219,Wilyabrup Brook at Woodlands,NaN,NaN,NaN,Wilyabrup Brook,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509195,601004,WA,WA,-33.7433,121.2567,Lort River at Fairfield,3.5,4,4.5,Lort River,601,ESPERANCE COAST,Automatic,NaN,LGH,,NaN
+509196,,WA,WA,-34.7667,116.1833,Gardner River at Baldania Creek Confluence,NaN,NaN,NaN,Gardner River,606,SHANNON RIVER,Automatic,NaN,LGH,,NaN
+509199,609002,WA,WA,-34.2761,115.3022,Scott River at Brennans Ford,NaN,NaN,NaN,Scott River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509212,,WA,WA,-34.3311,116.4585,Perup River at Quabicup Hill,NaN,NaN,NaN,Perup River,607,WARREN RIVER,Automatic,NaN,LGH,,NaN
+509221,,WA,WA,-32.5047,116.1844,Big Brook at O'Neil Road,NaN,NaN,NaN,Big Brook,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509266,606195,WA,WA,-34.8069,116.5752,Weld River at Ordnance Road Crossing,NaN,NaN,NaN,Weld River,606,SHANNON RIVER,Automatic,NaN,LGH,,NaN
+509278,,WA,WA,-34.8833,117.0833,Kent River at Styx Junction,NaN,NaN,NaN,Kent River,604,KENT RIVER,Automatic,NaN,LGH,,NaN
+509295,614030,WA,WA,-32.3411,115.8608,Serpentine Drain at Dog Hill,2,2.5,3,Serpentine Drain,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509300,606001,WA,WA,-34.7667,116.6167,Deep River at Teds Pool,NaN,NaN,NaN,Deep River,606,SHANNON RIVER,Automatic,NaN,LGH,,NaN
+509309,,WA,WA,-33.2833,116.2667,Bingham River at Palmer,NaN,NaN,NaN,Bingham River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509320,602004,WA,WA,-34.8858,117.9994,Kalgan River at Stevens Farm,NaN,NaN,NaN,Kalgan River,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+509321,,WA,WA,-33.3151,116.5745,Batalling Creek at Maxon Farm,NaN,NaN,NaN,Batalling Creek,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509329,,WA,WA,-32.8114,116.1551,Yarragil Brook at Yarragil Formation,NaN,NaN,NaN,Yarragil Brook,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509355,,WA,WA,-33.8,115.4333,Margaret River North at Whicher Range,NaN,NaN,NaN,Margaret River,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509368,,WA,WA,-32.8953,115.9633,McKnoes Brook at Urquharts,NaN,NaN,NaN,McKnoes Brook,613,HARVEY RIVER,Automatic,NaN,LGH,,NaN
+509370,,WA,WA,-33.2208,115.9214,Brunswick River at Sandalwood,NaN,NaN,NaN,Brunswick River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509376,616001,WA,WA,-31.7336,116.1164,Wooroloo Brook at Karls Ranch,2.2,2.6,3.2,Wooroloo Brook,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509378,616004,WA,WA,-31.8944,115.9717,Swan River at Meadow Street Bridge,2,3.5,4,Swan River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509379,616027,WA,WA,-32.0944,116.0167,Canning River at Seaforth,3,4,5,Canning River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509381,617001,WA,WA,-30.9811,115.8203,Moore River at Quinns Ford,3.5,4.5,5,Moore River,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+509385,,WA,WA,-34.6239,117.0336,Kent River at Rocky Glen,NaN,NaN,NaN,Kent River,604,KENT RIVER,Automatic,NaN,LGH,,NaN
+509412,606002,WA,WA,-34.6889,116.5237,Weld River at Wattle Block,NaN,NaN,NaN,Weld River,606,SHANNON RIVER,Automatic,NaN,LGH,,NaN
+509418,617017,WA,WA,-30.3906,115.0683,Hill River at Ardross,2.5,2.8,3.5,Hill River,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+509419,617003,WA,WA,-31.3194,115.627,Gingin Brook at Bookine Bookine,1.4,1.8,2,Gingin Brook,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+509421,617015,WA,WA,-31.2647,115.5938,Moore River at Waterville Road,2,2.7,3,Moore River,617,MOORE-HILL RIVERS,Automatic,NaN,LGH,,NaN
+509422,,WA,WA,-32.3794,116.3533,Canning River at Millars Road,NaN,NaN,NaN,Canning River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509427,617058,WA,WA,-31.3458,115.9175,Gingin Brook at Gingin,1,1.5,2,Gingin Brook,617,SWAN COAST,Automatic,NaN,LGH,,NaN
+509428,614121,WA,WA,-32.3742,115.835,Peel Main Drain at Karnup Rd,1.4,1.8,2.2,Peel Main Drain,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509438,616011,WA,WA,-31.7505,116.0685,Swan River at Walyunga,3.5,7,7.5,Swan River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509439,603007,WA,WA,-34.9594,117.5017,Sleeman River at Sleeman Road Bridge,NaN,NaN,NaN,Sleeman River,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509440,616300,WA,WA,-31.9597,115.8572,Swan River at Barrack Street Jetty,1.6,2,2.5,Swan River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509447,616006,WA,WA,-31.3442,116.0916,Brockman River at Tanamerah,2.5,3.5,4.5,Brockman River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509450,611026,WA,WA,-33.3936,115.7928,Ferguson River at Dowdells Road Bridge,NaN,NaN,NaN,Ferguson River,611,PRESTON RIVER,Automatic,NaN,LGH,,NaN
+509451,603025,WA,WA,-35.0269,117.6439,Torbay Drain at Torbay Township,NaN,NaN,NaN,Torbay Drain,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509453,603005,WA,WA,-34.8283,117.3908,Mitchell River at Beigpiegup,NaN,NaN,NaN,Mitchell River,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509456,616178,WA,WA,-31.884,116.0948,Jane Brook at John Forrest National Park,1,1.5,2,Jane Brook,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509457,616189,WA,WA,-31.7511,116.0248,Ellen Brook at Railway Parade,1.8,2,2.5,Ellen Brook,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509458,616216,WA,WA,-31.9731,116.2903,Helena River at Poison Lease,2,2.5,3,Helena River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509459,616012,WA,WA,-31.9175,116.2763,Helena Brook at Trew Road,1,1.2,1.4,Helena Brook,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509461,609012,WA,WA,-33.98,116.3141,Blackwood River at Winnejup,3.5,4.2,6,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509462,610219,WA,WA,-33.6489,115.7041,Capel River at Yates Bridge,NaN,NaN,NaN,Capel River,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509463,607220,WA,WA,-34.5217,115.8994,Warren River at Barker Road Crossing,NaN,NaN,NaN,Warren River,607,WARREN RIVER,Automatic,NaN,LGH,,NaN
+509464,607022,WA,WA,-34.475,116.0296,Lefroy Brook at Cascades,NaN,NaN,NaN,Young River,607,WARREN RIVER,Automatic,NaN,LGH,,NaN
+509465,607003,WA,WA,-34.3694,116.2777,Warren River at Wheatley Farm,NaN,NaN,NaN,Warren River,607,WARREN RIVER,Automatic,NaN,LGH,,NaN
+509466,603003,WA,WA,-34.6994,117.2169,Denmark River at Kompup,NaN,NaN,NaN,Denmark River,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509467,608151,WA,WA,-34.3272,115.7846,Donnelly River at Strickland,NaN,NaN,NaN,Donnelly River,608,DONNELLY RIVER,Automatic,NaN,LGH,,NaN
+509468,609041,WA,WA,-34.1047,115.5196,Blackwood River at Gingilup,NaN,NaN,NaN,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509470,,WA,WA,-34.0834,115.1532,Chapman River at Forest Grove,NaN,NaN,NaN,Chapman River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509471,616002,WA,WA,-32.0684,116.2927,Darkin River at Pine Plantation,1,1.5,2,Darkin River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509473,609025,WA,WA,-34.0715,115.6191,Blackwood River at Darradup,NaN,NaN,NaN,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509474,,WA,WA,-34.9108,117.4783,Hay River at Sunny Glen,NaN,NaN,NaN,Hay River,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509475,609045,WA,WA,-34.0631,115.4521,Blackwood River at Rosa Campsite,NaN,NaN,NaN,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509476,616082,WA,WA,-31.9242,115.9219,Bayswater Main Drain at Slade Street,NaN,NaN,NaN,Bayswater Main Drain,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509481,603023,WA,WA,-34.9325,117.3478,Scotsdale Brook at Pipehead,NaN,NaN,NaN,Scotsdale Brook,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509482,607144,WA,WA,-34.3486,116.3475,Wilgarup River at Quintarrup,NaN,NaN,NaN,Wilgarup River,607,WARREN RIVER,Automatic,NaN,LGH,,NaN
+509483,614094,WA,WA,-32.4209,115.8714,Punrack Drain at Yangedi Swamp,NaN,NaN,NaN,Punrack Drain,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509484,,WA,WA,-32.0214,115.9211,Canning River at Kent Street Weir,NaN,NaN,NaN,Canning River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509492,,WA,WA,-31.8777,115.9595,Bennett Brook at Benara Road,NaN,NaN,NaN,Bennett Brook,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509493,,WA,WA,-31.8627,116.014,Jane Brook at Gt Nthn Hwy Road Bridge,NaN,NaN,NaN,Jane Brook,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509494,,WA,WA,-32.0211,115.9202,Canning River at Kent Street Weir (Downstream),NaN,NaN,NaN,Canning River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509497,,WA,WA,-31.8177,116.0141,Susannah Brook at River Road,NaN,NaN,NaN,Susannah Brook,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+509513,601009,WA,WA,-33.7419,121.9878,Bandy Creek at Fisheries Road,3.5,4,4.5,Bandy Creek,601,ESPERANCE COAST,Automatic,NaN,LGH,,NaN
+509514,603021,WA,WA,-34.9461,117.3614,Denmark River at Denmark Ag College,NaN,NaN,NaN,Denmark River,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509516,609039,WA,WA,-33.6161,116.7678,Arthur River at Moodiarup,NaN,NaN,NaN,Arthur River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509517,609040,WA,WA,-33.9675,116.1339,Blackwood River at Bridgetown,3.5,4.2,6,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509518,609058,WA,WA,-33.9744,115.7697,Blackwood River at Old Nannup Caravan Park,5.5,7,8,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509519,609059,WA,WA,-33.8353,116.4011,Blackwood River at Boyup Brook Flax Mill,3.2,5,6.5,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509521,610014,WA,WA,-33.6838,115.3587,Vasse Diversion Drain at Hill Road (Downstream),2.5,3.5,4.2,Vasse Diversion Drain,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509522,610015,WA,WA,-33.6683,115.1931,Carbunup River at Lennox Vineyard,NaN,NaN,NaN,Carbunup River,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509523,610025,WA,WA,-33.7033,115.4311,Vasse Diversion at Wonnerup East Rd,1.5,1.8,2.4,Vasse Diversion Drain,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509524,611004,WA,WA,-33.4803,115.7336,Preston River at Boyanup Bridge,3,3.5,4,Preston River,611,PRESTON RIVER,Automatic,NaN,LGH,,NaN
+509525,611006,WA,WA,-33.5728,115.8253,Preston River at Donnybrook,3.5,4.5,5,Preston River,611,PRESTON RIVER,Automatic,NaN,LGH,,NaN
+509526,611009,WA,WA,-33.5294,115.9686,Preston River at Lowden Road Bridge,NaN,NaN,NaN,Preston River,611,PRESTON RIVER,Automatic,NaN,LGH,,NaN
+509528,611111,WA,WA,-33.6283,115.9475,Thomson Brook at Woodperry Homestead,NaN,NaN,NaN,Thomson Brook,611,PRESTON RIVER,Automatic,NaN,LGH,,NaN
+509529,612001,WA,WA,-33.3303,116.2633,Collie River East at Coolangatta Farm,3.5,5,6,Collie River East,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509530,612002,WA,WA,-33.3708,116.0975,Collie River at Mungalup Tower,2.8,4.5,5.5,Collie River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509531,612032,WA,WA,-33.2539,115.7486,Brunswick River at Cross Farm,NaN,NaN,NaN,Brunswick River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509532,612034,WA,WA,-33.3869,116.1633,Collie River South at Collie,1.8,2.2,2.4,Collie River South,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509533,612035,WA,WA,-33.3666,116.1544,Collie River at Collie,3.5,4,4.8,Collie River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509534,612038,WA,WA,-33.3922,116.3206,Collie River at Buckingham Mill,3.5,4,4.5,Collie River East,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509535,612039,WA,WA,-33.2242,115.7769,Wellesley River at Juegenup,NaN,NaN,NaN,Wellesley River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509536,612043,WA,WA,-33.2992,115.7994,Collie River at Rose Rd,3,4.5,5,Collie River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509539,612230,WA,WA,-33.3814,116.5811,Collie River East at James Crossing,2,2.5,3,Collie River East,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509541,614006,WA,WA,-32.7722,116.0842,Murray River at Baden Powell Water Spout,4.5,6,7,Murray River,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509542,614065,WA,WA,-32.6331,115.8789,Murray River at Pinjarra,6.5,7,8,Murray River,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509544,614196,WA,WA,-32.9933,116.4278,Williams River at Saddleback Road Bridge,3,5.5,6.5,Williams River,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509545,614224,WA,WA,-32.8656,116.3981,Hotham River at Marradong Road Bridge,3.5,4.5,5,Hotham River,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509546,601008,WA,WA,-33.7633,121.9261,Coramup Creek at Myrup Road,2.5,4,4.5,Coramup Creek,601,ESPERANCE COAST,Automatic,NaN,LGH,,NaN
+509548,605012,WA,WA,-34.9062,116.7885,Frankland River at Mt Frankland,NaN,NaN,NaN,Frankland River,605,FRANKLAND RIVER,Automatic,NaN,LGH,,NaN
+509549,609019,WA,WA,-34.0908,115.2928,Blackwood River at Hut Pool,NaN,NaN,NaN,Blackwood River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509551,611007,WA,WA,-33.3536,115.7031,Ferguson River at South Western Highway,2.3,3.2,4,Ferguson River,611,PRESTON RIVER,Automatic,NaN,LGH,,NaN
+509557,613053,WA,WA,-32.9206,115.7672,Meredith Drain at Johnston Road,NaN,NaN,NaN,Meredith Drain,613,HARVEY RIVER,Automatic,NaN,LGH,,NaN
+509559,603032,WA,WA,-34.9689,117.3659,Wilson Inlet at Old Railway Bridge,NaN,NaN,NaN,Wilson Inlet,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509566,607007,WA,WA,-34.2503,116.679,Tone River at Bullilup,NaN,NaN,NaN,Tone River,607,WARREN RIVER,Automatic,NaN,LGH,,NaN
+509572,607013,WA,WA,-34.4275,116.016,Lefroy Brook at Rainbow Trail,NaN,NaN,NaN,Lefroy Brook,607,WARREN RIVER,Automatic,NaN,LGH,,NaN
+509578,606185,WA,WA,-34.7637,116.3762,Shannon River at Dog Pool,NaN,NaN,NaN,Shannon River,606,SHANNON RIVER,Automatic,NaN,LGH,,NaN
+509585,602014,WA,WA,-34.9321,117.8748,King River at Billa Boya Reserve,NaN,NaN,NaN,King River,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+509586,614063,WA,WA,-32.5233,115.829,Nambeelup Brook at Kielman,NaN,NaN,NaN,Nambeelup Brook,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+509587,603020,WA,WA,-34.9925,117.3301,Little Creek at Ocean Beach Road,NaN,NaN,NaN,Little Creek,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509589,,WA,WA,-32.802,115.7456,Harvey River at Old Bunbury Road,NaN,NaN,NaN,Mayfield Drain,613,HARVEY RIVER,Automatic,NaN,LGH,,NaN
+509590,603013,WA,WA,-35.0036,117.4913,Cuppup River at Eden Rd,NaN,NaN,NaN,Cuppup River,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509591,610010,WA,WA,-33.5529,115.5667,Capel River at Capel Railway Bridge,NaN,NaN,NaN,Capel River,610,BUSSELTON COAST,Automatic,NaN,LGH,,NaN
+509594,612004,WA,WA,-33.3109,116.0502,Hamilton River at Worsley,NaN,NaN,NaN,Hamilton River,612,COLLIE RIVER,Automatic,NaN,LGH,,NaN
+509631,,WA,WA,-33.9435,115.6914,St John Brook at Barrabup Pool,NaN,NaN,NaN,St John Brook,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+509633,,WA,WA,-35.0264,117.8441,Robinson Drain at Drop Structure,NaN,NaN,NaN,Robinson Drain,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+509634,,WA,WA,-35.0069,117.7271,Marbellup Brook at Elleker,NaN,NaN,NaN,Marbellup Brook,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509635,,WA,WA,-34.9485,117.466,Sunny Glen Creek at Girrawheen,NaN,NaN,NaN,Sunny Glen Creek,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509636,,WA,WA,-35.0267,117.8451,Robinson Drain at Robinson Drain Confluence,NaN,NaN,NaN,Robinson Drain,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+509637,,WA,WA,-34.9303,117.8829,Mil Brook at Warren Road,NaN,NaN,NaN,Mil Brook,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+509638,,WA,WA,-35.0108,117.7765,Seven Mile Creek at Wonton Hills Farm Road,NaN,NaN,NaN,Seven Mile Creek,603,DENMARK RIVER,Automatic,NaN,LGH,,NaN
+509639,,WA,WA,-32.7677,115.7729,South Coolup Main Drain at Yackaboon,NaN,NaN,NaN,South Coolup Main Drain,613,HARVEY RIVER,Automatic,NaN,LGH,,NaN
+509646,611226,WA,WA,-33.5578,115.8537,Preston River at Donnybrook Dawson Road,NaN,NaN,NaN,Preston River,611,PRESTON RIVER,Automatic,NaN,LGH,,NaN
+510000,615013,WA,WA,-31.5589,116.6558,Mortlock River North at Frenches,1.9,2.2,2.5,Mortlock River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510026,602001,WA,WA,-34.3333,118.65,Pallinup River at Bull Crossing,NaN,NaN,NaN,Pallinup River,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+510030,615015,WA,WA,-31.6578,117.7403,Yilgarn River at Gairdners Crossing,NaN,NaN,NaN,Yilgarn River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510035,615020,WA,WA,-31.7231,116.8289,Mortlock River at ODriscolls Farm,1.8,2.2,2.5,Mortlock River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510058,615022,WA,WA,-32.2429,117.1517,Salt River at Qualandary Crossing,2.2,2.5,3,Salt River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510059,615024,WA,WA,-31.8778,116.7847,Avon River at York,2.5,3,4,Avon River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510060,615026,WA,WA,-31.5492,116.4619,Avon River at Toodyay (Stirling Tce),4,5,6,Avon River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510061,615062,WA,WA,-31.6478,116.6711,Avon River at Northam Weir,1.5,1.8,2,Avon River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510252,615012,WA,WA,-31.8667,117.7667,Lockhart River at Kwolyn Hill,NaN,NaN,NaN,Lockhart River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510500,609010,WA,WA,-32.9047,117.6139,North Arthur River at Lake Toolibin,1,1.4,2,North Arthur River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+510501,609014,WA,WA,-33.3681,116.9386,Arthur River at Mount Brown,NaN,NaN,NaN,Arthur River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+510502,609015,WA,WA,-33.4931,116.9644,Beaufort River at Manywaters,2,2.5,2.8,Beaufort River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+510503,609021,WA,WA,-33.3986,117.73,Coblinine River at Bibikin Road Bridge,NaN,NaN,NaN,Coblinine River,609,BLACKWOOD RIVER,Automatic,NaN,LGH,,NaN
+510506,614105,WA,WA,-32.6614,116.9044,Hotham River at Pumphreys Bridge,NaN,NaN,NaN,Hotham River,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+510507,615025,WA,WA,-32.1261,116.9272,Avon River at Beverley Bridge,1.5,2,2.5,Avon River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510508,615027,WA,WA,-32.1166,116.8356,Dale River at Waterhatch Bridge,2,2.5,3,Dale River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510514,615063,WA,WA,-32.2836,117.1838,Avon River at Boyagarra Road,2.2,2.5,3,Avon River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510521,614125,WA,WA,-32.8266,116.618,Crossman River at Rivendale,2,3,4,Crossman River,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+510522,614126,WA,WA,-32.8075,116.827,14 Mile Brook at Congelin,NaN,NaN,NaN,14 Mile Brook,614,MURRAY RIVER (WA),Automatic,NaN,LGH,,NaN
+510523,616019,WA,WA,-31.6744,116.1178,Brockman River at Yalliawirra,3.5,7,7.5,Brockman River,616,SWAN COAST,Automatic,NaN,LGH,,NaN
+510524,615047,WA,WA,-32.2476,117.142,Avon River at Bells Farm,1.5,2.5,3,Avon River,615,AVON RIVER,Automatic,NaN,LGH,,NaN
+510564,,WA,WA,-34.2143,119.1367,Bremer River at Devils Creek Road,NaN,NaN,NaN,Bremer River,602,ALBANY COAST,Automatic,NaN,LGH,,NaN
+512018,601005,WA,WA,-33.5385,120.9659,Young River at Cascades,NaN,NaN,NaN,Young River,601,ESPERANCE COAST,Automatic,NaN,LGH,,NaN
+514825,809315,NT,NT;WA,-17.1767,129.0925,Negri River at Mistake Ck Homestead,6.8,10,15,Negri River,809,ORD RIVER,Automatic,NaN,LGH,,NaN
