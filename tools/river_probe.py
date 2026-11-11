@@ -10,8 +10,8 @@ alertimg.render({'id': 'ex-rain', 'kind': 'rain', 'title': 'Heavy rainfall', 'ti
     {'name': 'Dimond Gorge', 'district': 'Kimberley', 'src': 'DWER', 'lat': -17.03, 'lng': 126.30, 'vals': [{'v': 30.2, 'unit': 'mm', 'label': '1 hr'}]}]},
     'review/ex-rain-story.png', 'review/ex-rain-post.png')
 alertimg.render({'id': 'ex-rain2', 'kind': 'rain', 'title': 'Heavy rainfall', 'time': now, 'items': [
-    {'name': 'Mount Magnet', 'district': 'Central West', 'src': 'BOM', 'lat': -28.06, 'lng': 117.84, 'vals': [{'v': 31.4, 'unit': 'mm', 'label': '1 hr'}, {'v': 62.0, 'unit': 'mm', 'label': '3 hrs'}]},
-    {'name': 'Yalgoo', 'district': 'Central West', 'src': 'DPIRD', 'lat': -28.34, 'lng': 116.68, 'vals': [{'v': 26.2, 'unit': 'mm', 'label': '1 hr'}]}]},
+    {'name': 'Mount Magnet', 'district': 'Gascoyne', 'src': 'BOM', 'lat': -28.06, 'lng': 117.84, 'vals': [{'v': 31.4, 'unit': 'mm', 'label': '1 hr'}, {'v': 62.0, 'unit': 'mm', 'label': '3 hrs'}]},
+    {'name': 'Yalgoo', 'district': 'Gascoyne', 'src': 'DPIRD', 'lat': -28.34, 'lng': 116.68, 'vals': [{'v': 26.2, 'unit': 'mm', 'label': '1 hr'}]}]},
     'review/ex-rain2-story.png', None)
 alertimg.render({'id': 'ex-gust', 'kind': 'gust', 'title': 'Damaging wind gusts', 'time': now, 'items': [
     {'name': 'Iron Bridge Mine', 'district': 'Pilbara', 'src': 'BOM', 'lat': -21.3, 'lng': 118.9, 'vals': [{'v': 96, 'unit': 'km/h', 'label': 'gust'}]}]},

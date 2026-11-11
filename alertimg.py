@@ -113,7 +113,7 @@ def render(a, story_path, post_path, style='light'):
         d.text((pad, Hd - fh / 2), 'Gauges: BoM, DPIRD, DWER' if a['kind'] == 'rain' else 'Stations: BoM, DPIRD', font=W.font(500, size), fill=th['muted'], anchor='lm')
         d.text((Wd - pad, Hd - fh / 2), 'Unofficial · warnings: bom.gov.au', font=W.font(400, size), fill=th['muted'], anchor='rm')
 
-    for path, Wd, Hd, hh, tsize, size, story in ((post_path, 1080, 1080, 130, 42, 24, False), (story_path, 1080, 1920, 170, 46, 32, True)):
+    for path, Wd, Hd, hh, tsize, size, story in ((post_path, 1080, 1080, 130, 44, 28, False), (story_path, 1080, 1920, 170, 50, 38, True)):
         if not path: continue
         Wd, Hd, hh = Wd * S, Hd * S, hh * S
         pad, fh = 40 * S, 66 * S

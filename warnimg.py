@@ -569,7 +569,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     named = [t for t in item.get('towns', []) if norm(t) in G['places']]
     near = [n for n in item.get('_near', []) if norm(n) in G['places']]   # (alert images: places around the stations)
     others = near + [t['n'] for t in G['towns'][:40] if t['n'] not in near]
-    big = 1.6 if item.get('_marks') else 1.0   # alert images: story-sized writing on the map
+    big = 2.1 if item.get('_marks') else 1.0   # alert images: story-sized writing on the map
     placed, ft_b, ft_r = [], font(700 if dark else 600, 23 if dark else 21), font(600 if near else 500, int(19 * big) if near else 18)
     fm, fn, fw = font(800, 26), font(800, int(26 * big)), font(600, int(22 * big))
     boxes = []
@@ -578,18 +578,19 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         if 'box' in mk: return mk['box']
         l1, l2 = mk['name'], mk['label'] + (' · ' + mk['when'] if mk.get('when') else '')
         bw = max(d.textlength(l1, font=fn), d.textlength(l2, font=fw)) + 32 * S * big; bh = 76 * S * big
-        gap = (26 if big > 1 else 24) * S * big
+        rr = 13 * S * big + 4 * S; gap = rr + 16 * S * big
+        cx = max(8 * S, min(W - bw - 8 * S, px - bw / 2))
+        cands = [(px + gap, py - bh / 2, 'r'), (px - gap - bw, py - bh / 2, 'l'),
+                 (cx, py - gap - bh, 'a'), (cx, py + gap, 'b'),
+                 (cx, py - gap - 2 * bh - 12 * S, 'a'), (cx, py + gap + bh + 12 * S, 'b')]
         best = None
-        for side, dy in ((1, 0), (-1, 0), (1, -1), (1, 1), (-1, -1), (-1, 1), (1, -2), (1, 2), (-1, -2), (-1, 2)):
-            bx = px + gap if side > 0 else px - gap - bw
-            by = py - bh / 2 + dy * (bh * 0.75 + 10 * S)
+        for bx, by, pos in cands:
             if bx < 6 * S or bx + bw > W - 6 * S or by < 6 * S or by + bh > H - 6 * S: continue
-            hit = any(bx < q[2] and bx + bw > q[0] and by < q[3] and by + bh > q[1] for q in boxes)
-            if not hit: best = (bx, by, side < 0); break
-            if best is None: best = (bx, by, side < 0)
-        if best is None: best = (max(6 * S, min(W - bw - 6 * S, px + gap)), max(6 * S, min(H - bh - 6 * S, py - bh / 2)), False)
-        bx, by, left = best; boxes.append((bx - 8 * S, by - 8 * S, bx + bw + 8 * S, by + bh + 8 * S))
-        mk['box'] = (l1, l2, bx, by, bw, bh, left); return mk['box']
+            if any(bx < q[2] and bx + bw > q[0] and by < q[3] and by + bh > q[1] for q in boxes): continue
+            best = (bx, by, pos); break
+        if best is None: best = (cx, max(6 * S, min(H - bh - 6 * S, py + gap)), 'b')
+        bx, by, pos = best; boxes.append((bx - 8 * S, by - 8 * S, bx + bw + 8 * S, by + bh + 8 * S))
+        mk['box'] = (l1, l2, bx, by, bw, bh, pos); return mk['box']
     for mk in item.get('_marks', []):   # keep town names clear of the marks and their callouts
         px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
         placed.append((px - 20 * S, py - 20 * S, px + 20 * S, py + 20 * S))
@@ -624,10 +625,15 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         d.ellipse([px - r - 4 * S, py - r - 4 * S, px + r + 4 * S, py + r + 4 * S], fill=(255, 255, 255))
         d.ellipse([px - r, py - r, px + r, py + r], fill=mk['col'])
         if mk.get('name'):   # a callout: the station's name, then what it recorded and when
-            l1, l2, bx, by, bw, bh, left = callout(mk, px, py)
+            l1, l2, bx, by, bw, bh, pos = callout(mk, px, py)
+            w2 = 11 * S * big
+            if pos in ('r', 'l'):   # the pointer from the box's side to the dot
+                tip = bx if pos == 'r' else bx + bw
+                d.polygon([(tip, py - w2), (tip, py + w2), (px + (1 if pos == 'r' else -1) * (r + 2 * S), py)], fill=mk['col'])
+            else:                   # or from its top or bottom
+                tip = by + bh if pos == 'a' else by; tx_ = max(bx + 20 * S, min(bx + bw - 20 * S, px))
+                d.polygon([(tx_ - w2, tip), (tx_ + w2, tip), (px, py + (-1 if pos == 'a' else 1) * (r + 2 * S))], fill=mk['col'])
             d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=12 * S, fill=(255, 255, 255), outline=mk['col'], width=int(3 * S))
-            tip = bx + bw if left else bx; ty = max(by + 14 * S, min(by + bh - 14 * S, py))
-            d.polygon([(tip, ty - 11 * S * big), (tip, ty + 11 * S * big), (px + (-1 if left else 1) * (r + 2 * S), py)], fill=mk['col'])
             d.text((bx + 16 * S * big, by + 10 * S * big), l1, font=fn, fill=(13, 29, 35))
             d.text((bx + 16 * S * big, by + 43 * S * big), l2, font=fw, fill=mk['col'])
             continue
