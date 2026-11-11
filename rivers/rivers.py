@@ -308,6 +308,8 @@ def hcs_gauges(G, pos, now):
     for sid, s in ser.items():
         m = M[sid]; ts = sorted(s); last = ts[-1]
         if now - last > dt.timedelta(hours=48): continue
+        la, lo = float(m['LATITUDE']), float(m['LONGITUDE'])
+        if any(pos.get(g['id']) and abs(pos[g['id']][0] - la) < 0.003 and abs(pos[g['id']][1] - lo) < 0.003 for g in G): continue   # the same gauge under another name
         lvl = s[last]; back = [k for k in ts if k <= last - dt.timedelta(minutes=50)]
         rate = round(lvl - s[back[-1]], 3) if back and last - back[-1] <= dt.timedelta(hours=2) else None
         mm = re.match(r'(.*?) at (.*)', m['LONG_NAME']); river, place = (mm.group(1), mm.group(2)) if mm else (m['LONG_NAME'], '')
