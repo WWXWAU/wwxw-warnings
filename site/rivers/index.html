@@ -472,10 +472,9 @@
     function addGauges() {
       map.addSource('froads', { type: 'geojson', data: ROADS }); map.addSource('roadpts', { type: 'geojson', data: roadPts() });
       map.addLayer({ id: 'froads', type: 'line', source: 'froads', paint: { 'line-color': ['case', ['all', ['in', 'los', ['get', 'type']], ['!', ['in', 'pen', ['get', 'type']]]], css('--major'), css('--rise')],
-        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 2.5, 10, 5], 'line-dasharray': [2, 1.2] } });
-      map.addLayer({ id: 'roadpts', type: 'circle', source: 'roadpts', maxzoom: 8, paint: { 'circle-radius': 6, 'circle-color': ['case', ['==', ['get', 'closed'], 1], css('--major'), css('--rise')], 'circle-stroke-color': css('--surface'), 'circle-stroke-width': 2 } });
+        'line-width': ['interpolate', ['linear'], ['zoom'], 4, 3, 10, 5], 'line-dasharray': [2, 1.2] } });
       var rtip = new maplibregl.Popup({ closeButton: false, closeOnClick: false, offset: 8 });
-      ['froads', 'roadpts'].forEach(function (l) {
+      ['froads'].forEach(function (l) {
         map.on('mousemove', l, function (e) { var p = e.features[0].properties; map.getCanvas().style.cursor = 'pointer'; rtip.setLngLat(e.lngLat).setHTML('<b>' + esc(p.road || '') + '</b><br>' + esc(p.type) + '<br><span style="color:var(--muted)">' + esc(p.where) + '</span>').addTo(map); });
         map.on('mouseleave', l, function () { map.getCanvas().style.cursor = ''; rtip.remove(); });
       });
