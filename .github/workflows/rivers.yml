@@ -34,7 +34,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          FILES="rivers.json bom-rain.json bom-rain-state.json rivers-roads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json"
+          FILES="rivers.json bom-rain.json bom-rain-state.json rivers-roads.json rivers-shireroads.json rivers-history.json rivers-sites.json rivers-flood.json rivers-upstream.json rivers-daily.json rivers-lines.json rivers-basins.json"
           # a scheduled run is only a backstop: skip it if the river data was published in the last 20 minutes
           if [ "$EVENT" = "schedule" ] && git fetch -q --depth 1 origin river-data 2>/dev/null; then
             last=$(git log -1 --format=%ct FETCH_HEAD); age=$(( $(date +%s) - last ))

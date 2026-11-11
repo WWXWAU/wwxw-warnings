@@ -338,9 +338,110 @@ def flood_roads(out_dir):
         feats.append({'type': 'Feature', 'geometry': f.get('geometry'), 'properties': {
             'id': p.get('Id'), 'where': clean(p.get('Location') or ''), 'type': p.get('ClosureTyp') or '', 'road': p.get('Road') or '',
             'region': p.get('Region') or '', 'note': clean(p.get('TrafficImp') or ''), 'updated': p.get('UpdateDate') or ''}})
-    out = {'type': 'FeatureCollection', 'features': feats}
+    for f in feats: f['properties']['src'] = 'mrwa'
+    try: S = shire_roads(out_dir)
+    except Exception as e:  # noqa: BLE001
+        log('Shire road reports skipped: %s' % e); S = {'features': [], 'shires': []}
+    out = {'type': 'FeatureCollection', 'features': feats + S['features'], 'shires': S['shires']}
     json.dump(out, open(os.path.join(out_dir, 'rivers-roads.json'), 'w'), separators=(',', ':'))
     log('Roads affected by flooding: %d (%s)' % (len(feats), '; '.join('%s: %s' % (f['properties']['type'], f['properties']['where'][:60]) for f in feats[:6])))
+
+
+# ---------------------------------------------------------------- shire road reports
+# Many WA shires publish their road report through the same council website system, which serves it as JSON
+# (/api/roadreports/getReportItems): each road's status (Open, Open With Caution, Closed, Closed to Trucks...),
+# its comments, when it was updated, and the road drawn as lines. Read every 30 minutes (rivers-shireroads.json).
+SHIRE_API = [('www.swek.wa.gov.au', 'Wyndham–East Kimberley'), ('www.sdwk.wa.gov.au', 'Derby–West Kimberley'), ('eastpilbara.wa.gov.au', 'East Pilbara'),
+             ('www.porthedland.wa.gov.au', 'Port Hedland'), ('www.ashburton.wa.gov.au', 'Ashburton'), ('www.exmouth.wa.gov.au', 'Exmouth'),
+             ('www.carnarvon.wa.gov.au', 'Carnarvon'), ('www.uppergascoyne.wa.gov.au', 'Upper Gascoyne'), ('www.sharkbay.wa.gov.au', 'Shark Bay'),
+             ('www.meekashire.wa.gov.au', 'Meekatharra'), ('www.wiluna.wa.gov.au', 'Wiluna'), ('www.ngaanyatjarraku.wa.gov.au', 'Ngaanyatjarraku'),
+             ('www.murchison.wa.gov.au', 'Murchison'), ('www.cue.wa.gov.au', 'Cue'), ('www.yalgoo.wa.gov.au', 'Yalgoo'), ('www.northampton.wa.gov.au', 'Northampton'),
+             ('www.chapmanvalley.wa.gov.au', 'Chapman Valley'), ('www.cgg.wa.gov.au', 'Greater Geraldton'), ('www.morawa.wa.gov.au', 'Morawa'),
+             ('www.perenjori.wa.gov.au', 'Perenjori'), ('www.dalwallinu.wa.gov.au', 'Dalwallinu'), ('www.leonora.wa.gov.au', 'Leonora'), ('www.menzies.wa.gov.au', 'Menzies'),
+             ('www.ckb.wa.gov.au', 'Kalgoorlie-Boulder'), ('www.coolgardie.wa.gov.au', 'Coolgardie'), ('www.dundas.wa.gov.au', 'Dundas'),
+             ('www.esperance.wa.gov.au', 'Esperance'), ('www.ravensthorpe.wa.gov.au', 'Ravensthorpe'), ('www.jerramungup.wa.gov.au', 'Jerramungup')]
+# Shires whose report is only a document or a page we can't read: listed with a link
+SHIRE_LINKS = [('Broome', 'https://www.broome.wa.gov.au/Shire-Services/Infrastructure/Road-Condition-Report-and-Planned-Maintenance'),
+               ('Halls Creek', 'https://www.hallscreek.wa.gov.au/services/road-conditions'),
+               ('Derby–West Kimberley', 'https://www.sdwk.wa.gov.au/services/roads/road-conditions.aspx'),
+               ('Ashburton', 'https://www.ashburton.wa.gov.au/services/emergency-safety/road-report.aspx')]
+NOT_WEATHER = re.compile(r'(?i)road ?works|construction|reconstruct|resurfac|bitumen|sealing works|lane closure|stabilisation|asphalt|kerb|drainage works|maintenance works|event')
+BROWSER = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+           'Accept': 'application/json, */*', 'X-Requested-With': 'XMLHttpRequest'}
+
+
+def shire_status(name):
+    """The shire's own status, sorted into closed / caution (None = open, or roadworks and the like)."""
+    n = name.lower()
+    if n == 'open' or 'roadwork' in n or 'lane' in n: return None
+    if 'closed' in n and 'truck' not in n and '3t' not in n and 'heavy' not in n and 'high-clearance' not in n: return 'closed'
+    return 'caution'
+
+
+def shire_one(host, shire, now):
+    d = json.loads(urllib.request.urlopen(urllib.request.Request('https://%s/api/roadreports/getReportItems?displayType=map' % host, headers=BROWSER), timeout=60).read())
+    feats, latest = [], ''
+    for m in d.get('mapData') or []:
+        st = shire_status((m.get('Type') or {}).get('Name') or '')
+        upd = m.get('LastUpdated') or ''
+        try: when = dt.datetime.strptime(upd, '%A, %d %B %Y %I:%M %p').strftime('%Y-%m-%dT%H:%M')
+        except ValueError: when = ''
+        latest = max(latest, when)
+        desc = clean(m.get('MarkerDescription') or m.get('Comments') or '')
+        title, sub = clean(m.get('Title') or ''), clean(m.get('SubTitle') or '')
+        if st is None or NOT_WEATHER.search(title + ' ' + sub + ' ' + desc): continue
+        to = m.get('PublishTo') or ''
+        try:
+            if to and dt.datetime.strptime(to.split()[0], '%d/%m/%Y').date() < now.date(): continue      # finished
+        except ValueError: pass
+        geo = None
+        try: md = json.loads(m.get('MappingData') or 'null')
+        except ValueError: md = None
+        if isinstance(md, list):
+            lines = [[[round(p['lng'], 4), round(p['lat'], 4)] for p in x.get('data') or [] if 'lat' in p and 'lng' in p] for x in md if isinstance(x, dict)]
+            lines = [l for l in lines if len(l) >= 2]
+            if lines: geo = {'type': 'MultiLineString', 'coordinates': lines}
+        elif isinstance(md, dict) and md.get('Latitude'):
+            geo = {'type': 'Point', 'coordinates': [round(md['Longitude'], 4), round(md['Latitude'], 4)]}
+        typ = (m.get('Type') or {}).get('Name') or ''
+        feats.append({'type': 'Feature', 'geometry': geo, 'properties': {
+            'id': 'S:%s:%s' % (host.replace('www.', '').split('.')[0], m.get('EntityId')), 'src': 'shire', 'shire': shire,
+            'road': title.split(':')[0].split(' - ')[0].strip().title() if title.isupper() else title.split(':')[0].strip(),
+            'where': title + (' · ' + sub if sub and sub.lower() not in title.lower() and sub.lower() not in ('road closure', 'road conditions') else ''),
+            'type': typ, 'closed': 1 if st == 'closed' else 0, 'note': desc[:300],
+            'updated': when, 'url': m.get('ShareUrl') or ''}})
+    return feats, latest
+
+
+def shire_roads(out_dir):
+    """Every shire's closed and caution roads (cached for 30 minutes), and the list of shire reports."""
+    path = os.path.join(out_dir, 'rivers-shireroads.json'); now = dt.datetime.now(AWST)
+    try: C = json.load(open(path))
+    except Exception: C = {}  # noqa: BLE001
+    if C.get('at', '') < (now - dt.timedelta(minutes=30)).isoformat(timespec='minutes'):
+        def one(hs):
+            try: return hs, shire_one(hs[0], hs[1], now), None
+            except Exception as e: return hs, None, str(e)[:80]  # noqa: BLE001
+        old = {s['name']: s for s in C.get('shires', [])}
+        feats, shires = [], []
+        with cf.ThreadPoolExecutor(8) as X:
+            for (host, name), res, err in X.map(one, SHIRE_API):
+                if res is None:                                                        # keep the last good copy for this shire
+                    feats += [f for f in C.get('features', []) if f['properties'].get('shire') == name]
+                    if name in old: shires.append(dict(old[name], err=err))
+                    log('  shire roads %s not read: %s' % (name, err)); continue
+                f, latest = res; feats += f
+                shires.append({'name': name, 'url': 'https://%s/roadreport/' % host, 'closed': sum(x['properties']['closed'] for x in f),
+                               'caution': sum(1 - x['properties']['closed'] for x in f), 'updated': latest})
+        have = {s['name'] for s in shires if s.get('updated')}
+        for name, url in SHIRE_LINKS:
+            if name not in have:
+                shires = [s for s in shires if s['name'] != name] + [{'name': name, 'url': url, 'link': 1}]
+        C = {'at': now.isoformat(timespec='minutes'), 'features': feats, 'shires': sorted(shires, key=lambda s: s['name'])}
+        json.dump(C, open(path, 'w'), separators=(',', ':'))
+        log('Shire road reports: %d closed or caution roads from %d shires (%s)' % (len(feats), len([s for s in shires if s.get('closed') or s.get('caution')]),
+            ', '.join('%s %d/%d' % (s['name'], s.get('closed', 0), s.get('caution', 0)) for s in shires if s.get('closed') or s.get('caution'))))
+    return C
 
 
 # ---------------------------------------------------------------- rain near each gauge
