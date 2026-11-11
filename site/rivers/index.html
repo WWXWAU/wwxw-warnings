@@ -116,6 +116,7 @@
     .road:hover { background: var(--bg); }
     .road b { display: block; }
     .road .t { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 1px 8px; color: #fff; background: var(--c); margin: 2px 0; }
+    .rain.wave { border-left: 3px solid var(--accent); padding-left: 8px; }
     .road small { display: block; color: var(--muted); font-size: 12px; }
     details.shire { border-top: 1px solid var(--line); }
     details.shire summary { cursor: pointer; padding: 8px 16px; list-style: none; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
@@ -221,6 +222,7 @@
     <div class="panel">
       <section class="detail" id="detail" hidden aria-live="polite"></section>
       <section class="card" id="floodCard" hidden style="border-left:6px solid var(--moderate)"><h2>Above flood level</h2><div id="flooded"></div></section>
+      <section class="card" id="wavesCard" hidden style="border-left:6px solid var(--accent)"><h2>Flood waves on the way</h2><div id="wavesList"></div><p class="cnote" style="margin-top:6px">Timing from past floods at these gauges (Water Data Online records since 2006): a guide, not a forecast. Follow the Bureau's flood warnings.</p></section>
       <section class="card" id="roadsCard" hidden style="border-left:6px solid var(--major)"><h2>Roads affected by flooding</h2><div id="roads"></div></section>
       <section class="card" id="nowCard" hidden style="border-left:6px solid var(--rise)"><h2>Rising now</h2><div id="risingNow"></div></section>
       <section class="card" id="risingCard"><div class="ch"><h2 id="risingH">Biggest rises</h2><button class="save" type="button" id="saveRise">Save image</button></div><div id="rising"></div></section>
@@ -342,6 +344,10 @@
       var R = live.filter(function (g) { var s = status(g); return s === 'fast' || s === 'rise'; }).sort(function (a, b) { return rr(b) - rr(a); });
       $('nowCard').hidden = !R.length;                                 // rising right now: only when something is
       $('risingNow').innerHTML = R.slice(0, 8).map(function (g) { return row(g, cmh(rr(g)), m2(g.lvl) + (g.q != null ? ' · ' + fq(g.q) : '') + (toMinor(g) != null ? ' · ' + m2(toMinor(g)) + ' to minor' : '')); }).join('');
+      var W = waves();
+      $('wavesCard').hidden = !W.length;
+      $('wavesList').innerHTML = W.map(function (g) { var d = g.dn;
+        return row(g, '→ ' + esc(d.tn), d.st === 'peaked' && d.eta ? 'peak due there ' + esc(when(d.eta)) : 'rising · about ' + d.med + ' h after its peak'); }).join('');
       var B = G.filter(function (g) { return riseOf(g) != null && riseOf(g) >= 0.02; }).sort(function (a, b) { return riseOf(b) - riseOf(a); }); TOPB = B;
       $('risingH').textContent = 'Biggest rises ' + PERS[PER][1];
       $('rising').innerHTML = B.length ? B.slice(0, 8).map(function (g) { var k = pk(g); return row(g, cm(k[3]), 'to ' + m2(k[0]) + ', ' + esc(whenK(k[1])) + ' · now ' + STATUS[status(g)][0].toLowerCase()); }).join('')
@@ -523,6 +529,10 @@
       map.addLayer({ id: 'glines-name', type: 'symbol', source: 'glines', minzoom: 6.5,
         layout: { 'symbol-placement': 'line', 'symbol-spacing': 400, 'text-field': ['get', 'name'], 'text-font': ['Noto Sans Italic'], 'text-size': 11.5 },
         paint: { 'text-color': css('--course'), 'text-halo-color': css('--land'), 'text-halo-width': 1.4 } });
+      map.addSource('waves', { type: 'geojson', data: wavesFC() });
+      map.addLayer({ id: 'waves', type: 'line', source: 'waves', paint: { 'line-color': css('--accent'), 'line-width': 3, 'line-dasharray': [1, 1.2], 'line-opacity': 0.9 } });
+      map.addLayer({ id: 'waves-t', type: 'symbol', source: 'waves', layout: { 'symbol-placement': 'line-center', 'text-field': ['get', 't'], 'text-font': ['Noto Sans Regular'], 'text-size': 12, 'text-offset': [0, -0.8] },
+        paint: { 'text-color': css('--accent'), 'text-halo-color': css('--land'), 'text-halo-width': 1.6 } });
       map.addSource('g', { type: 'geojson', data: gaugesFC() });
       var r = ['interpolate', ['linear'], ['get', 'p'], 0, 5, 100, 12];
       map.addLayer({ id: 'g-halo', type: 'circle', source: 'g', filter: ['match', ['get', 's'], ['fast', 'rise'], true, false],
@@ -572,6 +582,7 @@
         + rainLine(g)
         + floodBox(g)
         + peakLine(g)
+        + travelLine(g)
         + (g.q != null ? '<div class="seg" role="group" aria-label="Chart"><button type="button" data-v="lvl" aria-pressed="' + (chartVar === 'lvl') + '">Level</button><button type="button" data-v="q" aria-pressed="' + (chartVar === 'q') + '">Flow</button></div>' : '')
         + '<div class="chart" id="chart"><svg id="chartSvg" role="img" aria-label="Level or flow over the last 7 days. Scroll to zoom, drag to move along, double-click to see all 7 days."></svg><div class="tipc" id="tipc" hidden></div></div>'
         + '<div class="chint">Scroll or pinch to zoom, drag to move along. <button type="button" id="chartReset" hidden>Show all 7 days</button><button type="button" class="save" id="saveChart" style="margin-left:auto">Save image</button></div>'
@@ -610,6 +621,26 @@
       if (r.d3 != null) bits.push(mm(r.d3) + ' over 3 days');
       if (!bits.length) return '';
       return '<div class="rain">Rain nearby: ' + bits.join(' · ') + '<span>' + esc(r.n) + (r.km >= 1 ? ', ' + Math.round(r.km) + ' km away' : ', at the gauge') + ' (' + (r.src === 'BoM' ? 'Bureau' : 'DWER') + ')</span></div>';
+    }
+    // ---- flood travel times (learnt from past floods; a guide, not a forecast)
+    var hrs = function (h) { return h < 36 ? 'about ' + h + ' h' : 'about ' + (Math.round(h / 12) / 2).toString().replace('.5', '½') + ' days'; };
+    var byIdT = function (id) { return G.filter(function (x) { return x.id === id; })[0]; };
+    function waves() { return G.filter(function (g) { return g.dn && g.dn.st && !g.off_air; }); }
+    function travelLine(g) {
+      var d = g.dn, h = '';
+      (g.inc || []).forEach(function (w) {
+        h += '<div class="rain wave"><b>Flood wave coming</b> from ' + esc(w.fr_r) + ' at ' + esc(w.fn) + (w.eta ? ': past floods put its peak here around <b>' + esc(when(w.eta)) + '</b>.' : ': still rising there; its peak usually gets here ' + hrs(w.lag) + ' after it peaks there.') + '</div>';
+      });
+      if (!d) return h;
+      var rng = d.lo + '–' + d.hi + ' h over ' + d.n + ' past floods' + (d.big !== d.med ? '; ' + d.big + ' h in the bigger ones' : '');
+      if (d.st === 'peaked' && d.eta) h += '<div class="rain wave"><b>Flood wave on its way</b> to ' + esc(d.tr) + ' at ' + esc(d.tn) + ': peaked here ' + esc(when(d.pk)) + ', so expect the peak there around <b>' + esc(when(d.eta)) + '</b> (' + rng + ').</div>';
+      else if (d.st === 'rising') h += '<div class="rain wave"><b>Rising:</b> once it peaks here, the peak usually reaches ' + esc(d.tr) + ' at ' + esc(d.tn) + ' ' + hrs(d.med) + ' later (' + rng + ').</div>';
+      else h += '<div class="rain">Downstream: ' + esc(d.tr) + ' at ' + esc(d.tn) + '. Flood peaks usually take ' + hrs(d.med) + ' to get there (' + rng + ').</div>';
+      return h;
+    }
+    function wavesFC() {
+      return { type: 'FeatureCollection', features: waves().map(function (g) { var b = byIdT(g.dn.to); if (!b || g.lat == null || b.lat == null) return null;
+        return { type: 'Feature', properties: { t: (g.dn.st === 'peaked' && g.dn.eta ? '→ ' + when(g.dn.eta) : '→ ' + hrs(g.dn.med) + ' after peak') }, geometry: { type: 'LineString', coordinates: [[g.lng, g.lat], [b.lng, b.lat]] } }; }).filter(Boolean) };
     }
     function peakLine(g) {
       var k = pk(g); if (!k) return '';
@@ -860,7 +891,7 @@
             if (j && j.features) { LINES = j; if (map && map.getSource('glines')) map.getSource('glines').setData(LINES); } });
           fetch(DATA + 'rivers-basins.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) {
             if (j && j.features) { BASINS = j; if (map && map.getSource('basins')) map.getSource('basins').setData(BASINS); } }); }
-        else { H = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
+        else { H = null; if (map && map.getSource('g')) { map.getSource('g').setData(gaugesFC()); if (map.getSource('waves')) map.getSource('waves').setData(wavesFC()); map.getSource('froads').setData(ROADS); map.getSource('roadpts').setData(roadPts()); } if (sel) pick(sel, false); }
       });
     }
     load(true).catch(function (e) { if (window.console) console.error('River page:', e);

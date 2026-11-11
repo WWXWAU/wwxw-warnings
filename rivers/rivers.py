@@ -949,6 +949,9 @@ def main(out_dir):
         log('Peaks skipped: %s' % e)
     for f in ('rivers-upstream.json', 'rivers-daily.json', 'rivers-lines.json', 'rivers-basins.json'):                 # always something to publish
         if not os.path.exists(os.path.join(out_dir, f)): json.dump({}, open(os.path.join(out_dir, f), 'w'))
+    try: travel(G, H, now)
+    except Exception as e:  # noqa: BLE001
+        log('Travel times skipped: %s' % e)
     try: districts(G)
     except Exception as e:  # noqa: BLE001
         log('Districts skipped: %s' % e)
@@ -967,6 +970,48 @@ def main(out_dir):
 
 
 RISE, FAST = 0.02, 0.10   # metres an hour, averaged over 3 hours: rising, and rising fast (the page uses the same)
+
+
+TRAVEL = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'rivers-travel.json')
+
+
+def travel(G, H, now):
+    """Flood travel times (data/rivers-travel.json, learnt from past floods by travel.py). Every gauge with one gets
+    g['dn'] = {to, tn (name), tr (river), n, med, lo, hi, big} (hours). When a flood rise is under way (the gauge
+    has risen by the pair's flood size within 3 days), also: st = 'rising' (not yet peaked) or 'peaked', pk = when
+    it peaked and eta = when that peak usually reaches the next gauge (the big-flood time when this rise is in the
+    top third of past ones). The downstream gauge gets g['inc'] = [{fr, fn, eta, st}] for each wave on its way."""
+    try: T = json.load(open(TRAVEL))['pairs']
+    except Exception as e:  # noqa: BLE001
+        log('No travel times (%s)' % e); return
+    by = {g['id']: g for g in G}; n = 0
+    for g in G:
+        r = T.get(g['id'])
+        if not r or 'med' not in r or r['to'] not in by: continue
+        b = by[r['to']]
+        d = {'to': b['id'], 'tn': b['name'], 'tr': b['river'], 'n': r['n'], 'med': r['med'], 'lo': r['lo'], 'hi': r['hi'], 'big': r['big']}
+        g['dn'] = d; n += 1
+        hh = H['h'].get(g['id'], {})
+        if g.get('off_air') or not hh: continue
+        last = sorted(k for k in hh if k >= (now - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00'))
+        if len(last) < 6: continue
+        kp = max(last, key=lambda k: hh[k]); vp = hh[kp]
+        before = [hh[k] for k in hh if (dt.datetime.fromisoformat(kp) - dt.timedelta(hours=72)).strftime('%Y-%m-%dT%H:00') <= k < kp]
+        rise = vp - min(before) if before else 0
+        if rise < r.get('rise', 0.3): continue
+        tp = dt.datetime.fromisoformat(kp).replace(tzinfo=AWST)
+        peaked = kp < last[-1] and g['lvl'] < vp - 0.05 and now - tp >= dt.timedelta(hours=2)
+        lag = d['big'] if rise >= 2 * r.get('rise', 0.3) else d['med']
+        d['st'] = 'peaked' if peaked else 'rising'
+        d['rise'] = round(rise, 2)
+        if peaked:
+            d['pk'] = tp.isoformat(timespec='minutes'); eta = tp + dt.timedelta(hours=lag)
+            if eta > now - dt.timedelta(hours=6): d['eta'] = eta.isoformat(timespec='minutes')
+            else: d.pop('st'); continue                                   # long since passed downstream
+        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag})
+    act = [g for g in G if g.get('dn', {}).get('st')]
+    log('Travel times: %d gauges; flood waves under way: %s' % (n, ', '.join('%s %s -> %s (%s%s)' % (g['river'], g['name'], g['dn']['tn'], g['dn']['st'],
+        ', due ' + g['dn']['eta'] if g['dn'].get('eta') else '') for g in act) or 'none'))
 
 
 def rising_now(g):
