@@ -456,7 +456,8 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         a, b, c, e = 112.5, -35.5, 129.5, -13.5
     # frame: the area plus a margin; at least 6 degrees across; as wide or tall as the box allows
     cx, cm = (a + c) / 2, (merc(b) + merc(e)) / 2
-    span = max((c - a) * 1.5, 6.0); mspan = max((merc(e) - merc(b)) * 1.45, math.radians(6.0) * 0.9)
+    mn = item.get('_span', 6.0)   # at least this many degrees across (alert images zoom in closer)
+    span = max((c - a) * 1.5, mn); mspan = max((merc(e) - merc(b)) * 1.45, math.radians(mn) * 0.9)
     k = min(W / span, H / math.degrees(mspan))           # pixels per degree
     X = lambda lng: x0 + W / 2 + (lng - cx) * k
     Y = lambda lat: y0 + H / 2 - math.degrees(merc(lat) - cm) * k
@@ -558,17 +559,34 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     ov = Image.new('RGBA', (W, H), (0, 0, 0, 0)); od = ImageDraw.Draw(ov)
     for r in G['districts']:
         od.line([(X(p[0]) - ox, Y(p[1]) - oy) for p in r], fill=st['dist'], width=int(1.1 * S), joint='curve')
+    for ln in item.get('_lines', []):   # (alert images: rivers, for bearings)
+        od.line([(X(p[0]) - ox, Y(p[1]) - oy) for p in ln], fill=(110, 170, 205, 255), width=int(1.6 * S), joint='curve')
     for name, gj in G['states'].items():
         for r in rings(gj):
             if len(r) > 2: od.line(r + [r[0]], fill=st['coast'], width=int((1.3 if base else 1.6) * S), joint='curve')
     layer = Image.alpha_composite(layer, ov); d = ImageDraw.Draw(layer)
     # towns: the ones named in the warning first, then a few big ones for bearings
     named = [t for t in item.get('towns', []) if norm(t) in G['places']]
-    others = [t['n'] for t in G['towns'][:40]]
-    placed, ft_b, ft_r = [], font(700 if dark else 600, 23 if dark else 21), font(500, 18)
+    near = [n for n in item.get('_near', []) if norm(n) in G['places']]   # (alert images: places around the stations)
+    others = near + [t['n'] for t in G['towns'][:40] if t['n'] not in near]
+    placed, ft_b, ft_r = [], font(700 if dark else 600, 23 if dark else 21), font(500, 21 if near else 18)
+    fm, fn, fw = font(800, 26), font(700, 25), font(500, 21)
+    def callout(mk, px, py):   # where an alert mark's callout box goes
+        l1, l2 = mk['name'], mk['label'] + (' · ' + mk['when'] if mk.get('when') else '')
+        bw = max(d.textlength(l1, font=fn), d.textlength(l2, font=fw)) + 28 * S; bh = 74 * S
+        left = px + 24 * S + bw > W - 10 * S
+        bx = px - 24 * S - bw if left else px + 24 * S; by = max(8 * S, min(H - bh - 8 * S, py - bh / 2))
+        return l1, l2, bx, by, bw, bh, left
+    for mk in item.get('_marks', []):   # keep town names clear of the marks and their callouts
+        px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
+        placed.append((px - 20 * S, py - 20 * S, px + 20 * S, py + 20 * S))
+        if mk.get('name'):
+            _, _, bx, by, bw, bh, _ = callout(mk, px, py); placed.append((bx - 6 * S, by - 6 * S, bx + bw + 6 * S, by + bh + 6 * S))
     for i, n in enumerate(named + [o for o in others if o not in named]):
         if n in named:
             lat, lng = G['places'][norm(n)][:2]; f, dot = ft_b, st['lab']
+        elif n in near:
+            lat, lng = G['places'][norm(n)][:2]; f, dot = ft_r, st['town']
         else:
             t = next(t for t in G['towns'] if t['n'] == n); lat, lng = t['lat'], t['lng']; f, dot = ft_r, st['town']
         px, py = X(lng) - ox, Y(lat) - oy
@@ -585,13 +603,20 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         d.ellipse([px - r, py - r, px + r, py + r], fill=dot, outline=st['halo'] if dark else (255, 255, 255), width=int(1.5 * S))
         d.text((tx, py - (14 if dark and n in named else 13) * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=st['halo'])
     # marked places (alert images): a coloured dot and its value, drawn last so they sit on top
-    fm = font(800, 26)
     for mk in item.get('_marks', []):
         px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
         if not (0 < px < W and 0 < py < H): continue
         r = 13 * S
         d.ellipse([px - r - 3 * S, py - r - 3 * S, px + r + 3 * S, py + r + 3 * S], fill=(255, 255, 255))
         d.ellipse([px - r, py - r, px + r, py + r], fill=mk['col'])
+        if mk.get('name'):   # a callout: the station's name, then what it recorded and when
+            l1, l2, bx, by, bw, bh, left = callout(mk, px, py)
+            d.rounded_rectangle([bx, by, bx + bw, by + bh], radius=12 * S, fill=(255, 255, 255), outline=mk['col'], width=int(3 * S))
+            tip = bx + bw if left else bx
+            d.polygon([(tip, py - 9 * S), (tip, py + 9 * S), (px + (-16 if left else 16) * S, py)], fill=mk['col'])
+            d.text((bx + 14 * S, by + 10 * S), l1, font=fn, fill=(13, 29, 35))
+            d.text((bx + 14 * S, by + 42 * S), l2, font=fw, fill=mk['col'])
+            continue
         lab = mk['label']; tw = d.textlength(lab, font=fm); left = px + 22 * S + tw > W - 10 * S
         d.text((px - 22 * S - tw if left else px + 22 * S, py), lab, font=fm, fill=(255, 255, 255), anchor='lm', stroke_width=int(4 * S), stroke_fill=(13, 29, 35))
     # rounded corners

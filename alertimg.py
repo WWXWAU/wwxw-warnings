@@ -7,7 +7,7 @@ Input: the alert queue the Rainfall web app serves (?page=alertimg): a list of
   {id, kind: 'rain' | 'gust', title, time (ISO), items: [{name, district, src, lat, lng, vals: [{v, unit, label}]}]}
 Usage: python alertimg.py <queue.json> <out dir> [--all]   (draws alerts not yet drawn into <out dir>, or all)
 """
-import datetime as dt, json, os, sys
+import datetime as dt, json, os, re, sys
 from PIL import Image, ImageDraw
 import warnimg as W
 
@@ -42,15 +42,50 @@ def summary(a):
     return s
 
 
-def render(a, story_path, post_path, style='clouds'):
+def nearby(lo, la, centre, n=30):
+    """Places to name around the stations: towns of 100+ people first, then the other towns and communities nearest
+    the stations (collisions are sorted out when they're drawn)."""
+    G = W.geo(); big, rest = [], []
+    for k, v in G['places'].items():
+        if v[3] != 'P' or not (la[0] <= v[0] <= la[1] and lo[0] <= v[1] <= lo[1]): continue
+        if re.search(r'\b(range|ranges|river|hills?|plateau|gorge|island)\b', k): continue
+        dist = min((v[0] - c[1]) ** 2 + (v[1] - c[0]) ** 2 for c in centre)
+        (big if v[2] >= 100 else rest).append((-v[2] if v[2] >= 100 else dist, k))
+    return [k.title() for _, k in sorted(big)[:10] + sorted(rest)[:n]]
+
+
+def rivers(lo, la):
+    """River lines in the frame (from the River page's map layer, when the job has it)."""
+    path = os.environ.get('RIVER_LINES', 'out/rivers-lines.json')
+    try: F = json.load(open(path))['features']
+    except Exception:  # noqa: BLE001
+        try:
+            import urllib.request
+            F = json.loads(urllib.request.urlopen('https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/river-data/rivers-lines.json', timeout=60).read())['features']
+        except Exception: return []  # noqa: BLE001
+    out = []
+    for f in F:
+        g = f['geometry']; parts = g['coordinates'] if g['type'] == 'MultiLineString' else [g['coordinates']]
+        for ln in parts:
+            if any(lo[0] <= x <= lo[1] and la[0] <= y <= la[1] for x, y in ln): out.append(ln)
+    return out
+
+
+def render(a, story_path, post_path, style='light'):
     col, title, todo = KIND.get(a['kind'], KIND['rain'])
     th = W.DARK
     items = a['items'][:5]
-    # the map: fit the stations with room around them (at least ~6 degrees across, as the warnings)
+    # the map: a plain map fitted to the stations (at least ~3 degrees across), with the places around them named
     pts = [[i['lng'], i['lat']] for i in items if i.get('lat') is not None]
-    lo = [min(p[0] for p in pts) - 1.2, max(p[0] for p in pts) + 1.2]; la = [min(p[1] for p in pts) - 1.0, max(p[1] for p in pts) + 1.0]
-    item = {'type': '', 'towns': [], '_frame': [[lo[0], la[0]], [lo[1], la[1]]],
-            '_marks': [{'lat': i['lat'], 'lng': i['lng'], 'col': col, 'label': val(i['vals'][0])} for i in items if i.get('lat') is not None]}
+    lo = [min(p[0] for p in pts) - 0.8, max(p[0] for p in pts) + 0.8]; la = [min(p[1] for p in pts) - 0.7, max(p[1] for p in pts) + 0.7]
+    t_local = dt.datetime.fromisoformat(a['time'].replace('Z', '+00:00')).astimezone(dt.timezone(dt.timedelta(hours=8)))
+    at = t_local.strftime('%-I:%M %p').replace('AM', 'am').replace('PM', 'pm')
+    item = {'type': '', 'towns': [], '_frame': [[lo[0], la[0]], [lo[1], la[1]]], '_span': 3.0,
+            '_near': nearby([lo[0] - 1.5, lo[1] + 1.5], [la[0] - 1.5, la[1] + 1.5], pts),
+            '_lines': rivers([lo[0] - 2, lo[1] + 2], [la[0] - 2, la[1] + 2]),
+            '_marks': [{'lat': i['lat'], 'lng': i['lng'], 'col': col, 'name': i['name'],
+                        'label': val(i['vals'][0]) + (' in ' + i['vals'][0]['label'] if a['kind'] == 'rain' else ' gust'), 'when': at}
+                       for i in items if i.get('lat') is not None]}
     sub = when(a['time'])
 
     def panel(d, Wd, y, pad, size, story):
