@@ -279,7 +279,9 @@
       if (!g.at) return '';
       var m = Math.max(0, Math.round((Date.now() - new Date(g.at)) / 60000)),
         a = m < 60 ? m + ' min ago' : m < 48 * 60 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' days ago';
-      return '<span class="age' + (m > 24 * 60 ? ' stale' : m > 3 * 60 ? ' old' : '') + '" title="Most recent reading from this gauge">Latest data ' + esc(when(g.at)) + ' · ' + a + '</span>';
+      // DWER gauges send when the level changes (or on a schedule), so a quiet gauge is usually a steady river, not a fault
+      var dwer = g.src !== 'bom', warn = dwer ? 24 * 60 : 3 * 60, bad = dwer ? 48 * 60 : 24 * 60;
+      return '<span class="age' + (m > bad ? ' stale' : m > warn ? ' old' : '') + '" title="' + (dwer ? 'DWER gauges report when the level changes, so a few hours without a report usually means the river is steady' : 'Most recent reading from this gauge') + '">Latest data ' + esc(when(g.at)) + ' · ' + a + '</span>';
     };
     var when = function (iso) { if (!iso) return ''; var d = new Date(iso); return d.toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }); };
     var yearOf = function (iso) { return iso ? new Date(iso + 'T12:00:00+08:00').toLocaleDateString('en-AU', { month: 'short', year: 'numeric', timeZone: 'Australia/Perth' }) : ''; };
