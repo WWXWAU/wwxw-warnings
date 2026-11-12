@@ -1,13 +1,9 @@
-"""Probe: which BoM WA forecast file has the weather situation (synoptic) text."""
+"""Probe: the Bureau's official forecast grids for WA (ADFD, IDW71xxx GRIB2 on the public FTP): which fields there are,
+and whether any is a thunderstorm field."""
 import urllib.request, re
 ls = urllib.request.urlopen('ftp://ftp.bom.gov.au/anon/gen/fwo/', timeout=60).read().decode('utf-8', 'replace')
-names = sorted(set(re.findall(r'(IDW1\d{4}\.xml)', ls)))
-print(len(names), 'WA forecast xml files')
-for n in names:
-    try:
-        x = urllib.request.urlopen('ftp://ftp.bom.gov.au/anon/gen/fwo/' + n, timeout=60).read().decode('utf-8', 'replace')
-    except Exception as e:
-        continue
-    t = re.search(r'<text type="synoptic_situation">(.*?)</text>', x, re.S)
-    title = re.search(r'<product-type>|<title>([^<]*)', x)
-    if t: print(n, len(x), '|', re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', t.group(1)))[:500])
+rows = [l for l in ls.splitlines() if re.search(r'IDW7\d{4}', l)]
+print(len(rows), 'WA grid files')
+for l in rows: print(l)
+for l in ls.splitlines():
+    if re.search(r'thund|storm|wx|weather|_Wx', l, re.I) and 'IDW7' not in l: print('other:', l)
