@@ -193,7 +193,19 @@
       .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; }
       .state .big { font-size: 24px; } .state .head { font-size: 15px; }
       .tbl .hide-xs { display: none; }
-      .pills button { padding: 4px 10px; font-size: 12.5px; }
+      /* phones: the map gets most of the screen; period buttons on one swipeable row, smaller controls and key */
+      .tools { margin: 0 8px 6px; gap: 6px; }
+      .pills { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; width: 100%; padding-bottom: 1px; }
+      .pills::-webkit-scrollbar { display: none; }
+      .pills .lab { font-size: 11.5px; white-space: nowrap; margin-right: 0; }
+      .pills button { padding: 3px 9px; font-size: 12px; white-space: nowrap; flex: none; }
+      .finder { gap: 6px; }
+      .finder select, .finder input { padding: 4px 10px; font-size: 12.5px; }
+      .main { padding: 0 6px 12px; gap: 10px; }
+      .mapwrap { height: calc(100svh - 140px); max-height: none; min-height: 440px; border-radius: 12px; }
+      .key { left: 6px; bottom: 6px; max-width: calc(100% - 56px); gap: 2px 8px; padding: 4px 8px; font-size: 10.5px; border-radius: 9px; }
+      .key i { width: 8px; height: 8px; }
+      .key .kx { display: none; }
     }
     .foot.legalnote { margin-top: -14px; font-weight: 600; }
   </style>
@@ -593,7 +605,7 @@
     function byId(id) { for (var i = 0; i < G.length; i++) if (G[i].id === id) return G[i]; return null; }
     function drawKey() {
       $('key').innerHTML = ['fast', 'rise', 'steady', 'fall', 'tide', 'off'].map(function (k) {
-        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span style="color:var(--muted)">Bigger dot: bigger rise ' + PERS[PER][1] + '</span>';
+        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span class="kx" style="color:var(--muted)">Bigger dot: bigger rise ' + PERS[PER][1] + '</span>';
     }
 
     // ---- one gauge: the numbers and a 7-day chart
