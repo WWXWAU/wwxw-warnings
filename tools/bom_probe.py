@@ -1,10 +1,28 @@
-"""Probe: is the Bureau's thunderstorm forecast grid (ADFD WxThunderstorm, product 71094) on the public FTP?"""
-import urllib.request, re
-for d in ('anon/gen/adfd/', 'anon/gen/', 'anon/sample/catalogue/ADFD/', 'anon/gen/fwo/'):
-    try:
-        ls = urllib.request.urlopen('ftp://ftp.bom.gov.au/' + d, timeout=90).read().decode('utf-8', 'replace').splitlines()
-    except Exception as e:
-        print(d, 'not read:', e); continue
-    hit = [l for l in ls if re.search(r'7\d{4}|thund|Wx|adfd|grib|\.nc', l, re.I)]
-    print('==', d, len(ls), 'entries,', len(hit), 'grid-like')
-    for l in (hit if d != 'anon/gen/' else ls)[:150]: print('  ', l)
+"""Probe: how MetEye loads its thunderstorm forecast layer (which image or tile URLs), to read it once a day for the
+verification. Prints the requests the page makes."""
+import asyncio, re
+from playwright.async_api import async_playwright
+
+async def main():
+    async with async_playwright() as p:
+        b = await p.chromium.launch(); pg = await b.new_page(viewport={'width': 1400, 'height': 900})
+        seen = []
+        pg.on('request', lambda r: seen.append(r.url))
+        for url in ('https://www.bom.gov.au/australia/meteye/', 'https://www.bom.gov.au/australia/meteye/?loc=WA'):
+            try:
+                resp = await pg.goto(url, wait_until='domcontentloaded', timeout=60000); print('page', url, resp.status if resp else None, pg.url)
+            except Exception as e: print('page failed', url, e); continue
+            await pg.wait_for_timeout(12000)
+            txt = await pg.content(); print('title:', await pg.title(), len(txt))
+            for m in sorted(set(re.findall(r'[Tt]hunder[^<"]{0,60}', txt)))[:20]: print('  text:', m)
+            for sel in ('text=Thunderstorms', 'text=Thunderstorm', 'text=Weather'):
+                try: await pg.click(sel, timeout=4000); await pg.wait_for_timeout(6000); print('clicked', sel)
+                except Exception: pass
+        await b.close()
+        hosts = {}
+        for u in seen: h = u.split('/')[2] if '//' in u else u; hosts[h] = hosts.get(h, 0) + 1
+        print('hosts:', hosts)
+        for u in seen:
+            if re.search(r'thund|wx|adfd|tile|layer|wms|grid|IDZ7|\.png|json', u, re.I) and 'google' not in u: print('  ', u[:300])
+
+asyncio.run(main())
