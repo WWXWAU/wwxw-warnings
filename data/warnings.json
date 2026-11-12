@@ -1,6 +1,271 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-11-11T21:21:53+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for Kimberley, North Interior and South Interior forecast districts",
+   "sent": "2026-11-12T07:10:40+00:00",
+   "expires": "2026-11-12T12:10:37+00:00",
+   "hazards": [
+    "damaging winds",
+    "heavy rainfall",
+    "large hail"
+   ],
+   "districts": [
+    "Kimberley",
+    "North Interior",
+    "South Interior"
+   ],
+   "towns": [
+    "Balgo"
+   ],
+   "townsPlaced": [],
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Balgo.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       125.604,
+       -19.521
+      ],
+      [
+       125.601,
+       -19.424
+      ],
+      [
+       125.628,
+       -19.349
+      ],
+      [
+       125.629,
+       -19.159
+      ],
+      [
+       125.66,
+       -19.047
+      ],
+      [
+       125.683,
+       -19.017
+      ],
+      [
+       125.837,
+       -18.91
+      ],
+      [
+       125.914,
+       -18.907
+      ],
+      [
+       125.976,
+       -18.882
+      ],
+      [
+       126.264,
+       -18.882
+      ],
+      [
+       126.334,
+       -18.908
+      ],
+      [
+       126.461,
+       -18.909
+      ],
+      [
+       126.522,
+       -18.933
+      ],
+      [
+       126.634,
+       -18.936
+      ],
+      [
+       126.69,
+       -18.96
+      ],
+      [
+       126.802,
+       -18.963
+      ],
+      [
+       126.859,
+       -18.986
+      ],
+      [
+       126.971,
+       -18.989
+      ],
+      [
+       127.537,
+       -19.123
+      ],
+      [
+       127.868,
+       -19.225
+      ],
+      [
+       127.93,
+       -19.229
+      ],
+      [
+       128.409,
+       -19.417
+      ],
+      [
+       128.656,
+       -19.561
+      ],
+      [
+       128.857,
+       -19.653
+      ],
+      [
+       128.908,
+       -19.702
+      ],
+      [
+       128.915,
+       -24.847
+      ],
+      [
+       128.895,
+       -24.884
+      ],
+      [
+       128.845,
+       -24.884
+      ],
+      [
+       128.693,
+       -24.746
+      ],
+      [
+       128.526,
+       -24.443
+      ],
+      [
+       128.299,
+       -23.9
+      ],
+      [
+       128.243,
+       -23.745
+      ],
+      [
+       128.18,
+       -23.479
+      ],
+      [
+       128.131,
+       -23.359
+      ],
+      [
+       128.127,
+       -23.233
+      ],
+      [
+       128.101,
+       -23.165
+      ],
+      [
+       128.101,
+       -22.753
+      ],
+      [
+       128.129,
+       -22.665
+      ],
+      [
+       128.128,
+       -22.025
+      ],
+      [
+       128.045,
+       -21.772
+      ],
+      [
+       128.044,
+       -21.665
+      ],
+      [
+       128.026,
+       -21.617
+      ],
+      [
+       127.527,
+       -21.138
+      ],
+      [
+       127.387,
+       -21.039
+      ],
+      [
+       127.091,
+       -20.861
+      ],
+      [
+       127.022,
+       -20.802
+      ],
+      [
+       126.726,
+       -20.625
+      ],
+      [
+       126.564,
+       -20.508
+      ],
+      [
+       125.876,
+       -20.172
+      ],
+      [
+       125.772,
+       -20.074
+      ],
+      [
+       125.715,
+       -19.967
+      ],
+      [
+       125.658,
+       -19.803
+      ],
+      [
+       125.654,
+       -19.728
+      ],
+      [
+       125.629,
+       -19.666
+      ],
+      [
+       125.627,
+       -19.571
+      ],
+      [
+       125.604,
+       -19.521
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png",
+   "people": 472,
+   "peopleTowns": [
+    "Balgo Hill"
+   ],
+   "post": "img/IDW21033-202611120710-post.png",
+   "story": "img/IDW21033-202611120710-story.png"
+  }
+ ],
+ "updated": "2026-11-12T07:11:56+00:00"
 }
