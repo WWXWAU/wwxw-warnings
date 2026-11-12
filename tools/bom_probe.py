@@ -1,9 +1,10 @@
-"""Probe: the Bureau's official forecast grids for WA (ADFD, IDW71xxx GRIB2 on the public FTP): which fields there are,
-and whether any is a thunderstorm field."""
+"""Probe: is the Bureau's thunderstorm forecast grid (ADFD WxThunderstorm, product 71094) on the public FTP?"""
 import urllib.request, re
-ls = urllib.request.urlopen('ftp://ftp.bom.gov.au/anon/gen/fwo/', timeout=60).read().decode('utf-8', 'replace')
-rows = [l for l in ls.splitlines() if re.search(r'IDW7\d{4}', l)]
-print(len(rows), 'WA grid files')
-for l in rows: print(l)
-for l in ls.splitlines():
-    if re.search(r'thund|storm|wx|weather|_Wx', l, re.I) and 'IDW7' not in l: print('other:', l)
+for d in ('anon/gen/adfd/', 'anon/gen/', 'anon/sample/catalogue/ADFD/', 'anon/gen/fwo/'):
+    try:
+        ls = urllib.request.urlopen('ftp://ftp.bom.gov.au/' + d, timeout=90).read().decode('utf-8', 'replace').splitlines()
+    except Exception as e:
+        print(d, 'not read:', e); continue
+    hit = [l for l in ls if re.search(r'7\d{4}|thund|Wx|adfd|grib|\.nc', l, re.I)]
+    print('==', d, len(ls), 'entries,', len(hit), 'grid-like')
+    for l in (hit if d != 'anon/gen/' else ls)[:150]: print('  ', l)
