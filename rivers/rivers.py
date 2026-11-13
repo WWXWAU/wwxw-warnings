@@ -1029,7 +1029,8 @@ def learn(W, by, H, now):
                 log('Flood wave learnt: %s %s -> %s %s took %d h (predicted %d h)' % (by.get(w['a'], {}).get('river', ''), by.get(w['a'], {}).get('name', w['a']),
                     by.get(w['b'], {}).get('river', ''), by.get(w['b'], {}).get('name', w['b']), lag, w['pred']))
                 del W['open'][key]; continue
-        if done:
+        if done:                                                            # it faded out on the way: logged too (how often rises this size get there)
+            W['log'].append({'a': w['a'], 'b': w['b'], 'pk': w['pk'], 'rise': w['rise'], 'pred': w['pred'], 'faded': True})
             log('Flood wave not seen downstream: %s -> %s (peak %s)' % (w['a'], w['b'], w['pk'])); del W['open'][key]
     W['log'] = W['log'][-500:]
 
@@ -1051,7 +1052,8 @@ def travel(G, H, now):
         if not r or 'med' not in r or r['to'] not in by: continue
         if r['n'] < 10 and r['hi'] - r['lo'] > r['med']: continue           # too few floods, too spread out to be a useful guide
         b = by[r['to']]
-        r = calibrated(r, [e for e in W['log'] if e['a'] == g['id'] and e['b'] == b['id']])
+        lv = [e for e in W['log'] if e['a'] == g['id'] and e['b'] == b['id']]
+        r = calibrated(r, [e for e in lv if not e.get('faded')])
         d = {'to': b['id'], 'tn': b['name'], 'tr': b['river'], 'n': r['n'], 'med': r['med'], 'lo': r['lo'], 'hi': r['hi'], 'big': r['big']}
         if r.get('cal'): d['cal'] = r['cal']; d['last'] = r['lastlive']
         g['dn'] = d; n += 1
@@ -1077,6 +1079,18 @@ def travel(G, H, now):
         if not W['lastpk'].get(g['id']) or W['lastpk'][g['id']] < hp: W['lastpk'][g['id']] = hp
         d['st'] = 'peaked' if peaked else 'rising'
         d['rise'] = round(rise, 2)
+        # will it get there? how often past rises this size reached the next gauge (records since 2006, plus the waves
+        # this job has watched). Under half: it may fade out on the way.
+        bins = [list(x) for x in r.get('reach') or []]
+        if bins:
+            i = max([j for j, x in enumerate(bins) if rise >= x[0]] or [0])
+            for e in lv:
+                if e.get('rise') is not None and max([j for j, x in enumerate(bins) if e['rise'] >= x[0]] or [0]) == i:
+                    bins[i][2] += 1; bins[i][3] += 0 if e.get('faded') else 1
+            nb, kb_ = bins[i][2], bins[i][3]
+            if nb >= 3:
+                d['reach'] = [kb_, nb]
+                if kb_ < 0.5 * nb: d['fade'] = 1
         if peaked:
             d['pk'] = tp.isoformat(timespec='minutes'); eta = tp + dt.timedelta(hours=lag)
             key = g['id'] + '>' + b['id']
@@ -1094,10 +1108,10 @@ def travel(G, H, now):
                 d['arr'] = round(max(since) - base_b, 2)                  # arriving now
             elif now > eta + dt.timedelta(hours=max(6, r['hi'] - r['med'] + 3)):
                 d.pop('st'); continue                                     # well past due and not seen there: dropped
-        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag})
+        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag, 'reach': d.get('reach'), 'fade': d.get('fade')})
     act = [g for g in G if g.get('dn', {}).get('st')]
     log('Travel times: %d gauges; flood waves under way: %s' % (n, ', '.join('%s %s -> %s (%s%s)' % (g['river'], g['name'], g['dn']['tn'], g['dn']['st'],
-        ', due ' + g['dn']['eta'] if g['dn'].get('eta') else '') for g in act) or 'none'))
+        ', due ' + g['dn']['eta'] if g['dn'].get('eta') else '') + (', may fade out' if g['dn'].get('fade') else '') for g in act) or 'none'))
 
 
 def rising_now(g):
