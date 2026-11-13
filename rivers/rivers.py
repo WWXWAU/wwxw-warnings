@@ -1096,6 +1096,12 @@ def travel(G, H, now):
             if nb >= 3:
                 d['reach'] = [kb_, nb]
                 if kb_ < 0.5 * nb: d['fade'] = 1
+        # a short burst (back down near where it started within 12 hours of peaking) carries little water: it usually
+        # soaks into the bed or spreads out before the next gauge (e.g. the Coongan at Marble Bar Rd, 11 Nov 2026)
+        if peaked:
+            base0 = min(before) if before else vp
+            soon = [hh[k] for k in hh if kp < k <= (tp + dt.timedelta(hours=12)).strftime('%Y-%m-%dT%H:00')]
+            if soon and min(soon) <= base0 + 0.25 * rise: d['short'] = 1; d['fade'] = 1
         if peaked:
             d['pk'] = tp.isoformat(timespec='minutes'); eta = tp + dt.timedelta(hours=lag)
             key = g['id'] + '>' + b['id']
@@ -1113,7 +1119,7 @@ def travel(G, H, now):
                 d['arr'] = round(max(since) - base_b, 2)                  # arriving now
             elif now > eta + dt.timedelta(hours=max(6, r['hi'] - r['med'] + 3)):
                 d.pop('st'); continue                                     # well past due and not seen there: dropped
-        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag, 'reach': d.get('reach'), 'fade': d.get('fade'), 'rfirst': d.get('rfirst')})
+        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag, 'reach': d.get('reach'), 'fade': d.get('fade'), 'rfirst': d.get('rfirst'), 'arr': d.get('arr'), 'short': d.get('short')})
     act = [g for g in G if g.get('dn', {}).get('st')]
     log('Travel times: %d gauges; flood waves under way: %s' % (n, ', '.join('%s %s -> %s (%s%s)' % (g['river'], g['name'], g['dn']['tn'], g['dn']['st'],
         ', due ' + g['dn']['eta'] if g['dn'].get('eta') else '') + (', may fade out' if g['dn'].get('fade') else '') for g in act) or 'none'))
