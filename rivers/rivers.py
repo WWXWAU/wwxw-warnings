@@ -1030,7 +1030,7 @@ def learn(W, by, H, now):
                     by.get(w['b'], {}).get('river', ''), by.get(w['b'], {}).get('name', w['b']), lag, w['pred']))
                 del W['open'][key]; continue
         if done:                                                            # it faded out on the way: logged too (how often rises this size get there)
-            W['log'].append({'a': w['a'], 'b': w['b'], 'pk': w['pk'], 'rise': w['rise'], 'pred': w['pred'], 'faded': True})
+            W['log'].append({'a': w['a'], 'b': w['b'], 'pk': w['pk'], 'rise': w['rise'], 'pred': w['pred'], 'first': w.get('first'), 'faded': True})
             log('Flood wave not seen downstream: %s -> %s (peak %s)' % (w['a'], w['b'], w['pk'])); del W['open'][key]
     W['log'] = W['log'][-500:]
 
@@ -1088,6 +1088,11 @@ def travel(G, H, now):
                 if e.get('rise') is not None and max([j for j, x in enumerate(bins) if e['rise'] >= x[0]] or [0]) == i:
                     bins[i][2] += 1; bins[i][3] += 0 if e.get('faded') else 1
             nb, kb_ = bins[i][2], bins[i][3]
+            if d.get('first') and r.get('reachf'):                         # the first flow of the season: the dry bed's odds instead
+                nb, kb_ = r['reachf'][0], r['reachf'][1]
+                for e in lv:
+                    if e.get('first'): nb += 1; kb_ += 0 if e.get('faded') else 1
+                d['rfirst'] = 1
             if nb >= 3:
                 d['reach'] = [kb_, nb]
                 if kb_ < 0.5 * nb: d['fade'] = 1
@@ -1108,7 +1113,7 @@ def travel(G, H, now):
                 d['arr'] = round(max(since) - base_b, 2)                  # arriving now
             elif now > eta + dt.timedelta(hours=max(6, r['hi'] - r['med'] + 3)):
                 d.pop('st'); continue                                     # well past due and not seen there: dropped
-        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag, 'reach': d.get('reach'), 'fade': d.get('fade')})
+        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag, 'reach': d.get('reach'), 'fade': d.get('fade'), 'rfirst': d.get('rfirst')})
     act = [g for g in G if g.get('dn', {}).get('st')]
     log('Travel times: %d gauges; flood waves under way: %s' % (n, ', '.join('%s %s -> %s (%s%s)' % (g['river'], g['name'], g['dn']['tn'], g['dn']['st'],
         ', due ' + g['dn']['eta'] if g['dn'].get('eta') else '') + (', may fade out' if g['dn'].get('fade') else '') for g in act) or 'none'))

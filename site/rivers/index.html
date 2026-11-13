@@ -384,7 +384,7 @@
       var W = waves();
       $('wavesCard').hidden = !W.length;
       $('wavesList').innerHTML = W.map(function (g) { var d = g.dn;
-        return row(g, '→ ' + esc(d.tn), d.arr ? 'arriving there now (+' + Math.round(d.arr * 100) + ' cm)' : d.fade ? 'small rise: may fade out (' + d.reach[0] + ' of ' + d.reach[1] + ' this size got there)' : d.st === 'peaked' && d.eta ? 'peak due there ' + esc(when(d.eta)) : 'rising · about ' + d.med + ' h after its peak'); }).join('');
+        return row(g, '→ ' + esc(d.tn), d.arr ? 'arriving there now (+' + Math.round(d.arr * 100) + ' cm)' : d.fade ? (d.rfirst ? 'first flow: may fade out (' : 'small rise: may fade out (') + d.reach[0] + ' of ' + d.reach[1] + (d.rfirst ? ' first flows got there)' : ' this size got there)') : d.st === 'peaked' && d.eta ? 'peak due there ' + esc(when(d.eta)) : 'rising · about ' + d.med + ' h after its peak'); }).join('');
       var B = G.filter(function (g) { return riseOf(g) != null && riseOf(g) >= 0.02; }).sort(function (a, b) { return riseOf(b) - riseOf(a); }); TOPB = B;
       $('risingH').textContent = 'Biggest rises ' + PERS[PER][1];
       $('rising').innerHTML = B.length ? B.slice(0, 8).map(function (g) { var k = pk(g); return row(g, cm(k[3]), 'to ' + m2(k[0]) + ', ' + esc(whenK(k[1])) + ' · now ' + STATUS[status(g)][0].toLowerCase()); }).join('')
@@ -671,7 +671,7 @@
     function waves() { return G.filter(function (g) { return g.dn && g.dn.st && !g.off_air; }); }
     function travelLine(g) {
       var d = g.dn, h = '';
-      var odds = function (x, a, b) { return x && x.reach ? ' Past rises this size at ' + esc(a) + ' reached ' + esc(b) + ' ' + x.reach[0] + ' times out of ' + x.reach[1] + (x.fade ? ', so it may fade out before it gets there (soaking into the bed or spreading out on the way).' : '.') : ''; };
+      var odds = function (x, a, b) { return x && x.reach ? (x.rfirst ? ' Past first flows of the season at ' : ' Past rises this size at ') + esc(a) + ' reached ' + esc(b) + ' ' + x.reach[0] + ' times out of ' + x.reach[1] + (x.fade ? ', so it may fade out before it gets there (soaking into the bed or spreading out on the way).' : '.') : ''; };
       (g.inc || []).forEach(function (w) {
         if (w.fade) { h += '<div class="rain wave"><b>Small rise upstream</b> at ' + esc(w.fr_r) + ' at ' + esc(w.fn) + ': it may not get here.' + odds(w, w.fn, g.name) + (w.eta ? ' If it does, around ' + esc(when(w.eta)) + '.' : '') + '</div>'; return; }
         h += '<div class="rain wave"><b>Flood wave coming</b> from ' + esc(w.fr_r) + ' at ' + esc(w.fn) + (w.eta ? ': past floods put its peak here around <b>' + esc(when(w.eta)) + '</b>.' : ': still rising there; its peak usually gets here ' + hrs(w.lag) + ' after it peaks there.') + '</div>';

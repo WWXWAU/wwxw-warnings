@@ -82,6 +82,7 @@ def reach(PS, R, sb, win):
     flood size R or more, did the downstream gauge rise 0.2 m+ within the pair's window? Small rises often soak into the
     bed or spread out on the way. Returns [[from m, to m (None = no top), rises, got there], ...] per REACH_BINS."""
     out = [[round(REACH_BINS[i] * R, 2), round(REACH_BINS[i + 1] * R, 2) if i + 1 < len(REACH_BINS) else None, 0, 0] for i in range(len(REACH_BINS))]
+    first = [0, 0]                       # first flows (no rise of half the flood size in the FIRST_GAP_D days before), any size: [rises, got there]
     for n, (h, v, rise) in enumerate(PS):
         if rise < REACH_BINS[0] * R: continue
         if any(p[0] - h <= win and p[2] >= 0.5 * rise for p in PS[n + 1:]): continue     # another wave close behind: can't tell them apart
@@ -91,9 +92,10 @@ def reach(PS, R, sb, win):
         w = [sb[k] for k in range(h, h + win + 1) if k in sb]
         if len(w) < win * 0.5: continue
         i = max(j for j in range(len(REACH_BINS)) if rise >= REACH_BINS[j] * R)
-        out[i][2] += 1
-        if max(w) - base >= 0.2: out[i][3] += 1
-    return out
+        got = max(w) - base >= 0.2
+        out[i][2] += 1; out[i][3] += got
+        if not n or h - PS[n - 1][0] >= FIRST_GAP_D * 24: first[0] += 1; first[1] += got
+    return out, first
 
 
 def stats(m):
@@ -152,10 +154,10 @@ def main(data_dir, out_path):
         if len(m) >= MIN_EVENTS:
             rec.update(stats(m)); rec.update(split(m))
             PS, _ = peaks(S[a], Rmin=0.5 * R)
-            rec['reach'] = reach(PS, R, S[b], min(MAX_LAG_H, int(2.5 * rec['med'] + 24)))
+            rec['reach'], rec['reachf'] = reach(PS, R, S[b], min(MAX_LAG_H, int(2.5 * rec['med'] + 24)))
         out[a] = rec
         log('%-30s -> %-30s peaks %3d matched %3d %s%s' % (G[a]['river'] + ' ' + G[a]['name'], G[b]['river'] + ' ' + G[b]['name'], len(PA), len(m),
-            ('median %d h (%d-%d), big floods %d h, reached by size %s' % (rec['med'], rec['lo'], rec['hi'], rec['big'], ' '.join('%d/%d' % (x[3], x[2]) for x in rec['reach']))) if 'med' in rec else '',
+            ('median %d h (%d-%d), big floods %d h, reached by size %s, first flows %d/%d' % (rec['med'], rec['lo'], rec['hi'], rec['big'], ' '.join('%d/%d' % (x[3], x[2]) for x in rec['reach']), rec['reachf'][1], rec['reachf'][0])) if 'med' in rec else '',
             (' | first flows %d h (n %d) vs %s' % (rec['first']['med'], rec['first']['n'], ('%d h' % rec['wet']['med']) if 'wet' in rec else '-')) if 'first' in rec else ''))
     json.dump({'built': dt.date.today().isoformat(), 'from': FROM, 'pairs': out}, open(out_path, 'w'), separators=(',', ':'), sort_keys=True, indent=0)
     log('Travel times: %d pairs with enough floods, %d without' % (sum('med' in r for r in out.values()), sum('med' not in r for r in out.values())))
