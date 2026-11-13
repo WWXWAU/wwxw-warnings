@@ -1,28 +1,14 @@
-"""Probe: how MetEye loads its thunderstorm forecast layer (which image or tile URLs), to read it once a day for the
-verification. Prints the requests the page makes."""
-import asyncio, re
-from playwright.async_api import async_playwright
-
-async def main():
-    async with async_playwright() as p:
-        b = await p.chromium.launch(); pg = await b.new_page(viewport={'width': 1400, 'height': 900})
-        seen = []
-        pg.on('request', lambda r: seen.append(r.url))
-        for url in ('https://www.bom.gov.au/australia/meteye/', 'https://www.bom.gov.au/australia/meteye/?loc=WA'):
-            try:
-                resp = await pg.goto(url, wait_until='domcontentloaded', timeout=60000); print('page', url, resp.status if resp else None, pg.url)
-            except Exception as e: print('page failed', url, e); continue
-            await pg.wait_for_timeout(12000)
-            txt = await pg.content(); print('title:', await pg.title(), len(txt))
-            for m in sorted(set(re.findall(r'[Tt]hunder[^<"]{0,60}', txt)))[:20]: print('  text:', m)
-            for sel in ('text=Thunderstorms', 'text=Thunderstorm', 'text=Weather'):
-                try: await pg.click(sel, timeout=4000); await pg.wait_for_timeout(6000); print('clicked', sel)
-                except Exception: pass
-        await b.close()
-        hosts = {}
-        for u in seen: h = u.split('/')[2] if '//' in u else u; hosts[h] = hosts.get(h, 0) + 1
-        print('hosts:', hosts)
-        for u in seen:
-            if re.search(r'thund|wx|adfd|tile|layer|wms|grid|IDZ7|\.png|json', u, re.I) and 'google' not in u: print('  ', u[:300])
-
-asyncio.run(main())
+"""Probe: NASA GIBS sea surface temperature tiles for the cyclones page (layer names, tile sets, latest dates)."""
+import urllib.request, re, datetime as dt
+cap = urllib.request.urlopen('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/1.0.0/WMTSCapabilities.xml', timeout=120).read().decode()
+for blk in re.findall(r'<Layer>(.*?)</Layer>', cap, re.S):
+    ident = re.search(r'<ows:Identifier>([^<]+)', blk).group(1)
+    if not re.search(r'Sea_Surface_Temp|SST', ident, re.I): continue
+    tms = re.findall(r'<TileMatrixSet>([^<]+)', blk); dv = re.search(r'<Default>([^<]+)', blk); ext = re.findall(r'<Value>([^<]+)</Value>', blk)
+    fmt = re.findall(r'<Format>([^<]+)', blk)
+    print(ident, tms, 'default', dv.group(1) if dv else None, 'range', ext[-1][:60] if ext else None, fmt)
+for lay, tm in (('GHRSST_L4_MUR_Sea_Surface_Temperature', 'GoogleMapsCompatible_Level7'),):
+    for t in ('default', (dt.date.today() - dt.timedelta(days=1)).isoformat(), (dt.date.today() - dt.timedelta(days=2)).isoformat()):
+        u = 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/%s/default/%s/%s/3/4/6.png' % (lay, t, tm)
+        try: r = urllib.request.urlopen(u, timeout=60); b = r.read(); print(t, r.status, len(b), r.headers.get('Access-Control-Allow-Origin'))
+        except Exception as e: print(t, 'fail', e)
