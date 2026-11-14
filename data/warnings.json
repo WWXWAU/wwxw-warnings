@@ -1,6 +1,202 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-11-12T15:21:56+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for Central Wheat Belt forecast district",
+   "sent": "2026-11-14T05:01:31+00:00",
+   "expires": "2026-11-14T10:01:14+00:00",
+   "hazards": [
+    "damaging winds",
+    "heavy rainfall",
+    "large hail"
+   ],
+   "districts": [
+    "Central Wheat Belt"
+   ],
+   "towns": [
+    "Dalwallinu",
+    "Southern Cross",
+    "Beacon",
+    "Koolyanobbing",
+    "Mukinbudin"
+   ],
+   "townsPlaced": [
+    "Dalwallinu",
+    "Southern Cross",
+    "Beacon",
+    "Koolyanobbing",
+    "Mukinbudin"
+   ],
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Dalwallinu, Southern Cross, Beacon, Koolyanobbing and Mukinbudin.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       116.597,
+       -30.551
+      ],
+      [
+       116.611,
+       -30.353
+      ],
+      [
+       116.671,
+       -30.194
+      ],
+      [
+       116.808,
+       -30.06
+      ],
+      [
+       116.972,
+       -30.015
+      ],
+      [
+       117.208,
+       -30.015
+      ],
+      [
+       117.554,
+       -30.084
+      ],
+      [
+       117.992,
+       -30.292
+      ],
+      [
+       118.308,
+       -30.416
+      ],
+      [
+       118.503,
+       -30.416
+      ],
+      [
+       118.958,
+       -30.363
+      ],
+      [
+       119.433,
+       -30.363
+      ],
+      [
+       119.532,
+       -30.377
+      ],
+      [
+       119.6,
+       -30.406
+      ],
+      [
+       119.672,
+       -30.469
+      ],
+      [
+       119.765,
+       -30.733
+      ],
+      [
+       119.799,
+       -30.907
+      ],
+      [
+       119.763,
+       -31.008
+      ],
+      [
+       119.783,
+       -31.129
+      ],
+      [
+       119.725,
+       -31.219
+      ],
+      [
+       119.667,
+       -31.252
+      ],
+      [
+       119.624,
+       -31.317
+      ],
+      [
+       119.567,
+       -31.357
+      ],
+      [
+       119.453,
+       -31.386
+      ],
+      [
+       119.268,
+       -31.399
+      ],
+      [
+       118.902,
+       -31.345
+      ],
+      [
+       118.507,
+       -31.231
+      ],
+      [
+       118.358,
+       -31.203
+      ],
+      [
+       117.994,
+       -31.148
+      ],
+      [
+       117.246,
+       -31.081
+      ],
+      [
+       117.075,
+       -31.028
+      ],
+      [
+       116.791,
+       -30.851
+      ],
+      [
+       116.645,
+       -30.71
+      ],
+      [
+       116.612,
+       -30.641
+      ],
+      [
+       116.597,
+       -30.551
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png",
+   "people": 4279,
+   "peopleTowns": [
+    "Dalwallinu",
+    "Southern Cross",
+    "Koolyanobbing",
+    "Mukinbudin",
+    "Koorda",
+    "Bencubbin",
+    "Kalannie",
+    "Beacon"
+   ],
+   "post": "img/IDW21033-202611140501-post.png",
+   "story": "img/IDW21033-202611140501-story.png"
+  }
+ ],
+ "updated": "2026-11-14T05:02:52+00:00"
 }
