@@ -996,6 +996,7 @@ def calibrated(r, live):
     hist_h = [x[2] for x in r.get('ev', [])]
     add = []
     for e in live:
+        if e.get('first'): continue                                         # first flows of the season run slower over a dry bed
         ha = int(dt.datetime.fromisoformat(e['pk']).timestamp() // 3600)
         if any(abs(ha - h) <= 48 for h in hist_h): continue
         add += [(e['lag'], e['rise'])] * 2
@@ -1015,8 +1016,9 @@ def learn(W, by, H, now):
     for key, w in list(W['open'].items()):
         ta = dt.datetime.fromisoformat(w['pk']); end = ta + dt.timedelta(hours=w['win'])
         hb = H['h'].get(w['b'], {})
-        ks = sorted(k for k in hb if ta.strftime('%Y-%m-%dT%H:00') <= k <= end.strftime('%Y-%m-%dT%H:00'))
-        base = w.get('base') if w.get('base') is not None else (hb[ks[0]] if ks else None)
+        t0 = ta + dt.timedelta(hours=max(3, w.get('lo', w['pred']) // 2))   # the earliest this water could get there (see travel())
+        ks = sorted(k for k in hb if t0.strftime('%Y-%m-%dT%H:00') <= k <= end.strftime('%Y-%m-%dT%H:00'))
+        base = hb[ks[0]] if ks else None
         done = now > end
         if ks and base is not None:
             kb = max(ks, key=lambda k: hb[k]); vb = hb[kb]
@@ -1108,18 +1110,23 @@ def travel(G, H, now):
             if key not in W['open'] or W['open'][key]['pk'] != d['pk']:      # a new wave: watch for it downstream, to learn from it
                 if not any(e['a'] == g['id'] and e['pk'] == d['pk'] for e in W['log']):
                     W['open'][key] = {'a': g['id'], 'b': b['id'], 'pk': d['pk'], 'pred': lag, 'rise': d['rise'], 'first': d.get('first'),
-                                      'base': H['h'].get(b['id'], {}).get(kp), 'win': min(KEEP_H - 12, int(2.5 * max(lag, r['hi']) + 24))}
+                                      'base': H['h'].get(b['id'], {}).get(kp), 'lo': r['lo'], 'win': min(KEEP_H - 12, int(2.5 * max(lag, r['hi']) + 24))}
             d['eta'] = eta.isoformat(timespec='minutes')
             # has it got there? the downstream gauge's rise since this peak (0.2 m+ = arriving; logged by learn() = peaked there)
             if any(e['a'] == g['id'] and e['pk'] == d['pk'] for e in W['log']):
                 d.pop('st'); continue                                     # arrived and peaked there: the next reach takes over
-            hb = H['h'].get(b['id'], {}); since = [hb[k] for k in hb if k >= kp]
-            base_b = hb.get(kp, since[0] if since else None)
+            # only a rise that starts once this water could have got there counts: Fitzroy Crossing rose on Fri 13 Nov 2026
+            # an hour after Dimond Gorge's second peak, from Margaret River water that had peaked two days earlier
+            hb = H['h'].get(b['id'], {})
+            k0 = (tp + dt.timedelta(hours=max(3, r['lo'] // 2))).strftime('%Y-%m-%dT%H:00')
+            ks_ = sorted(k for k in hb if k >= k0); since = [hb[k] for k in ks_]
+            base_b = since[0] if since else None
             if since and base_b is not None and max(since) - base_b >= 0.2:
                 d['arr'] = round(max(since) - base_b, 2)                  # arriving now
+                d['arrt'] = next(k for k in ks_ if hb[k] >= base_b + 0.1) + '+08:00'   # when the rise began there
             elif now > eta + dt.timedelta(hours=max(6, r['hi'] - r['med'] + 3)):
                 d.pop('st'); continue                                     # well past due and not seen there: dropped
-        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag, 'reach': d.get('reach'), 'fade': d.get('fade'), 'rfirst': d.get('rfirst'), 'arr': d.get('arr'), 'short': d.get('short')})
+        b.setdefault('inc', []).append({'fr': g['id'], 'fn': g['name'], 'fr_r': g['river'], 'st': d['st'], 'eta': d.get('eta'), 'lag': lag, 'reach': d.get('reach'), 'fade': d.get('fade'), 'rfirst': d.get('rfirst'), 'arr': d.get('arr'), 'arrt': d.get('arrt'), 'short': d.get('short')})
     act = [g for g in G if g.get('dn', {}).get('st')]
     log('Travel times: %d gauges; flood waves under way: %s' % (n, ', '.join('%s %s -> %s (%s%s)' % (g['river'], g['name'], g['dn']['tn'], g['dn']['st'],
         ', due ' + g['dn']['eta'] if g['dn'].get('eta') else '') + (', may fade out' if g['dn'].get('fade') else '') for g in act) or 'none'))
