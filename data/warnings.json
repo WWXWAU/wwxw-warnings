@@ -7,18 +7,20 @@
    "product": "IDW21033",
    "type": "Severe Thunderstorm Warning",
    "status": "current",
-   "headline": "Severe Thunderstorm Warning for Central Wheat Belt forecast district",
-   "sent": "2026-11-14T05:01:31+00:00",
-   "expires": "2026-11-14T10:01:14+00:00",
+   "headline": "Severe Thunderstorm Warning for Goldfields and Central Wheat Belt forecast districts",
+   "sent": "2026-11-14T06:39:35+00:00",
+   "expires": "2026-11-14T11:39:30+00:00",
    "hazards": [
     "damaging winds",
     "heavy rainfall",
     "large hail"
    ],
    "districts": [
+    "Goldfields",
     "Central Wheat Belt"
    ],
    "towns": [
+    "Merredin",
     "Dalwallinu",
     "Southern Cross",
     "Beacon",
@@ -26,177 +28,194 @@
     "Mukinbudin"
    ],
    "townsPlaced": [
+    "Merredin",
     "Dalwallinu",
     "Southern Cross",
     "Beacon",
     "Koolyanobbing",
     "Mukinbudin"
    ],
-   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Dalwallinu, Southern Cross, Beacon, Koolyanobbing and Mukinbudin.",
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Merredin, Dalwallinu, Southern Cross, Beacon, Koolyanobbing and Mukinbudin.",
    "areaSource": "image",
    "area": {
     "type": "Polygon",
     "coordinates": [
      [
       [
-       116.597,
-       -30.551
+       116.614,
+       -30.632
       ],
       [
        116.611,
-       -30.353
+       -30.397
       ],
       [
-       116.671,
-       -30.194
+       116.644,
+       -30.256
       ],
       [
-       116.808,
-       -30.06
+       116.707,
+       -30.16
       ],
       [
-       116.972,
-       -30.015
+       116.809,
+       -30.071
+      ],
+      [
+       116.967,
+       -30.016
       ],
       [
        117.208,
        -30.015
       ],
       [
-       117.554,
-       -30.084
+       117.483,
+       -30.069
       ],
       [
-       117.992,
-       -30.292
+       117.642,
+       -30.055
       ],
       [
-       118.308,
-       -30.416
+       118.148,
+       -30.055
       ],
       [
-       118.503,
-       -30.416
+       118.756,
+       -30.096
       ],
       [
-       118.958,
-       -30.363
+       119.164,
+       -30.164
       ],
       [
-       119.433,
-       -30.363
+       120.124,
+       -30.391
       ],
       [
-       119.532,
-       -30.377
+       120.295,
+       -30.446
       ],
       [
-       119.6,
-       -30.406
+       120.588,
+       -30.604
       ],
       [
-       119.672,
-       -30.469
+       120.693,
+       -30.694
       ],
       [
-       119.765,
-       -30.733
+       120.802,
+       -30.867
       ],
       [
-       119.799,
-       -30.907
+       120.821,
+       -31.007
       ],
       [
-       119.763,
-       -31.008
+       120.768,
+       -31.139
       ],
       [
-       119.783,
-       -31.129
+       120.647,
+       -31.283
       ],
       [
-       119.725,
-       -31.219
+       120.495,
+       -31.411
       ],
       [
-       119.667,
-       -31.252
+       120.258,
+       -31.478
       ],
       [
-       119.624,
-       -31.317
+       119.45,
+       -31.562
       ],
       [
-       119.567,
-       -31.357
+       119.354,
+       -31.596
       ],
       [
-       119.453,
-       -31.386
+       119.152,
+       -31.752
       ],
       [
-       119.268,
-       -31.399
+       119.037,
+       -31.809
       ],
       [
-       118.902,
-       -31.345
+       118.799,
+       -31.834
       ],
       [
-       118.507,
-       -31.231
+       118.67,
+       -31.82
       ],
       [
-       118.358,
-       -31.203
+       118.111,
+       -31.665
       ],
       [
-       117.994,
-       -31.148
+       117.638,
+       -31.623
       ],
       [
-       117.246,
-       -31.081
+       117.475,
+       -31.593
       ],
       [
-       117.075,
-       -31.028
+       117.381,
+       -31.523
       ],
       [
-       116.791,
-       -30.851
+       117.326,
+       -31.415
       ],
       [
-       116.645,
-       -30.71
+       117.305,
+       -31.221
       ],
       [
-       116.612,
-       -30.641
+       117.254,
+       -31.106
       ],
       [
-       116.597,
-       -30.551
+       116.998,
+       -30.988
+      ],
+      [
+       116.762,
+       -30.826
+      ],
+      [
+       116.673,
+       -30.735
+      ],
+      [
+       116.614,
+       -30.632
       ]
      ]
     ]
    },
    "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
    "image": "img/IDW21041.png",
-   "people": 4279,
+   "people": 9326,
    "peopleTowns": [
+    "Merredin",
     "Dalwallinu",
     "Southern Cross",
+    "Wyalkatchem",
     "Koolyanobbing",
     "Mukinbudin",
-    "Koorda",
-    "Bencubbin",
-    "Kalannie",
-    "Beacon"
+    "Marvel Loch",
+    "Westonia"
    ],
-   "post": "img/IDW21033-202611140501-post.png",
-   "story": "img/IDW21033-202611140501-story.png"
+   "post": "img/IDW21033-202611140639-post.png",
+   "story": "img/IDW21033-202611140639-story.png"
   }
  ],
- "updated": "2026-11-14T05:02:52+00:00"
+ "updated": "2026-11-14T06:40:54+00:00"
 }
