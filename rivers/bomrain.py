@@ -119,7 +119,10 @@ def main(out_dir):
         times = sorted(list(q) + list(h))
         last = dt.datetime.strptime(times[-1], '%Y-%m-%dT%H:%M').replace(tzinfo=UTC) if times else None
         since9 = None
-        if not manual and last and now - last <= dt.timedelta(hours=2) and last > nine:
+        # rain since 9am up to the gauge's latest reading. Gauges that send in batches can be a few hours behind
+        # (Moola Bulla Airstrip, 14 Nov 2026: 64.6 mm in an hour the evening before, missing from "since 9am"
+        # because its last batch was just over 2 hours old), so up to 12 hours old is still shown.
+        if not manual and last and now - last <= dt.timedelta(hours=12) and last > nine:
             since9 = window(q, h, nine, last)
         elif not manual and last and last <= nine and now - last <= dt.timedelta(hours=2):
             since9 = 0.0                                                  # just after 9am, before the first interval of the day
