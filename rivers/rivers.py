@@ -463,7 +463,7 @@ def shire_table(shire, url, now, old):
         o = seen.get(fid)
         when = page_t or (o['updated'] if o and o.get('type') == status and o.get('updated') else now.strftime('%Y-%m-%dT%H:%M'))
         feats.append({'type': 'Feature', 'geometry': None, 'properties': {
-            'id': fid, 'src': 'shire', 'shire': shire, 'road': re.split(r' – | - ', road)[0].strip(), 'where': road,
+            'id': fid, 'src': 'shire', 'shire': shire, 'road': re.split(r' – | - | \(', road)[0].strip(), 'where': road,
             'type': status, 'closed': 1 if closed else 0, 'note': status, 'updated': when, 'url': url}})
     if not rows: raise ValueError('road table not found')
     return feats, page_t or max([f['properties']['updated'] for f in feats] or [''])
