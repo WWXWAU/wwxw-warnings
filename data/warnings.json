@@ -1,6 +1,265 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-11-14T18:21:54+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for South Interior forecast district",
+   "sent": "2026-11-15T06:51:20+00:00",
+   "expires": "2026-11-15T11:51:15+00:00",
+   "hazards": [
+    "damaging winds",
+    "large hail"
+   ],
+   "districts": [
+    "South Interior"
+   ],
+   "towns": [
+    "Carnegie",
+    "Warburton"
+   ],
+   "townsPlaced": [
+    "Carnegie",
+    "Warburton"
+   ],
+   "description": "Severe thunderstorms are likely to produce damaging winds and large hailstones in the warning area over the next several hours. Locations which may be affected include Carnegie and Warburton.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       122.81,
+       -25.953
+      ],
+      [
+       122.807,
+       -25.427
+      ],
+      [
+       122.885,
+       -25.168
+      ],
+      [
+       122.991,
+       -24.931
+      ],
+      [
+       123.262,
+       -24.686
+      ],
+      [
+       123.393,
+       -24.59
+      ],
+      [
+       123.655,
+       -24.449
+      ],
+      [
+       123.934,
+       -24.355
+      ],
+      [
+       124.141,
+       -24.328
+      ],
+      [
+       124.194,
+       -24.308
+      ],
+      [
+       124.506,
+       -24.307
+      ],
+      [
+       124.576,
+       -24.329
+      ],
+      [
+       124.766,
+       -24.33
+      ],
+      [
+       124.951,
+       -24.375
+      ],
+      [
+       125.026,
+       -24.378
+      ],
+      [
+       125.22,
+       -24.465
+      ],
+      [
+       125.462,
+       -24.517
+      ],
+      [
+       125.657,
+       -24.582
+      ],
+      [
+       126.127,
+       -24.657
+      ],
+      [
+       126.279,
+       -24.7
+      ],
+      [
+       126.36,
+       -24.704
+      ],
+      [
+       126.535,
+       -24.77
+      ],
+      [
+       126.615,
+       -24.774
+      ],
+      [
+       127.36,
+       -25.03
+      ],
+      [
+       127.996,
+       -25.329
+      ],
+      [
+       128.3,
+       -25.602
+      ],
+      [
+       128.354,
+       -25.678
+      ],
+      [
+       128.405,
+       -25.792
+      ],
+      [
+       128.458,
+       -26.003
+      ],
+      [
+       128.459,
+       -26.239
+      ],
+      [
+       128.408,
+       -26.422
+      ],
+      [
+       128.407,
+       -26.655
+      ],
+      [
+       128.3,
+       -26.913
+      ],
+      [
+       128.125,
+       -27.118
+      ],
+      [
+       127.799,
+       -27.407
+      ],
+      [
+       127.614,
+       -27.525
+      ],
+      [
+       127.38,
+       -27.64
+      ],
+      [
+       127.206,
+       -27.705
+      ],
+      [
+       126.762,
+       -27.821
+      ],
+      [
+       126.495,
+       -27.822
+      ],
+      [
+       126.425,
+       -27.844
+      ],
+      [
+       125.634,
+       -27.844
+      ],
+      [
+       125.563,
+       -27.822
+      ],
+      [
+       125.271,
+       -27.821
+      ],
+      [
+       125.215,
+       -27.8
+      ],
+      [
+       125.118,
+       -27.798
+      ],
+      [
+       124.724,
+       -27.705
+      ],
+      [
+       124.295,
+       -27.491
+      ],
+      [
+       123.886,
+       -27.322
+      ],
+      [
+       123.495,
+       -27.091
+      ],
+      [
+       123.298,
+       -26.916
+      ],
+      [
+       123.113,
+       -26.68
+      ],
+      [
+       122.963,
+       -26.388
+      ],
+      [
+       122.81,
+       -25.953
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png",
+   "people": 674,
+   "peopleTowns": [
+    "Warburton",
+    "Gibson Desert South"
+   ],
+   "post": "img/IDW21033-202611150651-post.png",
+   "story": "img/IDW21033-202611150651-story.png"
+  }
+ ],
+ "updated": "2026-11-15T06:52:52+00:00"
 }
