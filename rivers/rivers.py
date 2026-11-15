@@ -365,8 +365,10 @@ SHIRE_API = [('www.swek.wa.gov.au', 'Wyndham–East Kimberley'), ('www.sdwk.wa.g
              ('www.murchison.wa.gov.au', 'Murchison'), ('www.cue.wa.gov.au', 'Cue'), ('www.yalgoo.wa.gov.au', 'Yalgoo'), ('www.northampton.wa.gov.au', 'Northampton'),
              ('www.chapmanvalley.wa.gov.au', 'Chapman Valley'), ('www.cgg.wa.gov.au', 'Greater Geraldton'), ('www.morawa.wa.gov.au', 'Morawa'),
              ('www.perenjori.wa.gov.au', 'Perenjori'), ('www.dalwallinu.wa.gov.au', 'Dalwallinu'), ('www.leonora.wa.gov.au', 'Leonora'), ('www.menzies.wa.gov.au', 'Menzies'),
-             ('www.ckb.wa.gov.au', 'Kalgoorlie-Boulder'), ('www.coolgardie.wa.gov.au', 'Coolgardie'), ('www.dundas.wa.gov.au', 'Dundas'),
+             ('www.ckb.wa.gov.au', 'Kalgoorlie-Boulder'), ('www.dundas.wa.gov.au', 'Dundas'),
              ('www.esperance.wa.gov.au', 'Esperance'), ('www.ravensthorpe.wa.gov.au', 'Ravensthorpe'), ('www.jerramungup.wa.gov.au', 'Jerramungup')]
+# Shires whose report is a plain table of roads on a web page (road name | status), with no times or map lines
+SHIRE_TABLES = [('Coolgardie', 'https://www.coolgardie.wa.gov.au/roads.aspx')]
 # Shires whose report is only a document or a page we can't read: listed with a link
 SHIRE_LINKS = [('Broome', 'https://www.broome.wa.gov.au/Shire-Services/Infrastructure/Road-Condition-Report-and-Planned-Maintenance'),
                ('Halls Creek', 'https://www.hallscreek.wa.gov.au/services/road-conditions'),
@@ -434,6 +436,30 @@ def shire_one(host, shire, now):
     return feats, latest
 
 
+def shire_table(shire, url, now, old):
+    """A shire's road table (e.g. Coolgardie: "Burra Rocks Road | CLOSED to all vehicles over 3 tonne"). It gives no
+    times, so each road's 'updated' is when this job first saw it with that status (kept from the last copy, old)."""
+    html = urllib.request.urlopen(urllib.request.Request(url, headers=dict(BROWSER, Accept='text/html')), timeout=60).read().decode('utf-8', 'replace')
+    seen = {f['properties']['id']: f['properties'] for f in old}
+    feats, slug = [], re.sub(r'[^a-z]+', '', shire.lower())
+    for row in re.findall(r'(?is)<tr[^>]*>(.*?)</tr>', html):
+        cells = [clean(c).replace('&amp;', '&').replace('&#8211;', '–') for c in re.findall(r'(?is)<t[dh][^>]*>(.*?)</t[dh]>', row)]
+        if len(cells) < 2 or not cells[0] or cells[0].lower().startswith('road name'): continue
+        road, status = cells[0], cells[1]
+        n = status.lower()
+        if not n or n.startswith('open') and 'caution' not in n: continue
+        closed = 'closed' in n and not re.search(r'over \d|tonne|truck|heavy|\d ?t\b', n)
+        if NOT_WEATHER.search(road + ' ' + status): continue
+        fid = 'S:%s:%s' % (slug, re.sub(r'[^a-z0-9]+', '-', road.lower()).strip('-'))
+        o = seen.get(fid)
+        when = o['updated'] if o and o.get('type') == status and o.get('updated') else now.strftime('%Y-%m-%dT%H:%M')
+        feats.append({'type': 'Feature', 'geometry': None, 'properties': {
+            'id': fid, 'src': 'shire', 'shire': shire, 'road': re.split(r' – | - ', road)[0].strip(), 'where': road,
+            'type': status, 'closed': 1 if closed else 0, 'note': status, 'updated': when, 'url': url}})
+    if not re.search(r'(?i)road name', html): raise ValueError('road table not found')
+    return feats, max([f['properties']['updated'] for f in feats] or [''])
+
+
 def shire_roads(out_dir):
     """Every shire's closed and caution roads (cached for 30 minutes), and the list of shire reports."""
     path = os.path.join(out_dir, 'rivers-shireroads.json'); now = dt.datetime.now(AWST)
@@ -454,6 +480,16 @@ def shire_roads(out_dir):
                 f, latest = res; feats += f
                 shires.append({'name': name, 'url': 'https://%s/roadreport/' % host, 'closed': sum(x['properties']['closed'] for x in f),
                                'caution': sum(1 - x['properties']['closed'] for x in f), 'updated': latest})
+        for name, url in SHIRE_TABLES:
+            oldf = [f for f in C.get('features', []) if f['properties'].get('shire') == name]
+            try: f, latest = shire_table(name, url, now, oldf)
+            except Exception as e:  # noqa: BLE001
+                feats += oldf
+                if name in old: shires.append(dict(old[name], err=str(e)[:80]))
+                log('  shire roads %s not read: %s' % (name, str(e)[:80])); continue
+            feats += f
+            shires.append({'name': name, 'url': url, 'closed': sum(x['properties']['closed'] for x in f),
+                           'caution': sum(1 - x['properties']['closed'] for x in f), 'updated': latest})
         have = {s['name'] for s in shires if s.get('updated')}
         for name, url in SHIRE_LINKS:
             if name not in have:
