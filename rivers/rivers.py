@@ -361,19 +361,22 @@ def flood_roads(out_dir):
 SHIRE_API = [('www.swek.wa.gov.au', 'Wyndham–East Kimberley'), ('www.sdwk.wa.gov.au', 'Derby–West Kimberley'), ('eastpilbara.wa.gov.au', 'East Pilbara'),
              ('www.porthedland.wa.gov.au', 'Port Hedland'), ('www.ashburton.wa.gov.au', 'Ashburton'), ('www.exmouth.wa.gov.au', 'Exmouth'),
              ('www.carnarvon.wa.gov.au', 'Carnarvon'), ('www.uppergascoyne.wa.gov.au', 'Upper Gascoyne'), ('www.sharkbay.wa.gov.au', 'Shark Bay'),
-             ('www.meekashire.wa.gov.au', 'Meekatharra'), ('www.wiluna.wa.gov.au', 'Wiluna'), ('www.ngaanyatjarraku.wa.gov.au', 'Ngaanyatjarraku'),
+             ('www.meekashire.wa.gov.au', 'Meekatharra'), ('www.wiluna.wa.gov.au', 'Wiluna'),
              ('www.murchison.wa.gov.au', 'Murchison'), ('www.cue.wa.gov.au', 'Cue'), ('www.yalgoo.wa.gov.au', 'Yalgoo'), ('www.northampton.wa.gov.au', 'Northampton'),
              ('www.chapmanvalley.wa.gov.au', 'Chapman Valley'), ('www.cgg.wa.gov.au', 'Greater Geraldton'), ('www.morawa.wa.gov.au', 'Morawa'),
-             ('www.perenjori.wa.gov.au', 'Perenjori'), ('www.dalwallinu.wa.gov.au', 'Dalwallinu'), ('www.leonora.wa.gov.au', 'Leonora'), ('www.menzies.wa.gov.au', 'Menzies'),
+             ('www.perenjori.wa.gov.au', 'Perenjori'), ('www.dalwallinu.wa.gov.au', 'Dalwallinu'), ('www.leonora.wa.gov.au', 'Leonora'), ('www.yilgarn.wa.gov.au', 'Yilgarn'),
              ('www.ckb.wa.gov.au', 'Kalgoorlie-Boulder'), ('www.dundas.wa.gov.au', 'Dundas'),
              ('www.esperance.wa.gov.au', 'Esperance'), ('www.ravensthorpe.wa.gov.au', 'Ravensthorpe'), ('www.jerramungup.wa.gov.au', 'Jerramungup')]
 # Shires whose report is a plain table of roads on a web page (road name | status), with no times or map lines
-SHIRE_TABLES = [('Coolgardie', 'https://www.coolgardie.wa.gov.au/roads.aspx')]
+SHIRE_TABLES = [('Coolgardie', 'https://www.coolgardie.wa.gov.au/roads.aspx'),
+                ('Menzies', 'https://www.menzies.wa.gov.au/council/development/road-condition-report.aspx'),
+                ('Ngaanyatjarraku', 'https://www.ngaanyatjarraku.wa.gov.au/road-reports.aspx')]
 # Shires whose report is only a document or a page we can't read: listed with a link
 SHIRE_LINKS = [('Broome', 'https://www.broome.wa.gov.au/Shire-Services/Infrastructure/Road-Condition-Report-and-Planned-Maintenance'),
                ('Halls Creek', 'https://www.hallscreek.wa.gov.au/services/road-conditions'),
                ('Derby–West Kimberley', 'https://www.sdwk.wa.gov.au/services/roads/road-conditions.aspx'),
-               ('Ashburton', 'https://www.ashburton.wa.gov.au/services/emergency-safety/road-report.aspx')]
+               ('Ashburton', 'https://www.ashburton.wa.gov.au/services/emergency-safety/road-report.aspx'),
+               ('Laverton', 'https://laverton.wa.gov.au/services/roads/road-condition-reports.aspx')]
 NOT_WEATHER = re.compile(r'(?i)road ?works|construction|reconstruct|resurfac|re-?sheet|bitumen|sealing|lane closure|stabilisation|asphalt|kerb|\bworks\b|maintenance|'
                          r'playground|beach access|stairs|intersection|temporary|event|parade|market')
 BROWSER = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
@@ -441,23 +444,29 @@ def shire_table(shire, url, now, old):
     times, so each road's 'updated' is when this job first saw it with that status (kept from the last copy, old)."""
     html = urllib.request.urlopen(urllib.request.Request(url, headers=dict(BROWSER, Accept='text/html')), timeout=60).read().decode('utf-8', 'replace')
     seen = {f['properties']['id']: f['properties'] for f in old}
-    feats, slug = [], re.sub(r'[^a-z]+', '', shire.lower())
+    feats, slug, rows = [], re.sub(r'[^a-z]+', '', shire.lower()), 0
+    # the page's own time, if it gives one ("Updated as of: 10:00 AM Friday, 13 November 2026", "Issued at 8.40am 13 November 2026")
+    m = re.search(r'(?i)(?:updated|issued|current)[^<]{0,20}?(\d{1,2})[.:](\d{2})\s*([ap]m)\W+(?:[a-z]+day,?\s*)?(\d{1,2})\s+([a-z]+)\s+(\d{4})', clean(html))
+    try: page_t = dt.datetime.strptime('%s:%s %s %s %s %s' % m.groups(), '%I:%M %p %d %B %Y').strftime('%Y-%m-%dT%H:%M') if m else ''
+    except ValueError: page_t = ''
     for row in re.findall(r'(?is)<tr[^>]*>(.*?)</tr>', html):
         cells = [clean(c).replace('&amp;', '&').replace('&#8211;', '–') for c in re.findall(r'(?is)<t[dh][^>]*>(.*?)</t[dh]>', row)]
-        if len(cells) < 2 or not cells[0] or cells[0].lower().startswith('road name'): continue
-        road, status = cells[0], cells[1]
+        if len(cells) < 2 or not cells[0] or re.match(r'(?i)road( name)?$|road status$|open|closed', cells[0]): continue   # headers and legends
+        rows += 1
+        road, status = cells[0], ' '.join(c for c in cells[1:] if c)
         n = status.lower()
-        if not n or n.startswith('open') and 'caution' not in n: continue
-        closed = 'closed' in n and not re.search(r'over \d|tonne|truck|heavy|\d ?t\b', n)
-        if NOT_WEATHER.search(road + ' ' + status): continue
+        if 'closed' in n: closed = not re.search(r'over \d|tonne|truck|heavy|\d ?t\b|4wd|high.clearance', n)
+        elif re.search(r'caution|4wd|only|restrict|heavy|high.clearance|limited|care|water over', n): closed = False
+        else: continue                                                    # open, or "contact ... for conditions"
+        if NOT_WEATHER.search(status): continue                          # the road names here are places ("... intersection")
         fid = 'S:%s:%s' % (slug, re.sub(r'[^a-z0-9]+', '-', road.lower()).strip('-'))
         o = seen.get(fid)
-        when = o['updated'] if o and o.get('type') == status and o.get('updated') else now.strftime('%Y-%m-%dT%H:%M')
+        when = page_t or (o['updated'] if o and o.get('type') == status and o.get('updated') else now.strftime('%Y-%m-%dT%H:%M'))
         feats.append({'type': 'Feature', 'geometry': None, 'properties': {
             'id': fid, 'src': 'shire', 'shire': shire, 'road': re.split(r' – | - ', road)[0].strip(), 'where': road,
             'type': status, 'closed': 1 if closed else 0, 'note': status, 'updated': when, 'url': url}})
-    if not re.search(r'(?i)road name', html): raise ValueError('road table not found')
-    return feats, max([f['properties']['updated'] for f in feats] or [''])
+    if not rows: raise ValueError('road table not found')
+    return feats, page_t or max([f['properties']['updated'] for f in feats] or [''])
 
 
 def shire_roads(out_dir):
