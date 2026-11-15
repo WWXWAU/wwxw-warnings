@@ -360,9 +360,9 @@ def flood_roads(out_dir):
 # its comments, when it was updated, and the road drawn as lines. Read every 30 minutes (rivers-shireroads.json).
 SHIRE_API = [('www.swek.wa.gov.au', 'Wyndham–East Kimberley'), ('www.sdwk.wa.gov.au', 'Derby–West Kimberley'), ('eastpilbara.wa.gov.au', 'East Pilbara'),
              ('www.porthedland.wa.gov.au', 'Port Hedland'), ('www.ashburton.wa.gov.au', 'Ashburton'), ('www.exmouth.wa.gov.au', 'Exmouth'),
-             ('www.carnarvon.wa.gov.au', 'Carnarvon'), ('www.uppergascoyne.wa.gov.au', 'Upper Gascoyne'), ('www.sharkbay.wa.gov.au', 'Shark Bay'),
+             ('www.carnarvon.wa.gov.au', 'Carnarvon'), ('www.uppergascoyne.wa.gov.au', 'Upper Gascoyne'),
              ('www.meekashire.wa.gov.au', 'Meekatharra'), ('www.wiluna.wa.gov.au', 'Wiluna'),
-             ('www.murchison.wa.gov.au', 'Murchison'), ('www.cue.wa.gov.au', 'Cue'), ('www.yalgoo.wa.gov.au', 'Yalgoo'), ('www.northampton.wa.gov.au', 'Northampton'),
+             ('www.murchison.wa.gov.au', 'Murchison'), ('www.cue.wa.gov.au', 'Cue'), ('www.sandstone.wa.gov.au', 'Sandstone'), ('www.yalgoo.wa.gov.au', 'Yalgoo'), ('www.northampton.wa.gov.au', 'Northampton'),
              ('www.chapmanvalley.wa.gov.au', 'Chapman Valley'), ('www.cgg.wa.gov.au', 'Greater Geraldton'), ('www.morawa.wa.gov.au', 'Morawa'),
              ('www.perenjori.wa.gov.au', 'Perenjori'), ('www.dalwallinu.wa.gov.au', 'Dalwallinu'), ('www.leonora.wa.gov.au', 'Leonora'), ('www.yilgarn.wa.gov.au', 'Yilgarn'),
              ('www.ckb.wa.gov.au', 'Kalgoorlie-Boulder'), ('www.dundas.wa.gov.au', 'Dundas'),
@@ -370,7 +370,9 @@ SHIRE_API = [('www.swek.wa.gov.au', 'Wyndham–East Kimberley'), ('www.sdwk.wa.g
 # Shires whose report is a plain table of roads on a web page (road name | status), with no times or map lines
 SHIRE_TABLES = [('Coolgardie', 'https://www.coolgardie.wa.gov.au/roads.aspx'),
                 ('Menzies', 'https://www.menzies.wa.gov.au/council/development/road-condition-report.aspx'),
-                ('Ngaanyatjarraku', 'https://www.ngaanyatjarraku.wa.gov.au/road-reports.aspx')]
+                ('Ngaanyatjarraku', 'https://www.ngaanyatjarraku.wa.gov.au/road-reports.aspx'),
+                ('Mount Magnet', 'https://www.mtmagnet.wa.gov.au/roads'),
+                ('Shark Bay', 'https://www.sharkbay.wa.gov.au/property/works/road-conditions.aspx')]
 # Shires whose report is only a document or a page we can't read: listed with a link
 SHIRE_LINKS = [('Broome', 'https://www.broome.wa.gov.au/Shire-Services/Infrastructure/Road-Condition-Report-and-Planned-Maintenance'),
                ('Halls Creek', 'https://www.hallscreek.wa.gov.au/services/road-conditions'),
@@ -439,31 +441,61 @@ def shire_one(host, shire, now):
     return feats, latest
 
 
+def table_time(text):
+    """The time a shire's road page gives for itself: "Updated as of: 10:00 AM Friday, 13 November 2026",
+    "Issued at 8.40am 13 November 2026", "UPDATED AS AT 9 OCTOBER 2026 AT 12.02PM", "LAST UPDATED: 26 OCTOBER 2026 8.28 am"."""
+    pats = [(r'(?i)(?:updated|issued|current)[^<]{0,20}?(\d{1,2})[.:](\d{2})\s*([ap]m)\W+(?:[a-z]+day,?\s*)?(\d{1,2})\s+([a-z]+)\s+(\d{4})', (0, 1, 2, 3, 4, 5)),
+            (r'(?i)(?:updated|issued|current)[^<]{0,20}?(\d{1,2})\s+([a-z]+)\s+(\d{4})\D{0,6}?(\d{1,2})[.:](\d{2})\s*([ap]m)', (3, 4, 5, 0, 1, 2))]
+    for p, o in pats:
+        m = re.search(p, text)
+        if not m: continue
+        g = m.groups(); g = [g[k] for k in o]
+        try: return dt.datetime.strptime('%s:%s %s %s %s %s' % tuple(g), '%I:%M %p %d %B %Y').strftime('%Y-%m-%dT%H:%M')
+        except ValueError: pass
+    return ''
+
+
 def shire_table(shire, url, now, old):
-    """A shire's road table (e.g. Coolgardie: "Burra Rocks Road | CLOSED to all vehicles over 3 tonne"). It gives no
-    times, so each road's 'updated' is when this job first saw it with that status (kept from the last copy, old)."""
+    """A shire's road table: "road | status" (Coolgardie: "Burra Rocks Road | CLOSED to all vehicles over 3 tonne",
+    Menzies, Ngaanyatjarraku) or a column per kind of vehicle (Mount Magnet, Shark Bay: "Road | Location | Cars &
+    Utilities | 4WD Vehicles | Trucks (Vehicles Over 3T) | Comment"). Closed to every vehicle = closed; closed to some,
+    4WD only, or "proceed with caution" = caution. 'updated' is the page's own time, or else when this job first saw
+    the road with that status (kept from the last copy, old)."""
     html = urllib.request.urlopen(urllib.request.Request(url, headers=dict(BROWSER, Accept='text/html')), timeout=60).read().decode('utf-8', 'replace')
     seen = {f['properties']['id']: f['properties'] for f in old}
-    feats, slug, rows = [], re.sub(r'[^a-z]+', '', shire.lower()), 0
-    # the page's own time, if it gives one ("Updated as of: 10:00 AM Friday, 13 November 2026", "Issued at 8.40am 13 November 2026")
-    m = re.search(r'(?i)(?:updated|issued|current)[^<]{0,20}?(\d{1,2})[.:](\d{2})\s*([ap]m)\W+(?:[a-z]+day,?\s*)?(\d{1,2})\s+([a-z]+)\s+(\d{4})', clean(html))
-    try: page_t = dt.datetime.strptime('%s:%s %s %s %s %s' % m.groups(), '%I:%M %p %d %B %Y').strftime('%Y-%m-%dT%H:%M') if m else ''
-    except ValueError: page_t = ''
+    feats, slug, rows, head = [], re.sub(r'[^a-z]+', '', shire.lower()), 0, []
+    page_t = table_time(clean(html))
     for row in re.findall(r'(?is)<tr[^>]*>(.*?)</tr>', html):
         cells = [clean(c).replace('&amp;', '&').replace('&#8211;', '–') for c in re.findall(r'(?is)<t[dh][^>]*>(.*?)</t[dh]>', row)]
-        if len(cells) < 2 or not cells[0] or re.match(r'(?i)road( name)?$|road status$|open|closed', cells[0]): continue   # headers and legends
+        if len(cells) < 2 or not cells[0]: continue
+        if re.match(r'(?i)road( name)?$', cells[0]): head = [c.lower() for c in cells]; continue      # the header row
+        if re.match(r'(?i)road status$|open|closed', cells[0]): continue                           # a legend
         rows += 1
-        road, status = cells[0], ' '.join(c for c in cells[1:] if c)
-        n = status.lower()
-        if 'closed' in n: closed = not re.search(r'over \d|tonne|truck|heavy|\d ?t\b|4wd|high.clearance', n)
-        elif re.search(r'caution|4wd|only|restrict|heavy|high.clearance|limited|care|water over', n): closed = False
-        else: continue                                                    # open, or "contact ... for conditions"
+        road, where, veh, other = cells[0], cells[0], [], []
+        for k, c in enumerate(cells[1:], 1):
+            h = head[k] if k < len(head) else ''
+            if not c: continue
+            if 'location' in h: where = road + ' · ' + c
+            elif re.search(r'car|ute|utilit|4wd|truck|tonne|vehicle', h) and not re.search(r'status|comment', h): veh.append((h, c))
+            else: other.append(c)
+        n = ' '.join(other).lower()
+        if veh:
+            shut = [h for h, c in veh if 'closed' in c.lower()]
+            closed = bool(shut) and len(shut) == len(veh)
+            caution = bool(shut) or bool(re.search(r'caution|only|restrict|high.clearance|limited|water over|closed', n))
+            parts = ['closed to %s' % re.sub(r'\s*\(.*?\)', '', h) for h in shut] if shut and not closed else []
+            status = '; '.join(other) if other else 'CLOSED TO ALL VEHICLES' if closed else '; '.join(parts)   # the shire's own words when it gives them
+        else:
+            status = ' '.join(other)
+            if 'closed' in n: closed = not re.search(r'over \d|tonne|truck|heavy|\d ?t\b|4wd|high.clearance', n); caution = True
+            else: closed = False; caution = bool(re.search(r'caution|4wd|only|restrict|heavy|high.clearance|limited|water over', n))
+        if not (closed or caution): continue                              # open, or "contact ... for conditions"
         if NOT_WEATHER.search(status): continue                          # the road names here are places ("... intersection")
         fid = 'S:%s:%s' % (slug, re.sub(r'[^a-z0-9]+', '-', road.lower()).strip('-'))
         o = seen.get(fid)
         when = page_t or (o['updated'] if o and o.get('type') == status and o.get('updated') else now.strftime('%Y-%m-%dT%H:%M'))
         feats.append({'type': 'Feature', 'geometry': None, 'properties': {
-            'id': fid, 'src': 'shire', 'shire': shire, 'road': re.split(r' – | - | \(', road)[0].strip(), 'where': road,
+            'id': fid, 'src': 'shire', 'shire': shire, 'road': re.split(r' – | \(| - (?=.* to )', road)[0].strip(), 'where': where,
             'type': status, 'closed': 1 if closed else 0, 'note': status, 'updated': when, 'url': url}})
     if not rows: raise ValueError('road table not found')
     return feats, page_t or max([f['properties']['updated'] for f in feats] or [''])
