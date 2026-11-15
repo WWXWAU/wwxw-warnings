@@ -8,8 +8,8 @@
    "type": "Severe Thunderstorm Warning",
    "status": "current",
    "headline": "Severe Thunderstorm Warning for North Interior and South Interior forecast districts",
-   "sent": "2026-11-15T11:50:42+00:00",
-   "expires": "2026-11-15T16:50:38+00:00",
+   "sent": "2026-11-15T11:56:52+00:00",
+   "expires": "2026-11-15T16:56:48+00:00",
    "hazards": [
     "damaging winds",
     "large hail"
@@ -25,7 +25,7 @@
    "townsPlaced": [
     "Warburton"
    ],
-   "description": "Severe thunderstorms are likely to produce damaging winds and large hailstones in the warning area over the next several hours. Locations which may be affected include Giles and Warburton.",
+   "description": "Severe thunderstorms are likely to produce damaging winds and large hailstones in the warning area over the next several hours. Locations which may be affected include Giles and Warburton.  \n          \n          \n          A 106 km/h gust was recorded in Warburton at 6:48 pm.",
    "areaSource": "image",
    "area": {
     "type": "Polygon",
@@ -325,9 +325,9 @@
     "Warburton",
     "Gibson Desert South"
    ],
-   "post": "img/IDW21033-202611151150-post.png",
-   "story": "img/IDW21033-202611151150-story.png"
+   "post": "img/IDW21033-202611151156-post.png",
+   "story": "img/IDW21033-202611151156-story.png"
   }
  ],
- "updated": "2026-11-15T11:51:53+00:00"
+ "updated": "2026-11-15T11:58:53+00:00"
 }
