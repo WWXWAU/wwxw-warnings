@@ -12,37 +12,76 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap">
 <style>
-:root{--bg:#EEF4F5;--surface:#FFFFFF;--text:#0E2A33;--muted:#4A6470;--line:#C9D8DC;--accent:#0E7C86;--onAccent:#FFFFFF;--warn:#C8372B;--ok:#2E7D32;color-scheme:light;}
-@media (prefers-color-scheme: dark){:root{--bg:#10232A;--surface:#16303A;--text:#E2EEF0;--muted:#9DB6BD;--line:#28434D;--accent:#3FC1C9;--onAccent:#08181D;--warn:#FF8A80;--ok:#A5D6A7;color-scheme:dark;}}
+:root{--bg:#EEF4F5;--surface:#FFFFFF;--soft:#E3ECEE;--text:#0E2A33;--muted:#4A6470;--line:#C9D8DC;--accent:#0E7C86;--onAccent:#FFFFFF;--warn:#C8372B;--ok:#2E7D32;
+  --c-warn:#C62828;--c-rain:#1565C0;--c-wind:#8A4B08;--c-lt:#6A3FB5;--c-river:#0E7C86;--c-cy:#455A64;--c-rip:#2E7D32;--c-quiet:#4A6470;color-scheme:light;}
+@media (prefers-color-scheme: dark){:root{--bg:#10232A;--surface:#16303A;--soft:#1D3A45;--text:#E2EEF0;--muted:#9DB6BD;--line:#28434D;--accent:#3FC1C9;--onAccent:#08181D;--warn:#FF8A80;--ok:#A5D6A7;color-scheme:dark;}}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{font-family:"Lexend","Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;
   padding:env(safe-area-inset-top,0) 0 env(safe-area-inset-bottom,0);}
+.top{background:#0E2A33;color:#fff;}
+.top .in{max-width:620px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;gap:10px;}
+.top a{color:#E2EEF0;text-decoration:none;font-size:13.5px;}
+.top b{font-size:13px;letter-spacing:.06em;color:#9DB6BD;font-weight:600;flex:1;white-space:nowrap;}
+@media (max-width:440px){.top b{font-size:0;}.top b::before{content:"WWXW";font-size:13px;}}
 .wrap{max-width:620px;margin:0 auto;padding:18px 16px 40px;}
-h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+h1{font-size:24px;font-weight:700;margin-bottom:4px;}
 .lead{color:var(--muted);font-size:14px;margin-bottom:16px;}
-.box{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin-bottom:12px;}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:12px;}
 .box h2{font-size:15px;font-weight:600;margin-bottom:8px;}
 .msg{font-size:13.5px;padding:10px 12px;border-radius:10px;margin-bottom:12px;display:none;}
-.msg.show{display:block;}.msg.ok{background:rgba(46,125,50,0.12);}.msg.bad{background:rgba(200,55,43,0.12);}
-.msg.info{background:rgba(14,124,134,0.12);}
-.place{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);}
+.msg.show{display:block;}.msg.ok{background:rgba(46,125,50,0.14);}.msg.bad{background:rgba(200,55,43,0.14);}
+.msg.info{background:rgba(14,124,134,0.14);}
+.sub{font-size:13px;font-weight:600;color:var(--muted);margin:18px 4px 8px;}
+.place{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
 .place:last-child{border-bottom:0;}
 .place input[type=text]{flex:1;min-width:0;}
-.place small{color:var(--muted);white-space:nowrap;}
-input[type=text]{padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:14px;}
+.place small{color:var(--muted);white-space:nowrap;font-size:12.5px;}
+input[type=text],input[type=number],select{padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:14px;min-height:42px;}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
 .row input{flex:1;min-width:120px;}
-button{padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:14px;font-weight:500;cursor:pointer;}
+button{padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--text);font:inherit;font-size:14px;font-weight:500;cursor:pointer;min-height:42px;}
 button.main{background:var(--accent);border-color:var(--accent);color:var(--onAccent);font-weight:600;}
-button.x{padding:4px 10px;font-size:13px;}
+button.x{padding:4px 10px;font-size:13px;min-height:34px;}
 button:disabled{opacity:0.45;cursor:default;}
-label.chk{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:14px;cursor:pointer;}
-label.chk input{margin-top:4px;accent-color:var(--accent);width:17px;height:17px;flex:none;}
-label.chk span small{display:block;color:var(--muted);font-size:12.5px;}
-.place{flex-wrap:wrap;}
-.wide{flex-basis:100%;display:flex;gap:8px;align-items:center;justify-content:flex-start;font-size:12.5px;color:var(--muted);cursor:pointer;margin-top:2px;}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--accent);outline-offset:2px;}
+.wide{flex-basis:100%;display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--muted);cursor:pointer;}
 .wide input{flex:none;margin:0;accent-color:var(--accent);width:15px;height:15px;}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0;}
+/* a kind of alert: header with its switch, settings below when it's on */
+.kind{background:var(--surface);border:1px solid var(--line);border-radius:16px;margin-bottom:10px;overflow:hidden;}
+.kh{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;}
+.ic{width:36px;height:36px;border-radius:10px;color:#fff;display:flex;align-items:center;justify-content:center;flex:none;}
+.kh .t{flex:1;min-width:0;}
+.kh .t b{display:block;font-size:15px;font-weight:600;}
+.kh .t small{display:block;color:var(--muted);font-size:12.5px;line-height:1.35;}
+.sw{appearance:none;-webkit-appearance:none;width:46px;height:28px;border-radius:999px;background:var(--line);position:relative;margin:0;cursor:pointer;flex:none;transition:background .15s;}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(14,42,51,.3);transition:left .15s;}
+.sw:checked{background:var(--accent);}.sw:checked::after{left:21px;}
+@media (prefers-reduced-motion: reduce){.sw,.sw::after{transition:none;}}
+.kb{border-top:1px solid var(--line);padding:12px 14px 14px;display:none;flex-direction:column;gap:12px;}
+.kind.on .kb{display:flex;}
+.lbl{font-size:12.5px;color:var(--muted);margin-bottom:6px;display:block;}
+.chips{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+.chips.c4{grid-template-columns:repeat(4,minmax(0,1fr));}
+.chips.c7{grid-template-columns:repeat(7,minmax(0,1fr));gap:5px;}
+.chips.c2{grid-template-columns:repeat(2,minmax(0,1fr));}
+.chips button{padding:6px 4px;font-size:14px;}
+.chips button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:var(--onAccent);font-weight:600;}
+.chips.c7 button{border-radius:12px;padding:6px 0;}
+label.ck{display:flex;gap:12px;align-items:center;font-size:14.5px;cursor:pointer;}
+label.ck input{accent-color:var(--accent);width:20px;height:20px;flex:none;margin:0;}
+label.ck small{display:block;color:var(--muted);font-size:12.5px;}
+.hint{font-size:12px;color:var(--muted);}
+.tags{display:flex;flex-wrap:wrap;gap:6px;}
+.tag{display:inline-flex;align-items:center;gap:2px;height:36px;padding:0 4px 0 12px;border-radius:999px;background:var(--soft);font-size:14px;}
+.tag button{min-height:28px;width:28px;padding:0;border:0;font-size:16px;color:var(--muted);}
+.gauge{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line);}
+.gauge:last-of-type{border-bottom:0;}
+.gauge .gn{flex:1;min-width:150px;font-size:14px;}
+.gauge .gn small{display:block;color:var(--muted);font-size:12px;}
+.gauge input[type=number]{width:96px;}
+.two{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px;}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 14px;position:sticky;bottom:0;background:var(--bg);padding:10px 0 calc(10px + env(safe-area-inset-bottom,0));}
+.actions .main{flex:1;min-height:50px;font-size:16px;border-radius:14px;}
 .note{color:var(--muted);font-size:12.5px;}
 .note a{color:var(--accent);}
 #iosHint ol{margin:6px 0 0 20px;font-size:14px;}
@@ -50,11 +89,12 @@ label.chk span small{display:block;color:var(--muted);font-size:12.5px;}
 </style>
 </head>
 <body>
+<div class="top"><div class="in"><b>WEST WX WATCHERS</b><a href="/">Home</a><a href="/rainfall/">Rainfall</a><a href="/obs/">Live Obs</a><a href="/rivers/">Rivers</a></div></div>
 <div class="wrap">
-  <h1>Severe weather alerts</h1>
-  <p class="lead">Get a notification on this device when severe weather affects the places you choose in Western Australia.</p>
+  <h1>Alerts</h1>
+  <p class="lead">Notifications on this device for the places, rivers and weather you choose in Western Australia.</p>
 
-  <div id="msg" class="msg"></div>
+  <div id="msg" class="msg" role="status" aria-live="polite"></div>
 
   <div id="iosHint" class="box" style="display:none">
     <h2>On iPhone or iPad: add this page to your Home Screen first</h2>
@@ -67,31 +107,21 @@ label.chk span small{display:block;color:var(--muted);font-size:12.5px;}
   </div>
 
   <div class="box">
-    <h2>Your places <span class="note">(up to 3)</span></h2>
-    <p class="note" style="margin-bottom:4px">A postcode alerts for its main town or suburb. Tick "anywhere in this postcode" for a farm or station that spreads across a big rural postcode — you'll get more alerts.</p>
+    <h2>Your places <span class="note" id="placeCount">(up to 10)</span></h2>
+    <p class="note" style="margin-bottom:4px">Warnings, heavy rain, winds, lightning and road closures are checked around these. A postcode means its main town or suburb; tick "anywhere in this postcode" for a farm or station that spreads across a big rural postcode.</p>
     <div id="places"></div>
     <div class="row">
       <button id="locBtn" onclick="useLocation()">&#128205; Use my location</button>
     </div>
     <div class="row">
-      <input id="pcIn" type="text" inputmode="numeric" maxlength="4" placeholder="or a WA postcode, e.g. 6714">
-      <input id="pcName" type="text" maxlength="40" placeholder="Name (optional), e.g. Home">
+      <input id="pcIn" type="text" inputmode="numeric" maxlength="4" placeholder="WA postcode, e.g. 6430" aria-label="WA postcode">
+      <input id="pcName" type="text" maxlength="40" placeholder="Name (optional), e.g. Home" aria-label="Name for this place">
       <button onclick="addPostcode()">Add</button>
     </div>
   </div>
 
-  <div class="box">
-    <h2>Alert me about</h2>
-    <label class="chk"><input type="checkbox" id="pWarn" checked><span>Bureau of Meteorology warnings
-      <small>Severe Thunderstorm, Severe Weather and Tropical Cyclone warnings that cover your place.</small></span></label>
-    <label class="chk"><input type="checkbox" id="pRain" checked><span>Heavy rain nearby
-      <small>A rain gauge within 25 km records 25 mm or more in an hour, or 60 mm in 3 hours.</small></span></label>
-    <div class="chk" style="cursor:default"><span style="flex:1">Daily storm outlook
-      <small>A morning alert (about 8:20 am) when the West WX Watchers outlook has your place at this level or higher today.</small></span>
-      <select id="pOutlook" style="padding:7px 9px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--text);font:inherit;font-size:13.5px;height:fit-content">
-        <option value="0">Off</option><option value="1">Thunderstorms</option><option value="2" selected>Level 1 · Marginal</option><option value="3">Level 2 · Slight</option>
-      </select></div>
-  </div>
+  <div class="sub">What you hear about</div>
+  <div id="kinds"></div>
 
   <div class="actions">
     <button id="onBtn" class="main" onclick="turnOn()">Turn on alerts</button>
@@ -107,15 +137,30 @@ label.chk span small{display:block;color:var(--muted);font-size:12.5px;}
   <p class="note" style="margin-top:8px"><b>Not for the protection of life or property.</b> © West WX Watchers — content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent. <a href="/terms/">Terms of use</a></p>
 </div>
 
+<datalist id="gaugeList"></datalist>
+<datalist id="townList"></datalist>
+
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="config.js"></script>
 <script>
 // Firebase settings (FIREBASE_CONFIG, VAPID_KEY) are in config.js, so updates to this page never overwrite them.
 var API = 'https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec';   // rainfall web app (Push.gs)
+var DATA = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/';
 // ---------------------------------------------------------------------------------
 
-var places = [], token = null, reg = null, messaging = null, MAXP = 3;
+var places = [], token = null, reg = null, messaging = null, MAXP = 10;
+var GAUGES = {}, TOWNS = [];
+var P = {   // choices (same shape as Push.gs pushPrefs_)
+  v: 2, warn: true,
+  rain: { on: true, km: 25, bom: true, r15: true, r60: true, r180: false },
+  wind: { on: true, km: 25, bom: true, gust: 90 },
+  lt: { on: false, km: 20 },
+  river: { on: false, g: [], wave: true, rise: false, road: true },
+  cy: { on: false, lows: true, cat: true },
+  rip: { on: false, when: 'eve', hr: 19, days: [5, 6], towns: [], best: true, only: false },
+  quiet: { on: false, from: 22, to: 6 }
+};
 var saved = {};
 try { saved = JSON.parse(localStorage.getItem('wwxw-push') || '{}'); } catch (e) { saved = {}; }
 
@@ -126,81 +171,205 @@ function api(body) {
   return fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(body) })
     .then(function (r) { return r.json(); });
 }
-function store() { try { localStorage.setItem('wwxw-push', JSON.stringify({ token: token, places: places })); } catch (e) {} }
+function store() { try { localStorage.setItem('wwxw-push', JSON.stringify({ token: token, places: places, prefs: P })); } catch (e) {} }
 
+// ---------------------------------------------------------------- places
 function drawPlaces() {
   var h = '';
   places.forEach(function (p, i) {
-    h += '<div class="place"><input type="text" maxlength="40" value="' + esc(p.name) + '" oninput="places[' + i + '].name=this.value">'
-      + '<small>' + (p.pc ? 'postcode ' + esc(p.pc) + (p.pop ? ' · ' + Number(p.pop).toLocaleString('en-AU') + ' people' : '') : (p.lat !== null && p.lat !== undefined ? Math.abs(p.lat).toFixed(2) + '°S ' + p.lng.toFixed(2) + '°E' : '')) + '</small>'
+    h += '<div class="place"><input type="text" maxlength="40" value="' + esc(p.name) + '" aria-label="Place name" oninput="places[' + i + '].name=this.value">'
+      + '<small>' + (p.pc ? 'postcode ' + esc(p.pc) : (p.lat !== null && p.lat !== undefined ? Math.abs(p.lat).toFixed(2) + '°S ' + p.lng.toFixed(2) + '°E' : '')) + '</small>'
       + '<button class="x" onclick="places.splice(' + i + ',1);drawPlaces()">Remove</button>'
       + (p.pc ? '<label class="wide"><input type="checkbox"' + (p.wide ? ' checked' : '') + ' onchange="places[' + i + '].wide=this.checked">'
-        + 'Alert me for anywhere in this postcode <span>(not just ' + esc(p.name && p.name !== p.pc ? p.name : 'its main town') + ')</span></label>' : '')
+        + 'Anywhere in this postcode <span>(not just ' + esc(p.name && p.name !== p.pc ? p.name : 'its main town') + ')</span></label>' : '')
       + '</div>';
   });
   $('places').innerHTML = h || '<div class="empty">No places yet — add your location or a postcode.</div>';
-  $('locBtn').disabled = places.length >= MAXP;
+  $('placeCount').textContent = '(' + places.length + ' of ' + MAXP + ')';
+  $('locBtn').disabled = places.length >= MAXP || places.some(function (p) { return p.me; });
 }
-
 function useLocation() {
   if (!navigator.geolocation) { say('This browser can\'t share your location — add a postcode instead.', 'bad'); return; }
   say('Finding your location…');
   navigator.geolocation.getCurrentPosition(function (pos) {
     var lat = Math.round(pos.coords.latitude * 100) / 100, lng = Math.round(pos.coords.longitude * 100) / 100;
     if (!(lat >= -36 && lat <= -13 && lng >= 112 && lng <= 129.5)) { say('That location is outside WA. Add a WA postcode instead.', 'bad'); return; }
-    if (places.length < MAXP) places.push({ name: places.length ? 'Place ' + (places.length + 1) : 'My location', lat: lat, lng: lng, pc: '' });
-    drawPlaces(); say('Location added. Rename it if you like, then tap "' + $('onBtn').textContent + '".', 'ok');
+    if (places.length < MAXP) places.unshift({ name: 'My location', lat: lat, lng: lng, pc: '', me: 1 });
+    drawPlaces(); say('Location added. Tap "' + $('onBtn').textContent + '" to save.', 'ok');
   }, function () { say('Couldn\'t get your location. Check location permission, or add a postcode instead.', 'bad'); },
   { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
 }
-
 function addPostcode() {
   var pc = $('pcIn').value.trim(), name = $('pcName').value.trim();
   if (!/^6\d{3}$/.test(pc)) { say('Please enter a WA postcode (6000–6999).', 'bad'); return; }
-  if (places.length >= MAXP) { say('Up to 3 places — remove one first.', 'bad'); return; }
+  if (places.length >= MAXP) { say('Up to ' + MAXP + ' places — remove one first.', 'bad'); return; }
   places.push({ name: name || pc, lat: null, lng: null, pc: pc, wide: false });
   $('pcIn').value = ''; $('pcName').value = '';
   drawPlaces(); say('Postcode added. Tap "' + $('onBtn').textContent + '" to save — its town or suburb will fill in.', 'ok');
 }
 
-function prefs() { return { warn: $('pWarn').checked, rain: $('pRain').checked, outlook: +$('pOutlook').value }; }
+// ---------------------------------------------------------------- the kinds of alert
+var ICON = {
+  warn: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  rain: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
+  wind: '<path d="M3 8h11a3 3 0 1 0-3-3"/><path d="M3 12h16a3 3 0 1 1-3 3"/><path d="M3 16h7"/>',
+  lt: '<path d="M7 18a5 5 0 1 1 1-9.9A6 6 0 0 1 19.5 10 4 4 0 0 1 18 18"/><path d="m13 12-3 5h4l-2 4"/>',
+  river: '<path d="M2 8c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/><path d="M2 15c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/>',
+  cy: '<path d="M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/><path d="M12 3c-5 0-8 3-8 6m8 12c5 0 8-3 8-6M4 15c0 3 3 6 8 6M20 9c0-3-3-6-8-6"/>',
+  rip: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  quiet: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
+};
+var KINDS = [
+  ['warn', 'Severe storm warnings', 'Bureau thunderstorm, severe weather and cyclone warnings covering your places'],
+  ['rain', 'Heavy rainfall', ''], ['wind', 'Damaging winds', ''], ['lt', 'Lightning nearby', ''],
+  ['river', 'River levels', ''], ['cy', 'Cyclones', 'New tropical lows near WA, and cyclones forming or strengthening'],
+  ['rip', 'Ripper Weather', ''], ['quiet', 'Quiet hours', '']
+];
+var KM = [[25, 'Near me'], [50, '50 km'], [100, '100 km'], [200, '200 km'], [300, '300 km'], [0, 'Whole state']];
+var DAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'], DAYN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+function hh(h) { return (h % 12 || 12) + ':00 ' + (h < 12 ? 'am' : 'pm'); }
+function isOn(k) { return k === 'warn' ? P.warn : P[k].on; }
+function summary(k) {
+  var kmS = function (km) { return km ? (km === 25 ? 'Within 25 km' : 'Within ' + km + ' km') : 'Anywhere in WA'; };
+  if (k === 'rain') return kmS(P.rain.km) + ' · ' + ([P.rain.r15 && '15 mm in 15 min', P.rain.r60 && '30 mm in 1 hr', P.rain.r180 && '50 mm in 3 hrs'].filter(Boolean).join(', ') || 'Bureau warnings only');
+  if (k === 'wind') return kmS(P.wind.km) + (P.wind.gust ? ' · gusts ' + P.wind.gust + ' km/h+' : ' · Bureau warnings only');
+  if (k === 'lt') return 'Strikes within ' + P.lt.km + ' km of your places';
+  if (k === 'river') return P.river.g.length ? P.river.g.length + ' gauge' + (P.river.g.length > 1 ? 's' : '') + (P.river.wave ? ' · floods heading your way' : '') : 'Pick your gauges';
+  if (k === 'rip') return (P.rip.when === 'eve' ? 'Night before, ' : 'Morning of, ') + hh(P.rip.hr) + ' · ' + (P.rip.days.length === 7 ? 'every day' : P.rip.days.slice().sort().map(function (d) { return DAYN[d].substring(0, 3); }).join(', ') || 'no days');
+  if (k === 'quiet') return hh(P.quiet.from) + ' to ' + hh(P.quiet.to) + ', except Bureau warnings';
+  return '';
+}
+function chips(name, list, val, cls) {
+  return '<div class="chips ' + (cls || '') + '" role="group">' + list.map(function (c) {
+    return '<button type="button" aria-pressed="' + (c[0] === val) + '" onclick="setv(\'' + name + '\',' + JSON.stringify(c[0]).replace(/"/g, '&quot;') + ')">' + c[1] + '</button>';
+  }).join('') + '</div>';
+}
+function ck(path, label, small) {
+  var v = get(path);
+  return '<label class="ck"><input type="checkbox"' + (v ? ' checked' : '') + ' onchange="setv(\'' + path + '\',this.checked)"><span>' + label + (small ? '<small>' + small + '</small>' : '') + '</span></label>';
+}
+function get(path) { var o = P, ks = path.split('.'); for (var i = 0; i < ks.length; i++) o = o[ks[i]]; return o; }
+function setv(path, v) { var o = P, ks = path.split('.'); for (var i = 0; i < ks.length - 1; i++) o = o[ks[i]]; o[ks[ks.length - 1]] = v; drawKinds(); }
+function toggle(k, on) { if (k === 'warn') P.warn = on; else P[k].on = on; drawKinds(); }
+function body(k) {
+  if (k === 'rain') return '<div><span class="lbl">How far around each place</span>' + chips('rain.km', KM, P.rain.km) + '<p class="hint" style="margin-top:6px">Near me is within 25 km.</p></div>'
+    + ck('rain.bom', 'The Bureau warns of heavy rain') + ck('rain.r15', 'A gauge gets <b>15 mm+ in 15 minutes</b>')
+    + ck('rain.r60', 'A gauge gets <b>30 mm+ in an hour</b>') + ck('rain.r180', 'A gauge gets <b>50 mm+ in 3 hours</b>');
+  if (k === 'wind') return '<div><span class="lbl">How far around each place</span>' + chips('wind.km', KM, P.wind.km) + '<p class="hint" style="margin-top:6px">Near me is within 25 km.</p></div>'
+    + ck('wind.bom', 'The Bureau warns of damaging winds')
+    + '<div><span class="lbl">A station records a gust of (km/h)</span>' + chips('wind.gust', [[70, '70+'], [90, '90+'], [100, '100+'], [125, '125+']], P.wind.gust, 'c4')
+    + '<p class="hint" style="margin-top:6px">BoM and DPIRD stations, faulty readings filtered out. ' + (P.wind.gust ? '<a href="#" onclick="setv(\'wind.gust\',0);return false" style="color:var(--accent)">No gust alerts</a>' : 'Gust alerts are off — pick a speed to turn them on.') + '</p></div>';
+  if (k === 'lt') return '<div><span class="lbl">Strikes within</span>' + chips('lt.km', [[10, '10 km'], [20, '20 km'], [50, '50 km']], P.lt.km)
+    + '<p class="hint" style="margin-top:6px">From the Blitzortung lightning network. At most one alert every 2 hours for each place.</p></div>';
+  if (k === 'river') {
+    var h = '<div><span class="lbl">Alert me when the river reaches</span>';
+    P.river.g.forEach(function (x, i) {
+      var g = GAUGES[x.id] || { name: x.id, fl: {} }, fl = g.fl || {}, own = !/^(minor|moderate|major)$/.test(x.at);
+      var opts = ['minor', 'moderate', 'major'].filter(function (c) { return fl[c] !== null && fl[c] !== undefined; })
+        .map(function (c) { return '<option value="' + c + '"' + (x.at === c ? ' selected' : '') + '>' + c.charAt(0).toUpperCase() + c.slice(1) + ' flood · ' + (+fl[c]).toFixed(2) + ' m</option>'; }).join('');
+      h += '<div class="gauge"><span class="gn">' + esc(g.river ? g.river : '') + '<small>' + esc(g.name) + (g.lvl !== undefined && g.lvl !== null ? ' · now ' + (+g.lvl).toFixed(2) + ' m' : '') + '</small></span>'
+        + '<select aria-label="Alert level" onchange="gaugeAt(' + i + ',this.value)">' + opts + '<option value="own"' + (own ? ' selected' : '') + '>My own level…</option></select>'
+        + (own ? '<input type="number" step="0.05" value="' + esc(x.at) + '" aria-label="Your level in metres" onchange="P.river.g[' + i + '].at=String(this.value)"> m' : '')
+        + '<button class="x" onclick="P.river.g.splice(' + i + ',1);drawKinds()">Remove</button></div>';
+    });
+    h += P.river.g.length < 10 ? '<div class="row" style="margin-top:6px"><input id="gaugeIn" type="text" list="gaugeList" placeholder="Find a gauge: river or place" aria-label="Find a gauge"><button onclick="addGauge()">+ Add gauge</button></div>' : '';
+    return h + '</div>' + ck('river.wave', 'A flood wave is heading to my gauges, with its timing') + ck('river.rise', 'A river is rising fast (10 cm an hour or more)')
+      + ck('river.road', 'A road near my places closes', 'Main Roads and shire closures within 25 km');
+  }
+  if (k === 'cy') return ck('cy.lows', 'A new tropical low near WA', 'Or a low\'s chance of becoming a cyclone rising to moderate or high (Bureau outlook)')
+    + ck('cy.cat', 'A cyclone forms or changes category');
+  if (k === 'rip') {
+    var hrs = P.rip.when === 'eve' ? [16, 17, 18, 19, 20, 21] : [5, 6, 7, 8, 9];
+    if (hrs.indexOf(P.rip.hr) < 0) P.rip.hr = P.rip.when === 'eve' ? 19 : 6;
+    return '<div>' + chips('rip.when', [['eve', 'Night before'], ['am', 'Morning of']], P.rip.when, 'c2') + '</div>'
+      + '<div class="two">At <select aria-label="Time" onchange="setv(\'rip.hr\',+this.value)">' + hrs.map(function (h2) { return '<option value="' + h2 + '"' + (P.rip.hr === h2 ? ' selected' : '') + '>' + hh(h2) + '</option>'; }).join('') + '</select></div>'
+      + '<div><span class="lbl">For these days</span><div class="chips c7" role="group">' + DAYS.map(function (d, i) {
+        return '<button type="button" aria-label="' + DAYN[i] + '" aria-pressed="' + (P.rip.days.indexOf(i) >= 0) + '" onclick="ripDay(' + i + ')">' + d + '</button>'; }).join('') + '</div></div>'
+      + '<div><span class="lbl">Your towns</span><div class="tags">' + P.rip.towns.map(function (t, i) {
+        return '<span class="tag">' + esc(t) + '<button aria-label="Remove ' + esc(t) + '" onclick="P.rip.towns.splice(' + i + ',1);drawKinds()">×</button></span>'; }).join('') + '</div>'
+      + (P.rip.towns.length < 10 ? '<div class="row"><input id="townIn" type="text" list="townList" placeholder="Add a town" aria-label="Add a town"><button onclick="addTown()">+ Add town</button></div>' : '') + '</div>'
+      + ck('rip.best', 'Best in WA too', 'The top 3 ripper towns statewide') + ck('rip.only', 'Only when it\'s a ripper', 'Skip days when none of your towns score 70 or more out of 100');
+  }
+  if (k === 'quiet') {
+    var sel = function (path, v) { var o = ''; for (var h3 = 0; h3 < 24; h3++) o += '<option value="' + h3 + '"' + (v === h3 ? ' selected' : '') + '>' + hh(h3) + '</option>'; return '<select onchange="setv(\'' + path + '\',+this.value)">' + o + '</select>'; };
+    return '<div class="two">From ' + sel('quiet.from', P.quiet.from) + ' to ' + sel('quiet.to', P.quiet.to) + '</div><p class="hint">Only Bureau warnings come through in these hours.</p>';
+  }
+  return '';
+}
+function drawKinds() {
+  $('kinds').innerHTML = KINDS.map(function (k) {
+    var on = isOn(k[0]), sm = k[2] || summary(k[0]), b = body(k[0]);
+    return '<div class="kind' + (on && b ? ' on' : '') + '"><div class="kh" onclick="if(event.target.tagName!==\'INPUT\')this.querySelector(\'input\').click()">'
+      + '<span class="ic" style="background:var(--c-' + k[0] + ')"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICON[k[0]] + '</svg></span>'
+      + '<span class="t"><b>' + k[1] + '</b><small>' + esc(sm) + '</small></span>'
+      + '<input class="sw" type="checkbox" role="switch"' + (on ? ' checked' : '') + ' aria-label="' + k[1] + '" onchange="toggle(\'' + k[0] + '\',this.checked)"></div>'
+      + (b ? '<div class="kb">' + b + '</div>' : '') + '</div>';
+  }).join('');
+}
+function ripDay(i) { var a = P.rip.days, j = a.indexOf(i); if (j >= 0) a.splice(j, 1); else a.push(i); drawKinds(); }
+function gaugeAt(i, v) { P.river.g[i].at = v === 'own' ? String(GAUGES[P.river.g[i].id] && GAUGES[P.river.g[i].id].lvl != null ? Math.ceil((GAUGES[P.river.g[i].id].lvl + 0.5) * 10) / 10 : 1) : v; drawKinds(); }
+function addGauge() {
+  var v = $('gaugeIn').value.trim(), id = null;
+  Object.keys(GAUGES).forEach(function (k) { if (gaugeLabel(GAUGES[k]) === v) id = k; });
+  if (!id) { say('Pick a gauge from the list as you type.', 'bad'); return; }
+  if (P.river.g.some(function (x) { return x.id === id; })) return;
+  var fl = GAUGES[id].fl || {};
+  P.river.g.push({ id: id, at: fl.minor != null ? 'minor' : fl.moderate != null ? 'moderate' : fl.major != null ? 'major' : String(Math.ceil(((GAUGES[id].lvl || 0) + 0.5) * 10) / 10) });
+  P.river.on = true; drawKinds();
+}
+function addTown() {
+  var v = $('townIn').value.trim(), t = TOWNS.filter(function (x) { return x.toLowerCase() === v.toLowerCase(); })[0];
+  if (!t) { say('Pick a town from the list as you type.', 'bad'); return; }
+  if (P.rip.towns.indexOf(t) < 0) P.rip.towns.push(t);
+  drawKinds();
+}
+function gaugeLabel(g) { return (g.river ? g.river + ' at ' : '') + g.name; }
+function loadLists() {
+  fetch(DATA + 'river-data/rivers.json?t=' + Math.floor(Date.now() / 600000)).then(function (r) { return r.json(); }).then(function (d) {
+    (d.gauges || []).forEach(function (g) { if (!g.tidal) GAUGES[g.id] = g; });
+    $('gaugeList').innerHTML = Object.keys(GAUGES).map(function (k) { return '<option value="' + esc(gaugeLabel(GAUGES[k])) + '">'; }).join('');
+    drawKinds();
+  }).catch(function () {});
+  fetch(DATA + 'site-data/ripper.json?t=' + Math.floor(Date.now() / 600000)).then(function (r) { return r.json(); }).then(function (d) {
+    TOWNS = (d.towns || []).map(function (t) { return t.n; }).sort();
+    $('townList').innerHTML = TOWNS.map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
+  }).catch(function () {});
+}
 
+// ---------------------------------------------------------------- turning alerts on, testing, off
 function setOn(on) {
   $('onBtn').textContent = on ? 'Save changes' : 'Turn on alerts';
   $('testBtn').disabled = !on; $('offBtn').disabled = !on;
 }
-
 function isIos() { return /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1); }
 function isStandalone() { return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true; }
 function supported() { return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window; }
-
 function getToken() {
-  if (!messaging) {
-    firebase.initializeApp(FIREBASE_CONFIG);
-    messaging = firebase.messaging();
-  }
+  if (!messaging) { firebase.initializeApp(FIREBASE_CONFIG); messaging = firebase.messaging(); }
   return messaging.getToken({ vapidKey: VAPID_KEY, serviceWorkerRegistration: reg });
 }
-
+function needsPlace() { return P.warn || P.rain.on && P.rain.km || P.wind.on && P.wind.km || P.lt.on || P.river.on && P.river.road; }
 function turnOn() {
-  if (!places.length) { say('Add at least one place first.', 'bad'); return; }
+  if (!places.length && needsPlace()) { say('Add at least one place first.', 'bad'); return; }
+  if (P.river.on && !P.river.g.length && !P.river.road) { say('Add a river gauge, or turn river alerts off.', 'bad'); return; }
+  if (P.rip.on && (!P.rip.days.length || (!P.rip.towns.length && !P.rip.best))) { say('For Ripper Weather, pick at least one day and a town (or "Best in WA").', 'bad'); return; }
   if (!supported()) { say(isIos() && !isStandalone() ? 'On iPhone, add this page to your Home Screen first (see above).' : 'This browser doesn\'t support alerts.', 'bad'); return; }
-  $('onBtn').disabled = true; say('Setting up…');
+  $('onBtn').disabled = true; say('Saving…');
   Notification.requestPermission().then(function (perm) {
     if (perm !== 'granted') throw new Error('Notifications are blocked for this site. Allow them in your browser settings, then try again.');
     return getToken();
   }).then(function (t) {
     if (!t) throw new Error('Couldn\'t get an alert address for this device.');
     token = t;
-    return api({ action: 'subscribe', token: token, places: places, prefs: prefs() });
+    return api({ action: 'subscribe', token: token, places: places, prefs: P });
   }).then(function (r) {
     if (!r.ok) throw new Error(r.msg);
     if (r.places) places = r.places;
-    store(); drawPlaces(); setOn(true); say(r.msg + ' Tap "Send a test" to check.', 'ok');
+    if (r.prefs) P = r.prefs;
+    store(); drawPlaces(); drawKinds(); setOn(true); say(r.msg + ' Tap "Send a test" to check.', 'ok');
   }).catch(function (e) { say(String(e.message || e), 'bad'); })
     .then(function () { $('onBtn').disabled = false; });
 }
-
 function sendTest() {
   if (!token) return;
   $('testBtn').disabled = true;
@@ -208,7 +377,6 @@ function sendTest() {
     .catch(function () { say('Couldn\'t reach West WX Watchers — please try again.', 'bad'); })
     .then(function () { $('testBtn').disabled = false; });
 }
-
 function turnOff() {
   if (!token) return;
   api({ action: 'unsubscribe', token: token }).then(function (r) {
@@ -220,7 +388,8 @@ function turnOff() {
 window.addEventListener('load', function () {
   if (isIos() && !isStandalone()) $('iosHint').style.display = 'block';
   if (saved.places) places = saved.places;
-  drawPlaces();
+  if (saved.prefs && saved.prefs.v === 2) P = saved.prefs;
+  drawPlaces(); drawKinds(); loadLists();
   if (!supported()) { if (!(isIos() && !isStandalone())) say('This browser doesn\'t support alerts. Try Chrome, Edge, Firefox or Safari.', 'bad'); return; }
   navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function (r) {
     reg = r;
@@ -229,8 +398,8 @@ window.addEventListener('load', function () {
       setOn(true); say('Checking your alert settings…');
       api({ action: 'get', token: token }).then(function (d) {
         if (d.ok && d.on) {
-          places = d.places || places; drawPlaces();
-          $('pWarn').checked = d.prefs.warn !== false; $('pRain').checked = d.prefs.rain !== false; $('pOutlook').value = String(d.prefs.outlook || 0);
+          places = d.places || places; if (d.prefs && d.prefs.v === 2) P = d.prefs;
+          drawPlaces(); drawKinds(); store();
           setOn(true); say('Alerts are on for this device.', 'ok');
         } else if (d.ok) { token = null; setOn(false); say('Alerts are off for this device. Tap "Turn on alerts" to start them.'); }
         else { say('Couldn\'t check your settings just now (' + d.msg + '). Your alerts are unchanged.'); }
