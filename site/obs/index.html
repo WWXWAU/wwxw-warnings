@@ -121,7 +121,11 @@
     <iframe id="app" data-src="https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec?page=obs" title="West WX Watchers live observations" allow="fullscreen; geolocation" allowfullscreen></iframe>
   </div>
   <div class="legal"><span class="lg-l">Not for the protection of life or property. © West WX Watchers — content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent.</span><span class="lg-s">Not for the protection of life or property · © West WX Watchers, no copying or reposting without consent ·</span> <a href="/terms/">Terms of use</a></div>
-  <script>document.getElementById('app').src = document.getElementById('app').getAttribute('data-src') + '&theme=' + window.WWXW_THEME;</script>
+  <script>(function () {   // a link to one station (?stn=…&src=…&p=…, e.g. from an alert) is passed on to the map
+    var q = new URLSearchParams(location.search), x = '';
+    ['stn', 'src', 'p'].forEach(function (k) { if (q.get(k)) x += '&' + k + '=' + encodeURIComponent(q.get(k)); });
+    document.getElementById('app').src = document.getElementById('app').getAttribute('data-src') + '&theme=' + window.WWXW_THEME + x;
+  })();</script>
   <script>
   // The map page tells us when its sun/moon button is pressed: follow it and remember it
   window.addEventListener('message', function (e) {

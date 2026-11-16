@@ -989,6 +989,10 @@
         $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' of ' + G.length + ' gauges reporting';
         fillDistricts(); drawPills(); drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap();
+          // a link to one gauge (?g=802055, e.g. from an alert): open it once the map is up
+          var qg = new URLSearchParams(location.search).get('g');
+          if (qg && byId(qg)) { var done = false, go = function () { if (!done) { done = true; pick(qg, true); } };
+            if (map && map.once) map.once('load', function () { setTimeout(go, 300); }); setTimeout(go, 4000); }
           fetch(DATA + 'rivers-lines.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) {
             if (j && j.features) { LINES = j; if (map && map.getSource('glines')) map.getSource('glines').setData(LINES); } });
           fetch(DATA + 'rivers-basins.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }).then(function (j) {
