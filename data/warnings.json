@@ -1,6 +1,121 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-11-15T19:20:53+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for South Interior forecast district",
+   "sent": "2026-11-16T05:47:26+00:00",
+   "expires": "2026-11-16T10:47:23+00:00",
+   "hazards": [
+    "damaging winds",
+    "heavy rainfall",
+    "large hail"
+   ],
+   "districts": [
+    "South Interior"
+   ],
+   "towns": [],
+   "townsPlaced": [],
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       127.437,
+       -27.556
+      ],
+      [
+       127.49,
+       -27.417
+      ],
+      [
+       127.544,
+       -27.342
+      ],
+      [
+       127.763,
+       -27.147
+      ],
+      [
+       127.871,
+       -27.076
+      ],
+      [
+       128.921,
+       -26.8
+      ],
+      [
+       129.001,
+       -26.806
+      ],
+      [
+       128.995,
+       -27.908
+      ],
+      [
+       128.91,
+       -27.934
+      ],
+      [
+       128.82,
+       -27.935
+      ],
+      [
+       128.757,
+       -27.956
+      ],
+      [
+       128.505,
+       -27.981
+      ],
+      [
+       128.45,
+       -28.002
+      ],
+      [
+       128.335,
+       -28.003
+      ],
+      [
+       128.117,
+       -28.047
+      ],
+      [
+       127.824,
+       -28.023
+      ],
+      [
+       127.638,
+       -27.952
+      ],
+      [
+       127.469,
+       -27.78
+      ],
+      [
+       127.436,
+       -27.697
+      ],
+      [
+       127.437,
+       -27.556
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png",
+   "people": 0,
+   "peopleTowns": [],
+   "post": "img/IDW21033-202611160547-post.png",
+   "story": "img/IDW21033-202611160547-story.png"
+  }
+ ],
+ "updated": "2026-11-16T05:49:02+00:00"
 }
