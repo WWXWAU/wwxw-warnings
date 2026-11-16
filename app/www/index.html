@@ -86,6 +86,7 @@ label.ck small{display:block;color:var(--muted);font-size:12.5px;}
 html,body{height:100%;}
 body{display:flex;flex-direction:column;padding:0;overflow:hidden;}
 .top{padding-top:env(safe-area-inset-top,0);flex:none;}
+.top .in{display:none;}   /* no title bar: the tab bar at the bottom says where you are, the pages get the room */
 .top .in{justify-content:space-between;}
 .top b{font-size:13px!important;}.top b::before{content:none!important;}
 .screen{flex:1;min-height:0;display:none;}
