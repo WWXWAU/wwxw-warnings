@@ -99,6 +99,10 @@ body{display:flex;flex-direction:column;padding:0;overflow:hidden;}
 .tabs svg{width:22px;height:22px;}
 .actions{bottom:0;}
 .web-note{position:absolute;left:0;right:0;top:40%;text-align:center;color:var(--muted);font-size:14px;padding:0 24px;}
+.notice{position:fixed;inset:0;z-index:50;background:rgba(8,24,29,.6);display:flex;align-items:flex-end;justify-content:center;padding:16px;}
+.notice .card{background:var(--surface);color:var(--text);border-radius:18px;padding:20px 18px calc(16px + env(safe-area-inset-bottom,0));max-width:520px;width:100%;}
+.notice h2{font-size:18px;margin-bottom:8px;}.notice p{font-size:14px;color:var(--muted);margin-bottom:10px;}
+.notice a{color:var(--accent);}.notice button{width:100%;min-height:50px;border-radius:14px;margin-top:6px;}
 </style>
 </head>
 <body>
@@ -443,7 +447,20 @@ function turnOff() {
   }).catch(function () { say('Couldn\'t reach West WX Watchers — please try again.', 'bad'); });
 }
 
+// First open: the not-for-life-or-property notice (the site's pages hide their footer line inside the app)
+function notice() {
+  try { if (localStorage.getItem('wwxw-ok') === '1') return; } catch (e) {}
+  var n = document.createElement('div'); n.className = 'notice';
+  n.innerHTML = '<div class="card" role="dialog" aria-labelledby="ntT"><h2 id="ntT">Before you start</h2>'
+    + '<p><b>Not for the protection of life or property.</b> West WX Watchers is unofficial and can be delayed or wrong. For warnings, go to the Bureau of Meteorology and Emergency WA, and follow the advice of emergency services.</p>'
+    + '<p>© West WX Watchers — content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent. <a href="#" id="ntTerms">Terms of use</a></p>'
+    + '<button class="main" id="ntOk">OK, got it</button></div>';
+  document.body.appendChild(n);
+  $('ntOk').onclick = function () { try { localStorage.setItem('wwxw-ok', '1'); } catch (e) {} n.remove(); };
+  $('ntTerms').onclick = function (e) { e.preventDefault(); try { localStorage.setItem('wwxw-ok', '1'); } catch (x) {} n.remove(); showTab('home', '/terms/'); };
+}
 window.addEventListener('load', function () {
+  notice();
   if (saved.places) places = saved.places;
   if (saved.prefs) P = norm(saved.prefs);
   drawTabs(); showTab('alerts'); drawPlaces(); drawKinds(); loadLists(); setupPush();
