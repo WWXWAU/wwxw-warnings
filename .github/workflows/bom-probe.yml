@@ -7,4 +7,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: pip install playwright && python -m playwright install --with-deps chromium
       - run: python tools/bom_probe.py
