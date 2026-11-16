@@ -86,6 +86,13 @@ label.ck small{display:block;color:var(--muted);font-size:12.5px;}
 .note a{color:var(--accent);}
 #iosHint ol{margin:6px 0 0 20px;font-size:14px;}
 .empty{color:var(--muted);font-size:13.5px;padding:6px 0;}
+/* our own suggestions under a search box (phones' built-in ones drew over the page) */
+.sugwrap{position:relative;flex:1;min-width:150px;display:flex;}
+.sugwrap input{flex:1;min-width:0;}
+.sug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.18);overflow:hidden;}
+.sug button{display:block;width:100%;text-align:left;border:0;border-radius:0;border-bottom:1px solid var(--line);padding:10px 12px;min-height:44px;font-size:14px;background:transparent;}
+.sug button:last-child{border-bottom:0;}
+.sug button small{display:block;color:var(--muted);font-size:12px;}
 </style>
 </head>
 <body>
@@ -137,8 +144,6 @@ label.ck small{display:block;color:var(--muted);font-size:12.5px;}
   <p class="note" style="margin-top:8px"><b>Not for the protection of life or property.</b> © West WX Watchers — content and data may not be copied, reposted or redistributed (including on other social media pages) without written consent. <a href="/terms/">Terms of use</a></p>
 </div>
 
-<datalist id="gaugeList"></datalist>
-<datalist id="townList"></datalist>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
@@ -283,7 +288,7 @@ function body(k) {
         + (own ? '<input type="number" step="0.05" value="' + esc(x.at) + '" aria-label="Your level in metres" onchange="P.river.g[' + i + '].at=String(this.value)"> m' : '')
         + '<button class="x" onclick="P.river.g.splice(' + i + ',1);drawKinds()">Remove</button></div>';
     });
-    h += P.river.g.length < 10 ? '<div class="row" style="margin-top:6px"><input id="gaugeIn" type="text" list="gaugeList" placeholder="Find a gauge: river or place" aria-label="Find a gauge"><button onclick="addGauge()">+ Add gauge</button></div>' : '';
+    h += P.river.g.length < 10 ? '<div class="row" style="margin-top:6px"><span class="sugwrap"><input id="gaugeIn" type="text" autocomplete="off" placeholder="Find a gauge: river or place" aria-label="Find a gauge" oninput="sugGauge(this.value)"><div class="sug" id="gaugeSug" hidden></div></span></div>' : '';
     return h + '</div>' + ck('river.wave', 'A flood wave is heading to my gauges, with its timing') + ck('river.rise', 'A river is rising fast (10 cm an hour or more)')
       + ck('river.road', 'A road near my places closes', 'Main Roads and shire closures within 25 km');
   }
@@ -298,7 +303,7 @@ function body(k) {
         return '<button type="button" aria-label="' + DAYN[i] + '" aria-pressed="' + (P.rip.days.indexOf(i) >= 0) + '" onclick="ripDay(' + i + ')">' + d + '</button>'; }).join('') + '</div></div>'
       + '<div><span class="lbl">Your towns</span><div class="tags">' + P.rip.towns.map(function (t, i) {
         return '<span class="tag">' + esc(t) + '<button aria-label="Remove ' + esc(t) + '" onclick="P.rip.towns.splice(' + i + ',1);drawKinds()">×</button></span>'; }).join('') + '</div>'
-      + (P.rip.towns.length < 10 ? '<div class="row"><input id="townIn" type="text" list="townList" placeholder="Add a town" aria-label="Add a town"><button onclick="addTown()">+ Add town</button></div>' : '') + '</div>'
+      + (P.rip.towns.length < 10 ? '<div class="row"><span class="sugwrap"><input id="townIn" type="text" autocomplete="off" placeholder="Add a town: start typing" aria-label="Add a town" oninput="sugTown(this.value)"><div class="sug" id="townSug" hidden></div></span></div>' : '') + '</div>'
       + ck('rip.best', 'Best in WA too', 'The top 3 ripper towns statewide') + ck('rip.only', 'Only when it\'s a ripper', 'Skip days when none of your towns score 70 or more out of 100');
   }
   if (k === 'quiet') {
@@ -319,18 +324,32 @@ function drawKinds() {
 }
 function ripDay(i) { var a = P.rip.days, j = a.indexOf(i); if (j >= 0) a.splice(j, 1); else a.push(i); drawKinds(); }
 function gaugeAt(i, v) { P.river.g[i].at = v === 'own' ? String(GAUGES[P.river.g[i].id] && GAUGES[P.river.g[i].id].lvl != null ? Math.ceil((GAUGES[P.river.g[i].id].lvl + 0.5) * 10) / 10 : 1) : v; drawKinds(); }
-function addGauge() {
-  var v = $('gaugeIn').value.trim(), id = null;
-  Object.keys(GAUGES).forEach(function (k) { if (gaugeLabel(GAUGES[k]) === v) id = k; });
-  if (!id) { say('Pick a gauge from the list as you type.', 'bad'); return; }
+// suggestions: up to 8 matches for what's typed (every word must match), tap one to add it
+function matches(list, q, label) {
+  var w = q.toLowerCase().split(/\s+/).filter(Boolean); if (!w.length) return [];
+  return list.filter(function (x) { var t = label(x).toLowerCase(); return w.every(function (y) { return t.indexOf(y) >= 0; }); }).slice(0, 8);
+}
+function sugGauge(q) {
+  var M = matches(Object.keys(GAUGES), q, function (k) { return gaugeLabel(GAUGES[k]); }), el = $('gaugeSug');
+  el.innerHTML = M.map(function (k) { var g = GAUGES[k]; return '<button type="button" onclick="addGauge(\'' + k + '\')">' + esc(g.river || g.name) + (g.river ? '<small>' + esc(g.name) + '</small>' : '') + '</button>'; }).join('')
+    || (q.trim().length > 1 ? '<button type="button" disabled>No gauge matches “' + esc(q) + '”</button>' : '');
+  el.hidden = !el.innerHTML;
+}
+function sugTown(q) {
+  var M = matches(TOWNS, q, function (t) { return t; }), el = $('townSug');
+  el.innerHTML = M.map(function (t) { return '<button type="button" onclick="addTown(TOWNS[' + TOWNS.indexOf(t) + '])">' + esc(t) + '</button>'; }).join('')
+    || (q.trim().length > 1 ? '<button type="button" disabled>No town matches “' + esc(q) + '”</button>' : '');
+  el.hidden = !el.innerHTML;
+}
+function addGauge(id) {
+  if (!id || !GAUGES[id]) return;
   if (P.river.g.some(function (x) { return x.id === id; })) return;
   var fl = GAUGES[id].fl || {};
   P.river.g.push({ id: id, at: fl.minor != null ? 'minor' : fl.moderate != null ? 'moderate' : fl.major != null ? 'major' : String(Math.ceil(((GAUGES[id].lvl || 0) + 0.5) * 10) / 10) });
   P.river.on = true; drawKinds();
 }
-function addTown() {
-  var v = $('townIn').value.trim(), t = TOWNS.filter(function (x) { return x.toLowerCase() === v.toLowerCase(); })[0];
-  if (!t) { say('Pick a town from the list as you type.', 'bad'); return; }
+function addTown(t) {
+  if (!t || TOWNS.indexOf(t) < 0) return;
   if (P.rip.towns.indexOf(t) < 0) P.rip.towns.push(t);
   drawKinds();
 }
@@ -338,12 +357,10 @@ function gaugeLabel(g) { return (g.river ? g.river + ' at ' : '') + g.name; }
 function loadLists() {
   fetch(DATA + 'river-data/rivers.json?t=' + Math.floor(Date.now() / 600000)).then(function (r) { return r.json(); }).then(function (d) {
     (d.gauges || []).forEach(function (g) { if (!g.tidal) GAUGES[g.id] = g; });
-    $('gaugeList').innerHTML = Object.keys(GAUGES).map(function (k) { return '<option value="' + esc(gaugeLabel(GAUGES[k])) + '">'; }).join('');
     drawKinds();
   }).catch(function () {});
   fetch(DATA + 'site-data/ripper.json?t=' + Math.floor(Date.now() / 600000)).then(function (r) { return r.json(); }).then(function (d) {
     TOWNS = (d.towns || []).map(function (t) { return t.n; }).sort();
-    $('townList').innerHTML = TOWNS.map(function (t) { return '<option value="' + esc(t) + '">'; }).join('');
   }).catch(function () {});
 }
 
