@@ -14,7 +14,7 @@ Every 15 minutes (GitHub Actions):
     rivers-daily.json).
 Writes rivers.json (now) and rivers-history.json (the record) into the output folder.
 """
-import concurrent.futures as cf, csv, datetime as dt, ftplib, io, json, math, os, re, sys, time, urllib.parse, urllib.request
+import concurrent.futures as cf, csv, datetime as dt, ftplib, io, json, math, os, re, subprocess, sys, time, urllib.parse, urllib.request
 
 UA = {'User-Agent': 'Mozilla/5.0 (West WX Watchers river levels; westweatherwatchers.com)'}
 DWER = 'https://kumina.water.wa.gov.au/waterinformation'
@@ -373,12 +373,15 @@ SHIRE_TABLES = [('Coolgardie', 'https://www.coolgardie.wa.gov.au/roads.aspx'),
                 ('Ngaanyatjarraku', 'https://www.ngaanyatjarraku.wa.gov.au/road-reports.aspx'),
                 ('Mount Magnet', 'https://www.mtmagnet.wa.gov.au/roads'),
                 ('Shark Bay', 'https://www.sharkbay.wa.gov.au/property/works/road-conditions.aspx')]
+# Shires whose report needs its own reader (a PDF, or a few lines of page text); still listed with a link if it fails
+SHIRE_DOCS = [('Ashburton', 'https://www.ashburton.wa.gov.au/services/emergency-safety/road-report.aspx', 'shire_ashburton'),
+              ('Laverton', 'https://laverton.wa.gov.au/living/road-condition-reports/', 'shire_laverton')]
 # Shires whose report is only a document or a page we can't read: listed with a link
 SHIRE_LINKS = [('Broome', 'https://www.broome.wa.gov.au/Shire-Services/Infrastructure/Road-Condition-Report-and-Planned-Maintenance'),
                ('Halls Creek', 'https://www.hallscreek.wa.gov.au/services/road-conditions'),
                ('Derby–West Kimberley', 'https://www.sdwk.wa.gov.au/services/roads/road-conditions.aspx'),
                ('Ashburton', 'https://www.ashburton.wa.gov.au/services/emergency-safety/road-report.aspx'),
-               ('Laverton', 'https://laverton.wa.gov.au/services/roads/road-condition-reports.aspx')]
+               ('Laverton', 'https://laverton.wa.gov.au/living/road-condition-reports/')]
 NOT_WEATHER = re.compile(r'(?i)road ?works|construction|reconstruct|resurfac|re-?sheet|bitumen|sealing|lane closure|stabilisation|asphalt|kerb|\bworks\b|maintenance|'
                          r'playground|beach access|stairs|intersection|temporary|event|parade|market')
 BROWSER = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
@@ -501,6 +504,80 @@ def shire_table(shire, url, now, old):
     return feats, page_t or max([f['properties']['updated'] for f in feats] or [''])
 
 
+def shire_feat(shire, url, road, where, status, closed, when):
+    slug = re.sub(r'[^a-z]+', '', shire.lower())
+    return {'type': 'Feature', 'geometry': None, 'properties': {
+        'id': 'S:%s:%s' % (slug, re.sub(r'[^a-z0-9]+', '-', where.lower()).strip('-')[:80]), 'src': 'shire', 'shire': shire,
+        'road': re.split(r' [–-] (?=.* to )', re.split(r' \(| SLK', road)[0])[0].strip(), 'where': where, 'type': status, 'closed': 1 if closed else 0,
+        'note': status, 'updated': when, 'url': url}}
+
+
+def ashburton_rows(txt):
+    """Rows of Ashburton's report as pdftotext -layout gives them: "Road    OPEN    OPEN    Comment", with the road
+    name and the comment wrapping onto the lines below (a blank line ends a row)."""
+    rows, cur = [], None
+    ST = r'(OPEN|CLOSED|RESTRICTED|4WD ONLY)'
+    for line in txt.splitlines():
+        r = re.match(r'^\s*(\S.*?)\s{2,}' + ST + r'\s{2,}' + ST + r'(?:\s{2,}(.*))?$', line, re.I)
+        if r:
+            cur = {'road': r.group(1).strip(), 'lv': r.group(2).upper(), 'tr': r.group(3).upper(), 'c': (r.group(4) or '').strip(), 'sc': r.start(2)}
+            rows.append(cur); continue
+        if not line.strip(): cur = None; continue
+        if cur:
+            left, right = line[:cur['sc']].strip(), line[cur['sc']:].strip()
+            if left: cur['road'] += ' ' + left
+            if right: cur['c'] = (cur['c'] + ' ' + right).strip()
+    return rows
+
+
+def shire_ashburton(shire, url, now, old):
+    """Ashburton's road report is a PDF linked from its page: Road | Light Vehicles | Trucks GCM > 4.5T | Comments."""
+    html = urllib.request.urlopen(urllib.request.Request(url, headers=dict(BROWSER, Accept='text/html')), timeout=60).read().decode('utf-8', 'replace')
+    pdfs = re.findall(r'(?i)href="([^"]*road_condition_reports/[^"]+\.pdf)"', html)
+    if not pdfs: raise ValueError('report PDF not linked')
+    doc = urllib.parse.urljoin(url, pdfs[0])
+    raw = urllib.request.urlopen(urllib.request.Request(doc, headers=BROWSER), timeout=60).read()
+    txt = subprocess.run(['pdftotext', '-layout', '-', '-'], input=raw, capture_output=True, check=True).stdout.decode('utf-8', 'replace')
+    m = re.search(r'(?m)^\s*(\d{1,2})(?:st|nd|rd|th)?\s+([A-Z][a-z]+)\s+(\d{4})\s*$', txt)
+    when = dt.datetime.strptime(' '.join(m.groups()), '%d %B %Y').strftime('%Y-%m-%d') if m else ''
+    rows = ashburton_rows(txt)
+    if not rows: raise ValueError('no roads found in the report PDF')
+    feats = []
+    for r in rows:
+        lv, tr, c = r['lv'], r['tr'], re.sub(r'\s+', ' ', r['c'])
+        closed = 'CLOSED' in lv and 'CLOSED' in tr
+        flagged = lv != 'OPEN' or tr != 'OPEN'
+        if not flagged and (not re.search(r'(?i)caution|washout|water over|flood|4wd|restrict|damage|soft|boggy', c) or NOT_WEATHER.search(c)):
+            continue                                                       # open, or only grading and other works
+        status = 'CLOSED' if closed else '; '.join(x for x in ['Trucks CLOSED' if 'CLOSED' in tr and 'CLOSED' not in lv else '',
+                                                             'Light vehicles ' + lv if lv != 'OPEN' else '', c] if x)
+        road = re.sub(r'\s+', ' ', r['road'])
+        feats.append(shire_feat(shire, doc, re.split(r' \(| SLK', road)[0], road, status, closed, when))
+    return feats, when
+
+
+def shire_laverton(shire, url, now, old):
+    """Laverton's page gives its time ("Current as at 8:52am - Monday, 16 November 2026") and a few lines under
+    "Road Conditions" ("Great Central Rd Update – Road is now passable to most traffic, but heavy vehicles should
+    seek further advice ..."); the full report is a picture, so only those lines are read."""
+    html = urllib.request.urlopen(urllib.request.Request(url, headers=dict(BROWSER, Accept='text/html')), timeout=60).read().decode('utf-8', 'replace')
+    when = table_time(clean(html))
+    m = re.search(r'(?is)>\s*Road Conditions\s*<(.*?)Please read this', html)
+    if not m or not when: raise ValueError('road conditions section not found')
+    feats = []
+    for b in re.split(r'(?i)<(?:p|li|h\d|br)\b[^>]*>', m.group(1)):
+        t = clean(b).replace('&#8211;', '–').replace('&amp;', '&').replace('&nbsp;', ' ').strip()
+        r = re.match(r'(.{3,60}?\b(?:Rd|Road|Hwy|Highway|Track|Way))\b\s*(?:update)?\s*[–:-]?\s*(.+)', t, re.I)
+        if not r: continue
+        road, status = r.group(1).strip(), r.group(2).strip()
+        n = status.lower()
+        if re.search(r'\bclosed\b', n) and not re.search(r're-?opened|now open', n):
+            closed = not re.search(r'heavy|truck|tonne|over \d|4wd', n); caution = True
+        else: closed = False; caution = bool(re.search(r'passable|caution|heavy|truck|4wd|restrict|water over|flood|limited|seek', n))
+        if caution and not NOT_WEATHER.search(status): feats.append(shire_feat(shire, url, road, road, status, closed, when))
+    return feats, when
+
+
 def shire_roads(out_dir):
     """Every shire's closed and caution roads (cached for 30 minutes), and the list of shire reports."""
     path = os.path.join(out_dir, 'rivers-shireroads.json'); now = dt.datetime.now(AWST)
@@ -521,9 +598,9 @@ def shire_roads(out_dir):
                 f, latest = res; feats += f
                 shires.append({'name': name, 'url': 'https://%s/roadreport/' % host, 'closed': sum(x['properties']['closed'] for x in f),
                                'caution': sum(1 - x['properties']['closed'] for x in f), 'updated': latest})
-        for name, url in SHIRE_TABLES:
+        for name, url, fn in [(n, u, shire_table) for n, u in SHIRE_TABLES] + [(n, u, globals()[f]) for n, u, f in SHIRE_DOCS]:
             oldf = [f for f in C.get('features', []) if f['properties'].get('shire') == name]
-            try: f, latest = shire_table(name, url, now, oldf)
+            try: f, latest = fn(name, url, now, oldf)
             except Exception as e:  # noqa: BLE001
                 feats += oldf
                 if name in old: shires.append(dict(old[name], err=str(e)[:80]))

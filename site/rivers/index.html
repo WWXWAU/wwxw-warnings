@@ -323,7 +323,7 @@
     }
 
     // ---- the state of the rivers (flood first)
-    function shireWhen(t) { if (!t) return 'unknown'; var d = new Date(t + ':00+08:00'); return isNaN(d) ? t : d.toLocaleString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }); }
+    function shireWhen(t) { if (!t) return 'unknown'; if (/^\d{4}-\d\d-\d\d$/.test(t)) return new Date(t + 'T12:00:00+08:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Australia/Perth' }); var d = new Date(t + ':00+08:00'); return isNaN(d) ? t : d.toLocaleString('en-AU', { weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }); }
     // a road clicked on the map: its entry in the side panel (opening its shire's section), scrolled into view and lit up
     function roadShow(id) {
       var i = -1; ROADS.features.forEach(function (f, k) { if (f.properties.id === id) i = k; });

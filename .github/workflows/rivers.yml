@@ -29,6 +29,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -q pillow numpy h5py
+      - run: sudo apt-get install -y -qq poppler-utils >/dev/null || true   # pdftotext, for Ashburton's PDF road report
       - name: Watch DWER and rebuild on new readings
         env:
           ONCE: ${{ inputs.once }}
