@@ -130,6 +130,7 @@
   <script>   // in the app, the map's warning banner asks this page to open Live Obs (a plain link would leave the app)
   window.addEventListener('message', function (e) {
     if (!/^https:\/\/([\w-]+\.)*googleusercontent\.com$/.test(e.origin) || !e.data || typeof e.data.wwxwGo !== 'string' || !/^\/[\w\/-]*$/.test(e.data.wwxwGo)) return;
+    try { e.source.postMessage({ wwxwGoOk: 1 }, '*'); } catch (x) {}   // tell the map it's handled (else it opens the link itself)
     location.href = e.data.wwxwGo;
   });
   </script>
