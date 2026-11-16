@@ -103,15 +103,18 @@ def fetch(points):
         q = {'latitude': ','.join('%.2f' % p[0] for p in chunk), 'longitude': ','.join('%.2f' % p[1] for p in chunk),
              'hourly': ','.join(HOURLY), 'timezone': 'Australia/Perth', 'forecast_days': 7, 'wind_speed_unit': 'kmh'}
         url = 'https://api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(q)
-        for attempt in range(4):
+        # Open-Meteo's free limit is 600 location-calls a minute: ~1,000 points sent in quick batches ran into
+        # "429 Too Many Requests" from 14 Nov 2026, so batches are spaced out and a 429 waits out the minute
+        for attempt in range(6):
             try:
                 d = json.loads(urllib.request.urlopen(url, timeout=90).read())
                 break
             except Exception as e:  # noqa: BLE001
-                if attempt == 3: raise
-                log('  retry batch %d: %s' % (i // 50, e)); time.sleep(5 * (attempt + 1))
+                if attempt == 5: raise
+                wait = 65 if '429' in str(e) else 5 * (attempt + 1)
+                log('  retry batch %d in %d s: %s' % (i // 50, wait, e)); time.sleep(wait)
         out += [x['hourly'] for x in (d if isinstance(d, list) else [d])]
-        time.sleep(0.4)
+        time.sleep(7)
     return out
 
 
