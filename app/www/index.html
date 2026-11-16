@@ -493,6 +493,12 @@ window.addEventListener('load', function () {
       .then(function (r) { return SH.share({ title: 'West WX Watchers', files: [r.uri], dialogTitle: 'Save or share the image' }); })
       .catch(function (x) { if (!/cancel/i.test(String(x && x.message || x))) { showTab('alerts'); say('Couldn\'t save the image: ' + (x && x.message || x), 'bad'); } });
   });
+  // A link inside a map (the Rainfall page's warning banner) asks to open another page: open it in its tab, not the browser
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/([\w-]+\.)*(westweatherwatchers\.com|googleusercontent\.com)$/.test(e.origin) || !e.data || typeof e.data.wwxwGo !== 'string' || !/^\/[\w\/-]*$/.test(e.data.wwxwGo)) return;
+    try { e.source.postMessage({ wwxwGoOk: 1 }, '*'); } catch (x) {}
+    var t = tabFor(e.data.wwxwGo); webPath = null; showTab(t[0], t[1]);
+  });
   // 4: a page opened from inside another (a card on Home, a link) says where it is, and the tab bar follows
   window.addEventListener('message', function (e) {
     if (!/^https:\/\/(www\.)?westweatherwatchers\.com$/.test(e.origin) || !e.data || typeof e.data.wwxwPath !== 'string') return;
