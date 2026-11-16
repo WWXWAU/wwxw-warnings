@@ -1,0 +1,60 @@
+name: Android app
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['app/**', '.github/workflows/app-apk.yml']
+permissions:
+  contents: read
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Install Capacitor
+        run: npm install --no-audit --no-fund
+      - name: Firebase set-up
+        env:
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$GSJ" ] && [ -f google-services.json ]; then GSJ=$(cat google-services.json); fi
+          echo "GSJ_FILE=$([ -n "$GSJ" ] && echo yes || echo no)" >> $GITHUB_ENV
+          if [ -n "$GSJ" ]; then echo "window.PUSH_READY = true;" > www/build.js; echo "Firebase: yes"; else echo "window.PUSH_READY = false;" > www/build.js; echo "Firebase: not set (alerts can't be turned on in this build)"; fi
+      - name: Android project
+        env:
+          GSJ: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          npx cap add android
+          RES=android/app/src/main/res
+          cp -r res/mipmap-* res/drawable-* $RES/
+          printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#0E2A33</color>\n</resources>\n' > $RES/values/ic_launcher_background.xml
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's#<application#<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <application#' $M
+          sed -i 's#</application>#    <meta-data android:name="com.google.firebase.messaging.default_notification_icon" android:resource="@drawable/ic_stat_wwxw" />\n        <meta-data android:name="com.google.firebase.messaging.default_notification_color" android:resource="@color/ic_launcher_background" />\n        <meta-data android:name="com.google.firebase.messaging.default_notification_channel_id" android:value="alerts" />\n    </application>#' $M
+          G=android/app/build.gradle
+          sed -i "s/versionCode 1/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"1.0\"/versionName \"0.1.${GITHUB_RUN_NUMBER}\"/" $G
+          if [ -n "$GSJ" ]; then printf '%s' "$GSJ" > android/app/google-services.json; elif [ -f google-services.json ]; then cp google-services.json android/app/; fi
+          npx cap sync android
+          grep -n "permission\|meta-data" $M
+      - name: Signing key
+        run: |
+          # a fixed test key (password "android"), so each new APK installs over the last one. Test builds only:
+          # a Play Store release gets its own private upload key.
+          mkdir -p ~/.android && cp test-signing.keystore ~/.android/debug.keystore
+      - name: Build APK
+        run: cd android && ./gradlew assembleDebug --no-daemon -q && ls -la app/build/outputs/apk/debug/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wwxw-app
+          path: app/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

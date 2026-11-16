@@ -1,0 +1,12 @@
+{
+  "name": "wwxw-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "West WX Watchers Android app (test build): weather alerts and the site's pages",
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/push-notifications": "^7.0.0"
+  }
+}
