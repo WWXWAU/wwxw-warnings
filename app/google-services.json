@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "687689071",
+    "project_id": "wwxw-alerts",
+    "storage_bucket": "wwxw-alerts.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:687689071:android:94d6dfa375ad252a41ec9a",
+        "android_client_info": {
+          "package_name": "com.westweatherwatchers.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDaGwL91cUoKU-bYYIkepPbzTDmS0UeKc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
