@@ -233,7 +233,7 @@ var ICON = {
 var KINDS = [
   ['warn', 'Severe storm warnings', 'Bureau thunderstorm, severe weather and cyclone warnings covering your places'],
   ['rain', 'Heavy rainfall', ''], ['wind', 'Damaging winds', ''], ['lt', 'Lightning nearby', ''],
-  ['river', 'River levels', ''], ['cy', 'Cyclones', 'New tropical lows near WA, and cyclones forming or strengthening'],
+  ['river', 'River levels', ''], ['cy', 'Cyclones', 'Possible new cyclones off WA, and cyclones forming or strengthening'],
   ['rip', 'Ripper Weather', ''], ['quiet', 'Quiet hours', '']
 ];
 var KM = [[25, 'Near me'], [50, '50 km'], [100, '100 km'], [200, '200 km'], [300, '300 km'], [0, 'Whole state']];
@@ -287,7 +287,7 @@ function body(k) {
     return h + '</div>' + ck('river.wave', 'A flood wave is heading to my gauges, with its timing') + ck('river.rise', 'A river is rising fast (10 cm an hour or more)')
       + ck('river.road', 'A road near my places closes', 'Main Roads and shire closures within 25 km');
   }
-  if (k === 'cy') return ck('cy.lows', 'A new tropical low near WA', 'Or a low\'s chance of becoming a cyclone rising to moderate or high (Bureau outlook)')
+  if (k === 'cy') return ck('cy.lows', 'A possible new cyclone off WA', 'When the weather models give a 30% chance or more within 7 days, and again at 50% and 70% (our model outlook, unofficial)')
     + ck('cy.cat', 'A cyclone forms or changes category');
   if (k === 'rip') {
     var hrs = P.rip.when === 'eve' ? [16, 17, 18, 19, 20, 21] : [5, 6, 7, 8, 9];
