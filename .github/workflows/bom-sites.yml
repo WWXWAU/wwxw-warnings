@@ -1,0 +1,16 @@
+name: BoM station positions
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 19 3 * *'
+permissions:
+  contents: write
+jobs:
+  sites:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python tools/bom_sites.py
+      - run: |
+          git config user.name wwxw-bot && git config user.email bot@users.noreply.github.com
+          git add data/bom-sites-wa.json && (git diff --cached --quiet || (git commit -qm "BoM station positions" && git pull -q --rebase && git push -q))
