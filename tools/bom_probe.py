@@ -1,14 +1,15 @@
-"""Probe: Halls Creek's road conditions page in a browser (it comes back empty to a plain fetch), and pdftotext presence."""
-import subprocess, re, shutil
-print('pdftotext on runner before install:', shutil.which('pdftotext'))
-from playwright.sync_api import sync_playwright
-with sync_playwright() as p:
-    b = p.chromium.launch(); pg = b.new_page()
-    reqs = []
-    pg.on('request', lambda r: reqs.append(r.url) if re.search(r'(?i)pdf|road|api|json', r.url) else None)
-    r = pg.goto('https://www.hallscreek.wa.gov.au/services/road-conditions', wait_until='networkidle', timeout=90000)
-    print('status', r.status if r else None, pg.url)
-    txt = pg.inner_text('body'); i = txt.lower().find('road condition'); print('TEXT:', re.sub(r'\s+', ' ', txt[max(0, i - 100):i + 2500]))
-    print('LINKS:'); [print('  ', h) for h in sorted(set(pg.eval_on_selector_all('a', 'els => els.map(e => e.href)'))) if re.search(r'(?i)pdf|road|report|repository', h)]
-    print('REQS:'); [print('  ', u) for u in reqs[:40]]
-    b.close()
+"""Probe: where the Bureau's tropical cyclone outlook lives now (old IDW10800 product vs the new website)."""
+import urllib.request, re
+UA = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36'}
+URLS = ['https://reg.bom.gov.au/products/IDW10800.shtml', 'https://reg.bom.gov.au/fwo/IDW10800.txt', 'https://www.bom.gov.au/fwo/IDW10800.txt',
+        'https://www.bom.gov.au/cyclone/tropical-cyclone-outlook/', 'https://www.bom.gov.au/weather-and-climate/specialised-forecasts-and-observations/tropical-cyclone']
+for u in URLS:
+    print('\n=====', u)
+    try:
+        r = urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=40); b = r.read().decode('utf-8', 'replace')
+        print('HTTP', r.status, r.geturl(), len(b))
+        t = re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', b)))
+        i = t.find('01U'); print('TEXT 01U:', t[max(0, i - 300):i + 800] if i >= 0 else t[:600])
+        print('URLS:', sorted(set(re.findall(r'https?://[\w./-]*(?:api|json|data)[\w./?=&-]*', b)))[:30])
+        j = b.find('01U'); print('RAW near 01U:', b[max(0, j - 400):j + 400] if j >= 0 else '-')
+    except Exception as e: print('ERR', e)
