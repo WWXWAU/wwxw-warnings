@@ -7,28 +7,36 @@
    "product": "IDW21033",
    "type": "Severe Thunderstorm Warning",
    "status": "current",
-   "headline": "Severe Thunderstorm Warning for Goldfields and South Interior forecast districts",
-   "sent": "2026-11-16T10:07:23+00:00",
-   "expires": "2026-11-16T15:07:18+00:00",
+   "headline": "Severe Thunderstorm Warning for Gascoyne, Goldfields, South Interior, Central West and Central Wheat Belt forecast districts",
+   "sent": "2026-11-16T10:29:49+00:00",
+   "expires": "2026-11-16T15:29:46+00:00",
    "hazards": [
     "damaging winds",
-    "heavy rainfall"
+    "heavy rainfall",
+    "large hail"
    ],
    "districts": [
+    "Gascoyne",
     "Goldfields",
-    "South Interior"
+    "South Interior",
+    "Central West",
+    "Central Wheat Belt"
    ],
    "towns": [
+    "Dalwallinu",
+    "Paynes Find",
     "Carnegie",
     "Laverton",
     "Warburton"
    ],
    "townsPlaced": [
+    "Dalwallinu",
+    "Paynes Find",
     "Carnegie",
     "Laverton",
     "Warburton"
    ],
-   "description": "Severe thunderstorms are likely to produce damaging winds and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Carnegie, Laverton and Warburton.",
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding over the next several hours in parts of the Central West, Central Wheat Belt and Gascoyne districts. Locations which may be affected include Dalwallinu and Paynes Find.  \n          \n          Severe thunderstorms are likely to produce damaging winds and heavy rainfall that may lead to flash flooding over the next several hours in parts of the Goldfields and South Interior districts. Locations which may be affected include Carnegie, Laverton and Warburton.",
    "areaSource": "image",
    "area": {
     "type": "MultiPolygon",
@@ -36,8 +44,226 @@
      [
       [
        [
-        121.018,
-        -28.36
+        115.71,
+        -29.974
+       ],
+       [
+        115.75,
+        -29.847
+       ],
+       [
+        115.875,
+        -29.737
+       ],
+       [
+        115.925,
+        -29.64
+       ],
+       [
+        116.151,
+        -29.444
+       ],
+       [
+        116.487,
+        -29.22
+       ],
+       [
+        116.623,
+        -29.17
+       ],
+       [
+        116.79,
+        -29.165
+       ],
+       [
+        116.929,
+        -29.104
+       ],
+       [
+        117.13,
+        -29.115
+       ],
+       [
+        117.222,
+        -29.063
+       ],
+       [
+        117.297,
+        -29.078
+       ],
+       [
+        117.395,
+        -29.059
+       ],
+       [
+        117.457,
+        -29.105
+       ],
+       [
+        117.506,
+        -29.117
+       ],
+       [
+        117.598,
+        -29.081
+       ],
+       [
+        117.653,
+        -29.081
+       ],
+       [
+        117.727,
+        -29.126
+       ],
+       [
+        117.819,
+        -29.129
+       ],
+       [
+        118.05,
+        -29.262
+       ],
+       [
+        118.17,
+        -29.367
+       ],
+       [
+        118.226,
+        -29.463
+       ],
+       [
+        118.304,
+        -29.662
+       ],
+       [
+        118.331,
+        -29.781
+       ],
+       [
+        118.326,
+        -29.819
+       ],
+       [
+        118.249,
+        -29.951
+       ],
+       [
+        118.005,
+        -30.162
+       ],
+       [
+        117.907,
+        -30.172
+       ],
+       [
+        117.861,
+        -30.194
+       ],
+       [
+        117.832,
+        -30.229
+       ],
+       [
+        117.811,
+        -30.296
+       ],
+       [
+        117.716,
+        -30.366
+       ],
+       [
+        117.284,
+        -30.542
+       ],
+       [
+        116.99,
+        -30.61
+       ],
+       [
+        116.912,
+        -30.59
+       ],
+       [
+        116.784,
+        -30.611
+       ],
+       [
+        116.688,
+        -30.574
+       ],
+       [
+        116.573,
+        -30.624
+       ],
+       [
+        116.487,
+        -30.591
+       ],
+       [
+        116.395,
+        -30.607
+       ],
+       [
+        116.33,
+        -30.571
+       ],
+       [
+        116.22,
+        -30.555
+       ],
+       [
+        116.103,
+        -30.561
+       ],
+       [
+        116.038,
+        -30.512
+       ],
+       [
+        115.897,
+        -30.452
+       ],
+       [
+        115.752,
+        -30.302
+       ],
+       [
+        115.697,
+        -30.137
+       ],
+       [
+        115.697,
+        -30.003
+       ],
+       [
+        115.71,
+        -29.974
+       ]
+      ],
+      [
+       [
+        117.101,
+        -29.773
+       ],
+       [
+        117.101,
+        -29.801
+       ],
+       [
+        117.102,
+        -29.442
+       ],
+       [
+        117.101,
+        -29.773
+       ]
+      ]
+     ],
+     [
+      [
+       [
+        121.017,
+        -28.356
        ],
        [
         121.043,
@@ -152,16 +378,16 @@
         -28.543
        ],
        [
-        121.018,
-        -28.36
+        121.017,
+        -28.356
        ]
       ]
      ],
      [
       [
        [
-        121.696,
-        -27.122
+        121.697,
+        -27.12
        ],
        [
         121.819,
@@ -412,8 +638,8 @@
         -27.138
        ],
        [
-        121.696,
-        -27.122
+        121.697,
+        -27.12
        ]
       ]
      ]
@@ -421,15 +647,20 @@
    },
    "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
    "image": "img/IDW21041.png",
-   "people": 2791,
+   "people": 6092,
    "peopleTowns": [
     "Laverton",
+    "Dalwallinu",
     "Warburton",
-    "Cosmo Newbery"
+    "Rothsay",
+    "Perenjori",
+    "Watheroo",
+    "Kalannie",
+    "Coorow"
    ],
-   "post": "img/IDW21033-202611161007-post.png",
-   "story": "img/IDW21033-202611161007-story.png"
+   "post": "img/IDW21033-202611161029-post.png",
+   "story": "img/IDW21033-202611161029-story.png"
   }
  ],
- "updated": "2026-11-16T10:07:55+00:00"
+ "updated": "2026-11-16T10:30:56+00:00"
 }
