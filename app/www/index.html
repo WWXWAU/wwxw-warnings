@@ -167,6 +167,17 @@ var P = {   // choices (same shape as Push.gs pushPrefs_)
   rip: { on: false, when: 'eve', hr: 19, days: [5, 6], towns: [], best: true, only: false },
   quiet: { on: false, from: 22, to: 6 }
 };
+// Fill in anything missing from saved or returned choices (an older Push.gs answers with { warn, rain: true, outlook })
+var DEF = JSON.stringify(P);
+function norm(p) {
+  var d = JSON.parse(DEF);
+  if (!p || typeof p !== 'object') return d;
+  if (p.warn !== undefined) d.warn = !!p.warn;
+  Object.keys(d).forEach(function (k) { if (d[k] && typeof d[k] === 'object' && p[k] && typeof p[k] === 'object' && !Array.isArray(p[k])) Object.keys(p[k]).forEach(function (j) { d[k][j] = p[k][j]; }); });
+  if (typeof p.rain === 'boolean') d.rain.on = p.rain;
+  if (p.app) d.app = p.app;
+  return d;
+}
 var saved = {};
 try { saved = JSON.parse(localStorage.getItem('wwxw-app') || '{}'); } catch (e) { saved = {}; }
 
@@ -411,7 +422,7 @@ function turnOn() {
   }).then(function (r) {
     if (!r.ok) throw new Error(r.msg);
     if (r.places) places = r.places;
-    if (r.prefs) P = r.prefs;
+    if (r.prefs) P = norm(r.prefs);
     store(); drawPlaces(); drawKinds(); setOn(true); say(r.msg + ' Tap "Send a test" to check.', 'ok');
   }).catch(function (e) { say(String(e.message || e), 'bad'); })
     .then(function () { $('onBtn').disabled = false; });
@@ -433,7 +444,7 @@ function turnOff() {
 
 window.addEventListener('load', function () {
   if (saved.places) places = saved.places;
-  if (saved.prefs && saved.prefs.v === 2) P = saved.prefs;
+  if (saved.prefs) P = norm(saved.prefs);
   drawTabs(); showTab('alerts'); drawPlaces(); drawKinds(); loadLists(); setupPush();
   $('web').addEventListener('load', function () { $('webNote').style.display = 'none'; });
   if (!PN) say('This page is the WWXW app\'s alerts screen — it only sends alerts inside the app.', 'info');
@@ -443,7 +454,7 @@ window.addEventListener('load', function () {
     setOn(true); say('Checking your alert settings…');
     api({ action: 'get', token: token }).then(function (d) {
       if (d.ok && d.on) {
-        places = d.places || places; if (d.prefs && d.prefs.v === 2) P = d.prefs;
+        places = d.places || places; if (d.prefs) P = norm(d.prefs);
         drawPlaces(); drawKinds(); store();
         setOn(true); say('Alerts are on for this phone.', 'ok');
       } else if (d.ok) { token = null; setOn(false); say('Alerts are off for this phone. Tap "Turn on alerts" to start them.'); }
