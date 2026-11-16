@@ -5,7 +5,7 @@
   <link rel="preconnect" href="https://unpkg.com">
   <link rel="preconnect" href="https://tiles.openfreemap.org">
   <meta charset="UTF-8">
-<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1')document.documentElement.classList.add('in-app');}catch(e){}</script>
+<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');parent.postMessage({wwxwPath:location.pathname},'*');}}catch(e){}</script>
 <style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
@@ -210,6 +210,21 @@
       .key .kx { display: none; }
     }
     .foot.legalnote { margin-top: -14px; font-weight: 600; }
+    /* phones: the title, update time and summary card become one small box on the map (tap it for the detail) */
+    .mstate { display: none; }
+    @media (max-width: 600px) {
+      .top h1, .top .stamp, .state { display: none; }
+      .top { position: absolute; width: 0; height: 0; padding: 0; overflow: visible; }
+      .mapwrap > .themebtn { position: absolute; z-index: 6; right: 8px; bottom: 8px; }
+      .mstate { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; position: absolute; z-index: 6; top: 8px; left: 8px;
+        max-width: calc(100% - 64px); text-align: left; padding: 5px 10px 6px; border-radius: 10px; font: inherit; font-size: 11.5px; color: var(--muted);
+        background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); border-left: 5px solid var(--statec, var(--steady));
+        box-shadow: 0 2px 8px rgba(0,0,0,.12); cursor: pointer; }
+      .mstate b { font-size: 13px; color: var(--text); font-weight: 700; }
+      .mstate .msub { color: var(--text); margin-top: 2px; line-height: 1.35; }
+      .mapwrap { height: calc(100svh - 112px); }
+      .in-app .mapwrap { height: calc(100svh - 80px); }
+    }
   </style>
 </head>
 <body>
@@ -234,6 +249,7 @@
   <div class="main">
     <div class="mapwrap">
       <div id="map" aria-label="Map of WA river gauges, coloured by whether each river is rising or falling"></div>
+      <button class="mstate" id="mstate" type="button" aria-expanded="false" aria-controls="msSub"><span class="msh"><b id="msHead">Checking the river gauges…</b></span><span class="mss" id="msStamp"></span><span class="mss msub" id="msSub" hidden></span></button>
       <div class="key" id="key"></div>
       <div class="msg" id="msg" hidden></div>
     </div>
@@ -344,8 +360,20 @@
       return (mr || sh) ? ' ' + [mr, sh].filter(Boolean).join(' ') : '';
     }
     function drawState() {
-      drawState0(); $('stSub').textContent += roadNote();
+      drawState0(); $('stSub').textContent += roadNote(); mirrorState();
     }
+    // phones: the small summary box on the map mirrors the summary card and the update time
+    function mirrorState() {
+      var st = $('state'), b = $('mstate'); if (!b) return;
+      b.style.setProperty('--statec', st.style.getPropertyValue('--statec') || 'var(--steady)');
+      $('msHead').textContent = $('stHead').textContent; $('msStamp').textContent = $('stamp').textContent; $('msSub').textContent = $('stSub').textContent;
+    }
+    document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#mstate')) mstateToggle(); });
+    // phones: the light/dark button moves onto the map (its row at the top is hidden)
+    (function () { var mq = window.matchMedia('(max-width: 600px)'), btn = $('themeBtn'), top = btn && btn.parentNode;
+      function place() { var w = document.querySelector('.mapwrap'); if (!btn || !w) return; if (mq.matches) w.appendChild(btn); else top.appendChild(btn); }
+      if (mq.addEventListener) mq.addEventListener('change', place); document.addEventListener('DOMContentLoaded', place); if (document.readyState !== 'loading') place(); })();
+    function mstateToggle() { var o = $('mstate').getAttribute('aria-expanded') !== 'true'; $('mstate').setAttribute('aria-expanded', o); $('msSub').hidden = !o || !$('msSub').textContent; }
     function drawState0() {
       var live = G.filter(function (g) { return !g.off_air && !g.tidal; });
       var fast = live.filter(function (g) { return status(g) === 'fast'; }), rise = live.filter(function (g) { return status(g) === 'rise'; });
@@ -950,6 +978,7 @@
         return fetch(DATA + 'rivers-roads.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
       }).then(function (rd) {
         if (rd && rd.features) ROADS = rd;
+        setTimeout(mirrorState, 0);
         $('stamp').textContent = 'Updated ' + new Date(D.made).toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + ' · ' + G.filter(function (g) { return !g.off_air; }).length + ' of ' + G.length + ' gauges reporting';
         fillDistricts(); drawPills(); drawState(); drawLists(); drawTable();
         if (first) { drawKey(); initMap();
@@ -962,7 +991,7 @@
     }
     load(true).catch(function (e) { if (window.console) console.error('River page:', e);
       $('msg').hidden = false; $('msg').textContent = 'The river levels didn’t load. Check your connection and refresh the page.';
-      $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now';
+      $('stamp').textContent = ''; $('stHead').textContent = 'River levels unavailable right now'; mirrorState();
     });
     // refresh every 2 minutes while the page is on screen, and straight away when someone comes back to the tab
     // (browsers pause timers in background tabs, so a tab left open would otherwise show old levels)

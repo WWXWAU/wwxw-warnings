@@ -107,7 +107,7 @@ body{display:flex;flex-direction:column;padding:0;overflow:hidden;}
 </head>
 <body>
 <div class="top"><div class="in"><b>WEST WX WATCHERS</b><span id="tabName" style="font-size:13.5px;color:#E2EEF0">Alerts</span></div></div>
-<div id="sWeb" class="screen" style="position:relative"><div class="web-note" id="webNote">Loading…</div><iframe id="web" title="West WX Watchers" allow="geolocation"></iframe></div>
+<div id="sWeb" class="screen" style="position:relative"><iframe id="web" title="West WX Watchers" allow="geolocation"></iframe></div>
 <div id="sAlerts" class="screen on">
 <div class="wrap">
   <h1>Alerts</h1>
@@ -390,7 +390,7 @@ function showTab(id, path) {
   $('sAlerts').classList.toggle('on', t[0] === 'alerts'); $('sWeb').classList.toggle('on', t[0] !== 'alerts');
   if (t[0] !== 'alerts') {
     var p = path || t[2];
-    if (p !== webPath) { webPath = p; $('webNote').style.display = 'block'; $('web').src = SITE + p + (p.indexOf('?') < 0 ? '?' : '&') + 'app=1'; }   // app=1: the site hides its own menu
+    if (p !== webPath) { webPath = p; $('web').src = SITE + p + (p.indexOf('?') < 0 ? '?' : '&') + 'app=1'; }   // app=1: the site hides its own menu
   }
 }
 function tabFor(url) {
@@ -464,7 +464,14 @@ window.addEventListener('load', function () {
   if (saved.places) places = saved.places;
   if (saved.prefs) P = norm(saved.prefs);
   drawTabs(); showTab('alerts'); drawPlaces(); drawKinds(); loadLists(); setupPush();
-  $('web').addEventListener('load', function () { $('webNote').style.display = 'none'; });
+  // 4: a page opened from inside another (a card on Home, a link) says where it is, and the tab bar follows
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/(www\.)?westweatherwatchers\.com$/.test(e.origin) || !e.data || typeof e.data.wwxwPath !== 'string') return;
+    var t = tabFor(e.data.wwxwPath); webPath = e.data.wwxwPath;
+    if (t[0] === 'alerts') return;
+    $('tabName').textContent = (TABS.filter(function (x) { return x[0] === t[0]; })[0] || TABS[0])[1];
+    Array.prototype.forEach.call($('tabs').children, function (b) { b.setAttribute('aria-selected', b.dataset.id === t[0]); });
+  });
   if (!PN) say('This page is the WWXW app\'s alerts screen — it only sends alerts inside the app.', 'info');
   else if (window.PUSH_READY !== true) say('Test build without the Firebase set-up: you can look around, but alerts can\'t be turned on yet.', 'info');
   if (saved.token) {   // already signed up: show that straight away, then confirm
