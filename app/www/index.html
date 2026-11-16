@@ -465,6 +465,17 @@ window.addEventListener('load', function () {
   if (saved.places) places = saved.places;
   if (saved.prefs) P = norm(saved.prefs);
   drawTabs(); showTab('alerts'); drawPlaces(); drawKinds(); loadLists(); setupPush();
+  // A page's "Save image" (Live Obs, Rivers, Ripper) can't download inside the app: the page sends the picture here,
+  // and it opens the phone's share menu (save to Photos or Files, or post it straight to Facebook)
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/([\w-]+\.)*(westweatherwatchers\.com|googleusercontent\.com)$/.test(e.origin) || !e.data || !e.data.wwxwSave) return;
+    var d = e.data.wwxwSave, FS = Capacitor.Plugins.Filesystem, SH = Capacitor.Plugins.Share;
+    if (!FS || !SH || typeof d.data !== 'string' || d.data.indexOf('base64,') < 0) return;
+    var name = String(d.name || 'WWXW.png').replace(/[^\w.\-]+/g, '-').substring(0, 80);
+    FS.writeFile({ path: name, data: d.data.split('base64,')[1], directory: 'CACHE' })
+      .then(function (r) { return SH.share({ title: 'West WX Watchers', files: [r.uri], dialogTitle: 'Save or share the image' }); })
+      .catch(function (x) { if (!/cancel/i.test(String(x && x.message || x))) { showTab('alerts'); say('Couldn\'t save the image: ' + (x && x.message || x), 'bad'); } });
+  });
   // 4: a page opened from inside another (a card on Home, a link) says where it is, and the tab bar follows
   window.addEventListener('message', function (e) {
     if (!/^https:\/\/(www\.)?westweatherwatchers\.com$/.test(e.origin) || !e.data || typeof e.data.wwxwPath !== 'string') return;

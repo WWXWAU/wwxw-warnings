@@ -13,10 +13,10 @@ def fit(e, s):
     r = min(s / e.width, s / e.height); return e.resize((max(1, int(e.width * r)), max(1, int(e.height * r))), Image.LANCZOS)
 
 
-def square(size):
-    im = Image.new('RGBA', (size, size), BG); d = ImageDraw.Draw(im); m = int(size * 0.12)
-    d.ellipse((m, m, size - m, size - m), fill=DISC)
-    e = fit(emb, int(size * 0.56)); im.alpha_composite(e, ((size - e.width) // 2, (size - e.height) // 2)); return im
+def square(size, round_=False):
+    """Legacy launcher icon: the emblem on a light background that fills the whole icon (launchers mask the corners)."""
+    im = Image.new('RGBA', (size, size), DISC)
+    e = fit(emb, int(size * 0.74)); im.alpha_composite(e, ((size - e.width) // 2, (size - e.height) // 2)); return im
 
 
 os.makedirs('res', exist_ok=True)
@@ -26,9 +26,10 @@ for k, f in {'mdpi': 1, 'hdpi': 1.5, 'xhdpi': 2, 'xxhdpi': 3, 'xxxhdpi': 4}.item
     L = int(48 * f); sq = square(L); sq.save('res/mipmap-%s/ic_launcher.png' % k)
     m = Image.new('L', (L, L), 0); ImageDraw.Draw(m).ellipse((0, 0, L - 1, L - 1), fill=255)
     o = Image.new('RGBA', (L, L)); o.paste(sq, (0, 0), m); o.save('res/mipmap-%s/ic_launcher_round.png' % k)
-    F = int(108 * f); fg = Image.new('RGBA', (F, F)); d = ImageDraw.Draw(fg); c, R = F / 2, F * 0.31   # adaptive: safe zone is the middle 66/108
-    d.ellipse((c - R, c - R, c + R, c + R), fill=DISC); e = fit(emb, int(F * 0.42)); fg.alpha_composite(e, (int(c - e.width / 2), int(c - e.height / 2)))
-    fg.save('res/mipmap-%s/ic_launcher_foreground.png' % k)
+    # adaptive icon: transparent foreground with just the emblem inside the 66/108 safe zone; the light background
+    # colour (ic_launcher_background) fills the rest, so there's no ring or edge whatever shape the launcher uses
+    F = int(108 * f); fg = Image.new('RGBA', (F, F)); e = fit(emb, int(F * 0.56))
+    fg.alpha_composite(e, ((F - e.width) // 2, (F - e.height) // 2)); fg.save('res/mipmap-%s/ic_launcher_foreground.png' % k)
     N = int(24 * f); n = Image.new('RGBA', (N, N)); u = N / 24
     ImageDraw.Draw(n).polygon([(13 * u, 2 * u), (4 * u, 14 * u), (11 * u, 14 * u), (10 * u, 22 * u), (19 * u, 10 * u), (12 * u, 10 * u)], fill=(255, 255, 255, 255))
     n.save('res/drawable-%s/ic_stat_wwxw.png' % k)
