@@ -385,7 +385,7 @@ function showTab(id, path) {
   $('sAlerts').classList.toggle('on', t[0] === 'alerts'); $('sWeb').classList.toggle('on', t[0] !== 'alerts');
   if (t[0] !== 'alerts') {
     var p = path || t[2];
-    if (p !== webPath) { webPath = p; $('webNote').style.display = 'block'; $('web').src = SITE + p; }
+    if (p !== webPath) { webPath = p; $('webNote').style.display = 'block'; $('web').src = SITE + p + (p.indexOf('?') < 0 ? '?' : '&') + 'app=1'; }   // app=1: the site hides its own menu
   }
 }
 function tabFor(url) {
