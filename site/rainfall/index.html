@@ -124,8 +124,15 @@
   <script>(function () {   // a link to one gauge (?stn=…&src=…, e.g. from an alert) is passed on to the map
     var q = new URLSearchParams(location.search), x = '';
     ['stn', 'src'].forEach(function (k) { if (q.get(k)) x += '&' + k + '=' + encodeURIComponent(q.get(k)); });
+    try { if (sessionStorage.getItem('wwxwApp') === '1') x += '&app=1'; } catch (e) {}   // in the WWXW app: the map's links stay in the app
     document.getElementById('app').src = document.getElementById('app').getAttribute('data-src') + '?theme=' + window.WWXW_THEME + x;
   })();</script>
+  <script>   // in the app, the map's warning banner asks this page to open Live Obs (a plain link would leave the app)
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/([\w-]+\.)*googleusercontent\.com$/.test(e.origin) || !e.data || typeof e.data.wwxwGo !== 'string' || !/^\/[\w\/-]*$/.test(e.data.wwxwGo)) return;
+    location.href = e.data.wwxwGo;
+  });
+  </script>
   <script>
   // The map page tells us when its sun/moon button is pressed: follow it and remember it
   window.addEventListener('message', function (e) {
