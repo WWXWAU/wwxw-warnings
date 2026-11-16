@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths: ['app/**', '.github/workflows/app-apk.yml']
 permissions:
-  contents: read
+  contents: write
 jobs:
   apk:
     runs-on: ubuntu-latest
@@ -58,3 +58,10 @@ jobs:
           name: wwxw-app
           path: app/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
+      - name: Put the APK on the app-builds branch (a direct download link for the phone)
+        run: |
+          mkdir -p /tmp/out && cp android/app/build/outputs/apk/debug/app-debug.apk /tmp/out/wwxw-test.apk
+          cd /tmp/out && git init -q && git checkout -q -b app-builds
+          printf 'WWXW Android test build %s (run %s, Firebase %s)\n' "$(date -u +%Y-%m-%dT%H:%MZ)" "$GITHUB_RUN_NUMBER" "$GSJ_FILE" > BUILD.txt
+          git add . && git -c user.name=wwxw-bot -c user.email=bot@users.noreply.github.com commit -qm "Test build $GITHUB_RUN_NUMBER"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" app-builds
