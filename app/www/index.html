@@ -168,7 +168,7 @@ var places = [], token = null, MAXP = 10, SITE = 'https://westweatherwatchers.co
 var PN = window.Capacitor && Capacitor.Plugins ? Capacitor.Plugins.PushNotifications : null, gotToken = null;
 var GAUGES = {}, TOWNS = [];
 var P = {   // choices (same shape as Push.gs pushPrefs_)
-  v: 2, warn: true,
+  v: 2, warn: true, warnWA: false,
   rain: { on: true, km: 25, bom: true, r15: true, r60: true, r180: false },
   wind: { on: true, km: 25, bom: true, gust: 90 },
   lt: { on: false, km: 20 },
@@ -183,6 +183,7 @@ function norm(p) {
   var d = JSON.parse(DEF);
   if (!p || typeof p !== 'object') return d;
   if (p.warn !== undefined) d.warn = !!p.warn;
+  if (p.warnWA !== undefined) d.warnWA = !!p.warnWA;
   Object.keys(d).forEach(function (k) { if (d[k] && typeof d[k] === 'object' && p[k] && typeof p[k] === 'object' && !Array.isArray(p[k])) Object.keys(p[k]).forEach(function (j) { d[k][j] = p[k][j]; }); });
   if (typeof p.rain === 'boolean') d.rain.on = p.rain;
   if (p.app) d.app = p.app;
@@ -247,7 +248,7 @@ var ICON = {
   quiet: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'
 };
 var KINDS = [
-  ['warn', 'Severe storm warnings', 'Bureau thunderstorm, severe weather and cyclone warnings covering your places'],
+  ['warn', 'Severe storm warnings', ''],
   ['rain', 'Heavy rainfall', ''], ['wind', 'Damaging winds', ''], ['lt', 'Lightning nearby', ''],
   ['river', 'River levels', ''], ['cy', 'Cyclones', 'Possible new cyclones off WA, and cyclones forming or strengthening'],
   ['rip', 'Ripper Weather', ''], ['quiet', 'Quiet hours', '']
@@ -263,6 +264,7 @@ function summary(k) {
   if (k === 'lt') return 'Strikes within ' + P.lt.km + ' km of your places';
   if (k === 'river') return P.river.g.length ? P.river.g.length + ' gauge' + (P.river.g.length > 1 ? 's' : '') + (P.river.wave ? ' · floods heading your way' : '') : 'Pick your gauges';
   if (k === 'rip') return (P.rip.when === 'eve' ? 'Night before, ' : 'Morning of, ') + hh(P.rip.hr) + ' · ' + (P.rip.days.length === 7 ? 'every day' : P.rip.days.slice().sort().map(function (d) { return DAYN[d].substring(0, 3); }).join(', ') || 'no days');
+  if (k === 'warn') return 'Bureau thunderstorm, severe weather and cyclone warnings ' + (P.warnWA ? 'anywhere in WA' : 'covering your places');
   if (k === 'quiet') return hh(P.quiet.from) + ' to ' + hh(P.quiet.to) + ', except Bureau warnings';
   return '';
 }
@@ -279,6 +281,8 @@ function get(path) { var o = P, ks = path.split('.'); for (var i = 0; i < ks.len
 function setv(path, v) { var o = P, ks = path.split('.'); for (var i = 0; i < ks.length - 1; i++) o = o[ks[i]]; o[ks[ks.length - 1]] = v; drawKinds(); }
 function toggle(k, on) { if (k === 'warn') P.warn = on; else P[k].on = on; drawKinds(); }
 function body(k) {
+  if (k === 'warn') return '<div><span class="lbl">Which warnings</span>' + chips('warnWA', [[false, 'Covering my places'], [true, 'Anywhere in WA']], P.warnWA, 'c2')
+    + '<p class="hint" style="margin-top:6px">' + (P.warnWA ? 'Every new warning in WA, once each. Bureau rain and wind warnings follow the distance you pick for rain and wind.' : 'Only warnings whose area covers one of your places.') + '</p></div>';
   if (k === 'rain') return '<div><span class="lbl">How far around each place</span>' + chips('rain.km', KM, P.rain.km) + '<p class="hint" style="margin-top:6px">Near me is within 25 km.</p></div>'
     + ck('rain.bom', 'The Bureau warns of heavy rain') + ck('rain.r15', 'A gauge gets <b>15 mm+ in 15 minutes</b>')
     + ck('rain.r60', 'A gauge gets <b>30 mm+ in an hour</b>') + ck('rain.r180', 'A gauge gets <b>50 mm+ in 3 hours</b>');
@@ -432,7 +436,7 @@ function setupPush() {
     var d = a && a.notification && a.notification.data || {}, t = tabFor(d.url); showTab(t[0], t[1]);
   });
 }
-function needsPlace() { return P.warn || P.rain.on && P.rain.km || P.wind.on && P.wind.km || P.lt.on || P.river.on && P.river.road; }
+function needsPlace() { return P.warn && !P.warnWA || P.rain.on && P.rain.km || P.wind.on && P.wind.km || P.lt.on || P.river.on && P.river.road; }
 function turnOn() {
   if (!places.length && needsPlace()) { say('Add at least one place first.', 'bad'); return; }
   if (P.river.on && !P.river.g.length && !P.river.road) { say('Add a river gauge, or turn river alerts off.', 'bad'); return; }
