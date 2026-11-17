@@ -48,6 +48,14 @@ def clean(s):
     return re.sub(r'\s+', ' ', re.sub(r'<[^>]+>', ' ', s).replace('&nbsp;', ' ')).strip()
 
 
+def tidy_name(n):
+    """Gauge names as people would say them: drops DWER's road codes ('Fitzroy BarrageRd029' -> 'Fitzroy Barrage Rd')."""
+    n = re.sub(r'([a-z])(Rd|Road|Hwy|Br)(\d+)?\b', r'\1 \2', n or '')
+    n = re.sub(r'\b(Rd|Road|Hwy)\d{2,}\b', r'\1', n)
+    n = re.sub(r'\bNrth\b', 'North', n).replace('Sw Hwy', 'SW Hwy')
+    return re.sub(r'\s+', ' ', n).strip()
+
+
 def read_dwer():
     t = get(DWER + '/telem/stage.cfm')
     out = []
@@ -68,7 +76,7 @@ def read_dwer():
         rec = round(mx - off, 3) if (mx is not None and off is not None) else None   # record high, as a river level
         try: recd = dt.datetime.strptime(clean(td[9]), '%d%b%Y').strftime('%Y-%m-%d')
         except Exception: recd = None  # noqa: BLE001
-        out.append({'id': sid.group(1), 'river': clean(td[1]), 'name': clean(td[2]).replace('Sw Hwy', 'SW Hwy'),
+        out.append({'id': sid.group(1), 'river': clean(td[1]), 'name': tidy_name(clean(td[2])),
                     'at': at.isoformat() if at else None, 'lvl': round(lvl, 3), 'rate': rate, 'trend': clean(td[7]).title(),
                     'rec': rec, 'recd': recd, 'off': round(off, 3) if off is not None else None, 'cls': cls, 'note': note})
     log('DWER gauges read: %d (row classes: %s)' % (len(out), sorted(set(g['cls'] for g in out))))
@@ -270,7 +278,7 @@ def bom_gauges(rows, F, matched, pos, now):
         hourly = {}
         for k in ts: hourly[k.strftime('%Y-%m-%dT%H:00')] = ser[k]
         f = F.get(r['bom'], {})
-        g = {'id': sid, 'river': river, 'name': place, 'at': last.isoformat(), 'lvl': round(lvl, 3), 'rate': rate,
+        g = {'id': sid, 'river': river, 'name': tidy_name(place), 'at': last.isoformat(), 'lvl': round(lvl, 3), 'rate': rate,
              'trend': 'Rising' if (rate or 0) >= 0.005 else 'Falling' if (rate or 0) <= -0.005 else 'Steady',
              'rec': None, 'recd': None, 'off': None, 'cls': 'rowNORM', 'note': '', 'src': 'bom', 'prod': r['prod'], 'datum': r['datum'], 'hist': hourly,
              'fl': {'bom': r['bom'], 'bomname': r['name'], 'minor': f.get('minor'), 'moderate': f.get('moderate'), 'major': f.get('major'), 'bcls': None}}
@@ -323,7 +331,7 @@ def hcs_gauges(G, pos, now):
         gid = 'B' + sid; pos[gid] = [round(float(m['LATITUDE']), 5), round(float(m['LONGITUDE']), 5)]
         fl = {'bom': sid, 'bomname': m['LONG_NAME'], 'minor': num_(m['MINOR_FCL']), 'moderate': num_(m['MODERATE_FCL']), 'major': num_(m['MAJOR_FCL']), 'bcls': None}
         fl['cls'] = flood_class(lvl, fl)
-        out.append({'id': gid, 'river': river, 'name': place, 'at': last.astimezone(AWST).isoformat(timespec='seconds'), 'lvl': round(lvl, 3), 'rate': rate,
+        out.append({'id': gid, 'river': river, 'name': tidy_name(place), 'at': last.astimezone(AWST).isoformat(timespec='seconds'), 'lvl': round(lvl, 3), 'rate': rate,
                     'trend': 'Rising' if (rate or 0) >= 0.005 else 'Falling' if (rate or 0) <= -0.005 else 'Steady',
                     'rec': None, 'recd': None, 'off': None, 'cls': 'rowNORM', 'note': '', 'src': 'bom', 'prod': 'IDW65910', 'datum': m['GAUGE_DATUM'], 'fl': fl})
     log('Bureau water-level sites added: %d (%s)' % (len(out), ', '.join(g['river'] + ' at ' + g['name'] for g in out) or 'none'))

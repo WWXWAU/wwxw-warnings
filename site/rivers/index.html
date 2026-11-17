@@ -715,7 +715,8 @@
         if (w.arr) {                                                     // the rise has got here
           var tk = w.arrt ? Math.round((new Date(w.arrt) - new Date(w.eta)) / 36e5) + w.lag : null;   // hours from its peak upstream to the rise here
           h += '<div class="rain wave"><b>Water arriving</b> from ' + esc(w.fr_r) + ' at ' + esc(w.fn) + ': the river here ' + (w.arrt ? 'started rising ' + esc(when(w.arrt)) + ' and ' : '') + 'is up ' + Math.round(w.arr * 100) + ' cm.'
-            + (tk != null ? ' That\'s ' + hrs(tk) + ' after it peaked there' + (tk > w.lag + 6 ? ', slower than the ' + w.lag + ' h past floods suggested' + (w.rfirst ? ' (first flows over a dry bed are often slow)' : '') : tk < w.lag - 6 ? ', faster than the ' + w.lag + ' h past floods suggested' : '') + '.' : '') + '</div>';
+            + (tk != null ? (tk > w.lag + 6 ? ' That\'s ' + tk + ' h after it peaked there, slower than the usual ' + w.lag + ' h' + (w.rfirst ? ' (first flows over a dry bed are often slow)' : '')
+              : tk < w.lag - 6 ? ' That\'s ' + tk + ' h after it peaked there, faster than the usual ' + w.lag + ' h' : ' That\'s ' + hrs(tk) + ' after it peaked there, about as past floods suggested') + '.' : '') + '</div>';
           return;
         }
         if (w.eta && !w.arr && Date.now() > new Date(w.eta).getTime() + 36e5) { h += '<div class="rain wave"><b>Water from upstream overdue:</b> ' + esc(w.fr_r) + ' at ' + esc(w.fn) + ' peaked and was expected here around ' + esc(when(w.eta)) + ', but there\'s no rise yet. It may have faded out on the way.</div>'; return; }
