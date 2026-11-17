@@ -91,8 +91,12 @@ def render(a, story_path, post_path, style='light'):
     def panel(d, Wd, y, pad, size, story):
         fp, fl, fs = W.font(700, size * 1.05), W.font(600, size * 0.86), W.font(400, size * 0.72)
         y = W.textbox(d, pad, y, Wd - 2 * pad, 'Heavy rainfall' if a['kind'] == 'rain' else 'Damaging winds', summary(a), size * (0.95 if story else 0.85), 4, th['accent'], th) + int(16 * S)
+        nums = {mk['name']: mk.get('num') for mk in item['_marks'] if mk.get('num')}
         for i in items:
             hh = int(size * 2.0 * S); x = pad
+            if nums.get(i['name']):                         # its number on the map
+                d.ellipse([x, y, x + hh, y + hh], fill=th['text']); d.text((x + hh / 2, y + hh / 2 + 1 * S), str(nums[i['name']]), font=fp, fill=th['bg'], anchor='mm')
+                x += hh + 12 * S
             for v in i['vals'][:3]:                        # value pills: 31.4 mm in 1 hr
                 t = val(v) + (' in ' + v['label'] if a['kind'] == 'rain' else '')
                 tw = d.textlength(t, font=fp) + 34 * S

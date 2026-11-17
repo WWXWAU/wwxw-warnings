@@ -576,6 +576,7 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
     for mk in item.get('_marks', []): mk.pop('box', None)   # placed afresh for each image size
     def callout(mk, px, py):   # where an alert mark's callout box goes: beside it, else above or below, clear of the others
         if 'box' in mk: return mk['box']
+        if item.get('_numbered'): return None
         l1, l2 = mk['name'], mk['label'] + (' · ' + mk['when'] if mk.get('when') else '')
         bw = max(d.textlength(l1, font=fn), d.textlength(l2, font=fw)) + 32 * S * big; bh = 76 * S * big
         rr = 13 * S * big + 4 * S; gap = rr + 16 * S * big
@@ -588,14 +589,22 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
             if bx < 6 * S or bx + bw > W - 6 * S or by < 6 * S or by + bh > H - 6 * S: continue
             if any(bx < q[2] and bx + bw > q[0] and by < q[3] and by + bh > q[1] for q in boxes): continue
             best = (bx, by, pos); break
-        if best is None: best = (cx, max(6 * S, min(H - bh - 6 * S, py + gap)), 'b')
+        if best is None: mk['box'] = None; return None   # no room: the marks become numbered dots (see below)
         bx, by, pos = best; boxes.append((bx - 8 * S, by - 8 * S, bx + bw + 8 * S, by + bh + 8 * S))
         mk['box'] = (l1, l2, bx, by, bw, bh, pos); return mk['box']
+    item.pop('_numbered', None)
+    marks = [mk for mk in item.get('_marks', []) if mk.get('name')]
+    for mk in marks:   # callouts first; if any won't fit clear of the others, every mark becomes a numbered dot instead
+        if callout(mk, X(mk['lng']) - ox, Y(mk['lat']) - oy) is None:
+            item['_numbered'] = True; break
+    if item.get('_numbered'):
+        boxes.clear()
+        for n_, mk in enumerate(marks): mk['box'] = None; mk['num'] = n_ + 1
     for mk in item.get('_marks', []):   # keep town names clear of the marks and their callouts
         px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
-        placed.append((px - 20 * S, py - 20 * S, px + 20 * S, py + 20 * S))
-        if mk.get('name'):
-            _, _, bx, by, bw, bh, _ = callout(mk, px, py); placed.append((bx - 6 * S, by - 6 * S, bx + bw + 6 * S, by + bh + 6 * S))
+        placed.append((px - 24 * S * big, py - 24 * S * big, px + 24 * S * big, py + 24 * S * big))
+        if mk.get('name') and mk.get('box'):
+            _, _, bx, by, bw, bh, _ = mk['box']; placed.append((bx - 6 * S, by - 6 * S, bx + bw + 6 * S, by + bh + 6 * S))
     for i, n in enumerate(named + [o for o in others if o not in named]):
         if n in named:
             lat, lng = G['places'][norm(n)][:2]; f, dot = ft_b, st['lab']
@@ -621,15 +630,32 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         d.ellipse([px - r, py - r, px + r, py + r], fill=dot, outline=st['halo'] if dark else (255, 255, 255), width=int(1.5 * S))
         if big > 1: d.text((tx, py), n, font=f, fill=(40, 58, 66), anchor='lm', stroke_width=int(4 * S), stroke_fill=st['halo'])
         else: d.text((tx, py - (14 if dark and n in named else 13) * S), n, font=f, fill=dot, stroke_width=int(3 * S), stroke_fill=st['halo'])
+    # numbered dots that would sit on top of each other: pushed apart, each with a short line back to its real spot
+    nm_ = [mk for mk in item.get('_marks', []) if mk.get('num')]
+    if nm_:
+        rn_ = 19 * S * big + 6 * S
+        P_ = [[X(mk['lng']) - ox, Y(mk['lat']) - oy] for mk in nm_]
+        for _ in range(60):
+            moved = False
+            for a_ in range(len(P_)):
+                for b_ in range(a_ + 1, len(P_)):
+                    dx_, dy_ = P_[b_][0] - P_[a_][0], P_[b_][1] - P_[a_][1]; dd_ = (dx_ * dx_ + dy_ * dy_) ** 0.5
+                    if dd_ < 2.3 * rn_:
+                        if dd_ < 1e-6: dx_, dy_, dd_ = 1.0, 0.0, 1.0
+                        push = (2.3 * rn_ - dd_) / 2 + 1
+                        P_[a_][0] -= dx_ / dd_ * push; P_[a_][1] -= dy_ / dd_ * push
+                        P_[b_][0] += dx_ / dd_ * push; P_[b_][1] += dy_ / dd_ * push; moved = True
+            if not moved: break
+        for mk, q in zip(nm_, P_): mk['_dpos'] = (max(rn_, min(W - rn_, q[0])), max(rn_, min(H - rn_, q[1])))
     # marked places (alert images): a coloured dot and its value, drawn last so they sit on top
     for mk in item.get('_marks', []):
         px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy
-        if not (0 < px < W and 0 < py < H): continue
+        if not (0 < px < W and 0 < py < H) or mk.get('num'): continue   # (numbered dots: drawn together below)
         r = 13 * S * big
         d.ellipse([px - r - 4 * S, py - r - 4 * S, px + r + 4 * S, py + r + 4 * S], fill=(255, 255, 255))
         d.ellipse([px - r, py - r, px + r, py + r], fill=mk['col'])
-        if mk.get('name'):   # a callout: the station's name, then what it recorded and when
-            l1, l2, bx, by, bw, bh, pos = callout(mk, px, py)
+        if mk.get('name') and mk.get('box'):   # a callout: the station's name, then what it recorded and when
+            l1, l2, bx, by, bw, bh, pos = mk['box']
             w2 = 11 * S * big
             if pos in ('r', 'l'):   # the pointer from the box's side to the dot
                 tip = bx if pos == 'r' else bx + bw
@@ -643,6 +669,21 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
             continue
         lab = mk['label']; tw = d.textlength(lab, font=fm); left = px + 22 * S + tw > W - 10 * S
         d.text((px - 22 * S - tw if left else px + 22 * S, py), lab, font=fm, fill=(255, 255, 255), anchor='lm', stroke_width=int(4 * S), stroke_fill=(13, 29, 35))
+    if nm_:   # numbered dots (the numbers match the list under the map): leader lines first, then the dots on top
+        rn = 19 * S * big
+        for mk in nm_:
+            px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy; qx, qy = mk['_dpos']
+            if abs(qx - px) > 2 or abs(qy - py) > 2:   # moved clear of another: a line back to its real spot
+                d.line([(px, py), (qx, qy)], fill=(255, 255, 255), width=int(7 * S)); d.line([(px, py), (qx, qy)], fill=mk['col'], width=int(3 * S))
+        for mk in nm_:
+            px, py = X(mk['lng']) - ox, Y(mk['lat']) - oy; qx, qy = mk['_dpos']
+            if abs(qx - px) > 2 or abs(qy - py) > 2:
+                d.ellipse([px - 7 * S, py - 7 * S, px + 7 * S, py + 7 * S], fill=mk['col'], outline=(255, 255, 255), width=int(2 * S))
+        for mk in nm_:
+            qx, qy = mk['_dpos']
+            d.ellipse([qx - rn - 4 * S, qy - rn - 4 * S, qx + rn + 4 * S, qy + rn + 4 * S], fill=(255, 255, 255))
+            d.ellipse([qx - rn, qy - rn, qx + rn, qy + rn], fill=mk['col'])
+            d.text((qx, qy + 1 * S), str(mk['num']), font=font(800, int(24 * big)), fill=(255, 255, 255), anchor='mm')
     # rounded corners
     mask = Image.new('L', (W, H), 0); ImageDraw.Draw(mask).rounded_rectangle([0, 0, W - 1, H - 1], radius=18 * S if rounded else 0, fill=255)
     img.paste(layer.convert('RGB'), (x0, y0), mask)
