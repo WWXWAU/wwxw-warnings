@@ -1,0 +1,22 @@
+name: TC hindcast (AI vs ECMWF)
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 tools/tc_hindcast.py out
+      - name: Save to the verification branch
+        run: |
+          git config user.name "wwxw-bot"; git config user.email "actions@users.noreply.github.com"
+          mkdir -p /tmp/v; cp out/* /tmp/v/
+          git fetch origin verification || true
+          git checkout -B verification origin/verification 2>/dev/null || git checkout --orphan verification
+          git rm -rf --cached . >/dev/null 2>&1 || true
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp /tmp/v/* .
+          git add -A; git commit -m "TC hindcast $(date -u +%F)" || true
+          git push -f origin verification
