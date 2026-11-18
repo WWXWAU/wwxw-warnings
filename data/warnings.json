@@ -1,6 +1,352 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
- "warnings": [],
- "updated": "2026-11-17T21:20:55+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for Goldfields, Eucla and South Interior forecast districts",
+   "sent": "2026-11-18T02:01:51+00:00",
+   "expires": "2026-11-18T07:01:48+00:00",
+   "hazards": [
+    "damaging winds",
+    "heavy rainfall",
+    "large hail"
+   ],
+   "districts": [
+    "Goldfields",
+    "Eucla",
+    "South Interior"
+   ],
+   "towns": [
+    "Eyre",
+    "Rawlinna",
+    "Cocklebiddy"
+   ],
+   "townsPlaced": [
+    "Eyre",
+    "Rawlinna",
+    "Cocklebiddy"
+   ],
+   "description": "Severe thunderstorms are likely to produce heavy rainfall that may lead to flash flooding, large hailstones and damaging winds over the next several hours in parts of the South Interior district. \n          \n          Severe thunderstorms are likely to produce heavy rainfall that may lead to flash flooding over the next several hours in parts of the Eucla and Goldfields districts. Locations which may be affected include Eyre, Rawlinna and Cocklebiddy.",
+   "areaSource": "image",
+   "area": {
+    "type": "MultiPolygon",
+    "coordinates": [
+     [
+      [
+       [
+        124.533,
+        -30.72
+       ],
+       [
+        124.533,
+        -30.649
+       ],
+       [
+        124.568,
+        -30.532
+       ],
+       [
+        124.748,
+        -30.377
+       ],
+       [
+        124.827,
+        -30.335
+       ],
+       [
+        124.927,
+        -30.313
+       ],
+       [
+        125.06,
+        -30.374
+       ],
+       [
+        125.261,
+        -30.581
+       ],
+       [
+        125.413,
+        -30.679
+       ],
+       [
+        125.446,
+        -30.743
+       ],
+       [
+        125.487,
+        -30.775
+       ],
+       [
+        125.539,
+        -30.784
+       ],
+       [
+        125.607,
+        -30.77
+       ],
+       [
+        125.697,
+        -30.83
+       ],
+       [
+        125.779,
+        -30.83
+       ],
+       [
+        125.993,
+        -30.889
+       ],
+       [
+        126.331,
+        -30.951
+       ],
+       [
+        126.593,
+        -30.953
+       ],
+       [
+        126.657,
+        -30.933
+       ],
+       [
+        126.748,
+        -30.931
+       ],
+       [
+        126.856,
+        -30.907
+       ],
+       [
+        127.35,
+        -30.727
+       ],
+       [
+        127.5,
+        -30.705
+       ],
+       [
+        127.604,
+        -30.728
+       ],
+       [
+        127.724,
+        -30.826
+       ],
+       [
+        127.78,
+        -30.898
+       ],
+       [
+        127.943,
+        -31.199
+       ],
+       [
+        128.086,
+        -31.526
+       ],
+       [
+        128.162,
+        -31.841
+       ],
+       [
+        128.159,
+        -32.016
+       ],
+       [
+        128.022,
+        -32.074
+       ],
+       [
+        127.706,
+        -32.137
+       ],
+       [
+        127.503,
+        -32.215
+       ],
+       [
+        127.229,
+        -32.275
+       ],
+       [
+        126.939,
+        -32.299
+       ],
+       [
+        126.773,
+        -32.292
+       ],
+       [
+        126.691,
+        -32.309
+       ],
+       [
+        126.41,
+        -32.282
+       ],
+       [
+        126.203,
+        -32.232
+       ],
+       [
+        126.081,
+        -32.275
+       ],
+       [
+        126.037,
+        -32.269
+       ],
+       [
+        125.951,
+        -32.291
+       ],
+       [
+        125.844,
+        -32.344
+       ],
+       [
+        125.736,
+        -32.341
+       ],
+       [
+        125.381,
+        -32.182
+       ],
+       [
+        125.338,
+        -32.14
+       ],
+       [
+        125.281,
+        -32.114
+       ],
+       [
+        125.232,
+        -32.057
+       ],
+       [
+        125.148,
+        -32.029
+       ],
+       [
+        124.968,
+        -31.892
+       ],
+       [
+        124.917,
+        -31.832
+       ],
+       [
+        124.748,
+        -31.587
+       ],
+       [
+        124.608,
+        -31.283
+       ],
+       [
+        124.533,
+        -30.984
+       ],
+       [
+        124.546,
+        -30.779
+       ],
+       [
+        124.533,
+        -30.72
+       ]
+      ]
+     ],
+     [
+      [
+       [
+        127.347,
+        -27.234
+       ],
+       [
+        127.346,
+        -27.18
+       ],
+       [
+        127.37,
+        -27.132
+       ],
+       [
+        127.492,
+        -27.023
+       ],
+       [
+        127.707,
+        -26.938
+       ],
+       [
+        127.984,
+        -26.894
+       ],
+       [
+        128.109,
+        -26.894
+       ],
+       [
+        128.381,
+        -26.961
+       ],
+       [
+        128.664,
+        -27.087
+       ],
+       [
+        128.806,
+        -27.193
+       ],
+       [
+        128.812,
+        -29.702
+       ],
+       [
+        128.787,
+        -29.741
+       ],
+       [
+        128.745,
+        -29.741
+       ],
+       [
+        128.694,
+        -29.687
+       ],
+       [
+        128.429,
+        -29.291
+       ],
+       [
+        127.444,
+        -27.537
+       ],
+       [
+        127.347,
+        -27.234
+       ]
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png",
+   "people": 111,
+   "peopleTowns": [
+    "Cocklebiddy",
+    "Rawlinna"
+   ],
+   "post": "img/IDW21033-202611180201-post.png",
+   "story": "img/IDW21033-202611180201-story.png"
+  }
+ ],
+ "updated": "2026-11-18T02:02:56+00:00"
 }
