@@ -431,7 +431,7 @@ var TABS = [['home', 'Home', '/', '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14
   ['rivers', 'Rivers', '/rivers/', '<path d="M2 8c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/><path d="M2 15c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/>'],
   ['ripper', 'Ripper', '/ripper/', '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'],
   ['alerts', 'Alerts', '', '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>']];
-var webPath = null;
+var webPath = null, APP_T = Date.now().toString(36);   // each start of the app loads the pages fresh (not an old saved copy)
 function showTab(id, path) {
   var t = TABS.filter(function (x) { return x[0] === id; })[0] || TABS[TABS.length - 1];
   $('tabName').textContent = t[1];
@@ -439,7 +439,7 @@ function showTab(id, path) {
   $('sAlerts').classList.toggle('on', t[0] === 'alerts'); $('sWeb').classList.toggle('on', t[0] !== 'alerts');
   if (t[0] !== 'alerts') {
     var p = path || t[2];
-    if (p !== webPath) { webPath = p; $('web').src = SITE + p + (p.indexOf('?') < 0 ? '?' : '&') + 'app=1'; }   // app=1: the site hides its own menu
+    if (p !== webPath) { webPath = p; $('web').src = SITE + p + (p.indexOf('?') < 0 ? '?' : '&') + 'app=1&v=' + APP_T; }   // app=1: the site hides its own menu; v: a fresh copy of each page once per app start
   }
 }
 function tabFor(url) {
