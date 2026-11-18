@@ -3,303 +3,202 @@
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.",
  "warnings": [
   {
-   "id": "IDW21033-0",
+   "id": "IDW21033",
    "product": "IDW21033",
    "type": "Severe Thunderstorm Warning",
-   "status": "current",
-   "headline": "Severe Thunderstorm Warning for Eucla, North Interior and South Interior forecast districts",
-   "sent": "2026-11-18T07:27:43+00:00",
-   "expires": "2026-11-18T12:27:37+00:00",
-   "hazards": [
-    "damaging winds",
-    "heavy rainfall",
-    "large hail"
-   ],
+   "status": "cancelled",
+   "headline": "Cancellation of Severe Thunderstorm Warning for Eucla, North Interior and South Interior forecast districts",
+   "sent": "2026-11-18T08:56:03+00:00",
+   "expires": "2026-11-18T13:56:01+00:00",
+   "hazards": [],
    "districts": [
-    "Goldfields",
     "Eucla",
     "North Interior",
     "South Interior"
    ],
-   "towns": [
-    "Forrest"
-   ],
-   "townsPlaced": [
-    "Forrest"
-   ],
-   "description": "Severe thunderstorms are likely to produce large hailstones, heavy rainfall that may lead to flash flooding and damaging winds in the warning area over the next several hours. Locations which may be affected include Forrest.  \n          \n          \n          Severe thunderstorms are no longer occurring in the Goldfields district and the warning for this district is CANCELLED.",
-   "areaSource": "image",
-   "area": {
-    "type": "MultiPolygon",
-    "coordinates": [
-     [
-      [
-       [
-        126.988,
-        -31.031
-       ],
-       [
-        127.028,
-        -30.812
-       ],
-       [
-        127.079,
-        -30.679
-       ],
-       [
-        127.308,
-        -30.264
-       ],
-       [
-        127.433,
-        -30.152
-       ],
-       [
-        128.314,
-        -29.543
-       ],
-       [
-        128.706,
-        -29.201
-       ],
-       [
-        128.746,
-        -29.144
-       ],
-       [
-        128.946,
-        -28.946
-       ],
-       [
-        129.001,
-        -28.941
-       ],
-       [
-        129.001,
-        -31.372
-       ],
-       [
-        128.741,
-        -31.571
-       ],
-       [
-        128.578,
-        -31.642
-       ],
-       [
-        128.528,
-        -31.722
-       ],
-       [
-        128.437,
-        -31.787
-       ],
-       [
-        128.203,
-        -31.942
-       ],
-       [
-        128.071,
-        -32.009
-       ],
-       [
-        127.866,
-        -32.073
-       ],
-       [
-        127.789,
-        -32.076
-       ],
-       [
-        127.738,
-        -32.095
-       ],
-       [
-        127.543,
-        -32.095
-       ],
-       [
-        127.436,
-        -32.05
-       ],
-       [
-        127.39,
-        -32.012
-       ],
-       [
-        127.208,
-        -31.814
-       ],
-       [
-        127.157,
-        -31.728
-       ],
-       [
-        127.027,
-        -31.437
-       ],
-       [
-        126.999,
-        -31.209
-       ],
-       [
-        126.976,
-        -31.149
-       ],
-       [
-        126.988,
-        -31.031
-       ]
-      ]
-     ],
-     [
-      [
-       [
-        127.821,
-        -22.71
-       ],
-       [
-        127.823,
-        -22.623
-       ],
-       [
-        127.897,
-        -22.523
-       ],
-       [
-        127.999,
-        -22.456
-       ],
-       [
-        128.152,
-        -22.407
-       ],
-       [
-        128.232,
-        -22.403
-       ],
-       [
-        128.289,
-        -22.382
-       ],
-       [
-        128.454,
-        -22.381
-       ],
-       [
-        128.524,
-        -22.358
-       ],
-       [
-        128.832,
-        -22.358
-       ],
-       [
-        128.89,
-        -22.379
-       ],
-       [
-        129.001,
-        -22.389
-       ],
-       [
-        129.001,
-        -24.125
-       ],
-       [
-        128.963,
-        -24.13
-       ],
-       [
-        128.925,
-        -24.1
-       ],
-       [
-        128.89,
-        -24.046
-       ],
-       [
-        128.771,
-        -23.937
-       ],
-       [
-        128.737,
-        -23.883
-       ],
-       [
-        128.516,
-        -23.656
-       ],
-       [
-        128.047,
-        -23.109
-       ],
-       [
-        127.95,
-        -23.018
-       ],
-       [
-        127.821,
-        -22.71
-       ]
-      ]
-     ]
-    ]
-   },
-   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
-   "image": "img/IDW21041.png",
-   "people": 0,
-   "peopleTowns": [],
-   "post": "img/IDW21033-0-202611180727-post.png",
-   "story": "img/IDW21033-0-202611180727-story.png"
-  },
-  {
-   "id": "IDW21033-1",
-   "product": "IDW21033",
-   "type": "Severe Thunderstorm Warning",
-   "status": "cancelled",
-   "headline": "Cancellation of Severe Thunderstorm Warning for Goldfields forecast district",
-   "sent": "2026-11-18T07:27:43+00:00",
-   "expires": "2026-11-18T12:27:37+00:00",
-   "hazards": [],
-   "districts": [
-    "Goldfields"
-   ],
    "towns": [],
    "townsPlaced": [],
-   "description": "",
+   "description": "This warning is now cancelled.",
    "areaSource": "districts",
    "area": {
     "type": "Polygon",
     "coordinates": [
      [
       [
-       123.267,
+       128.963,
+       -31.694
+      ],
+      [
+       128.803,
+       -31.758
+      ],
+      [
+       128.642,
+       -31.851
+      ],
+      [
+       128.314,
+       -31.979
+      ],
+      [
+       128.022,
+       -32.074
+      ],
+      [
+       127.706,
+       -32.137
+      ],
+      [
+       127.585,
+       -32.175
+      ],
+      [
+       127.521,
+       -32.213
+      ],
+      [
+       127.326,
+       -32.257
+      ],
+      [
+       126.939,
+       -32.299
+      ],
+      [
+       126.773,
+       -32.292
+      ],
+      [
+       126.691,
+       -32.309
+      ],
+      [
+       126.41,
+       -32.282
+      ],
+      [
+       126.203,
+       -32.232
+      ],
+      [
+       126.081,
+       -32.275
+      ],
+      [
+       126.037,
+       -32.269
+      ],
+      [
+       125.951,
+       -32.291
+      ],
+      [
+       125.801,
+       -32.367
+      ],
+      [
+       125.532,
+       -32.549
+      ],
+      [
+       125.315,
+       -32.608
+      ],
+      [
+       125.102,
+       -32.715
+      ],
+      [
+       125.026,
+       -32.729
+      ],
+      [
+       124.895,
+       -32.833
+      ],
+      [
+       124.814,
+       -32.873
+      ],
+      [
+       124.69,
+       -32.909
+      ],
+      [
+       124.394,
+       -32.949
+      ],
+      [
+       124.226,
+       -33.028
+      ],
+      [
+       124.229,
+       -32.863
+      ],
+      [
+       123.47,
+       -32.86
+      ],
+      [
+       123.452,
+       -32.812
+      ],
+      [
+       123.452,
+       -32.698
+      ],
+      [
+       123.487,
+       -32.698
+      ],
+      [
+       123.487,
        -32.565
       ],
       [
-       120.554,
-       -32.569
-      ],
-      [
-       120.554,
-       -32.765
-      ],
-      [
-       120.01,
-       -32.765
-      ],
-      [
-       120.017,
-       -26.001
+       123.267,
+       -32.565
       ],
       [
        126.11,
        -30.151
       ],
       [
-       123.267,
-       -32.565
+       120.016,
+       -26.0
+      ],
+      [
+       121.419,
+       -23.155
+      ],
+      [
+       122.993,
+       -20.967
+      ],
+      [
+       122.993,
+       -19.817
+      ],
+      [
+       123.546,
+       -19.813
+      ],
+      [
+       123.546,
+       -19.784
+      ],
+      [
+       129.001,
+       -19.777
+      ],
+      [
+       129.001,
+       -31.688
+      ],
+      [
+       128.963,
+       -31.694
       ]
      ]
     ]
@@ -307,5 +206,5 @@
    "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml"
   }
  ],
- "updated": "2026-11-18T07:28:55+00:00"
+ "updated": "2026-11-18T08:56:56+00:00"
 }
