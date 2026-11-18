@@ -16,7 +16,7 @@
 <style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#0d0d1a">
-  <meta name="description" content="West WX Watchers — WA rainfall, lightning and live observations. Reporting severe WX, data and chasing since 1999.">
+  <meta name="description" content="West WX Watchers — WA rainfall, live observations, lightning, warnings, river levels and Ripper Weather. Reporting severe WX, data and chasing since 1999.">
   <title>West WX Watchers — WA severe weather, rainfall and live weather</title>
   <link rel="icon" type="image/png" href="brand/wwxw-icon-64.png">
   <link rel="apple-touch-icon" href="brand/wwxw-icon-192.png">
@@ -24,7 +24,7 @@
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="West WX Watchers">
   <meta property="og:title" content="West WX Watchers — WA severe weather, rainfall and live weather">
-  <meta property="og:description" content="Rainfall, lightning and live weather observations for Western Australia.">
+  <meta property="og:description" content="Live rain, weather, lightning, warnings and river levels across Western Australia.">
   <meta property="og:url" content="https://westweatherwatchers.com/">
   <meta property="og:image" content="https://westweatherwatchers.com/brand/wwxw-share.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -76,9 +76,9 @@
     /* ---------- Logo banner ---------- */
     .banner {
       background: var(--bg); text-align: center;
-      padding: calc(env(safe-area-inset-top, 0px) + 18px) 16px 16px;
+      padding: calc(env(safe-area-inset-top, 0px) + 10px) 16px 8px;
     }
-    .banner img { width: 100%; max-width: 720px; height: auto; display: inline-block; }
+    .banner img { width: 100%; max-width: 460px; height: auto; display: inline-block; }
     .stripe { height: 3px; background: var(--accent); }
     /* Site tabs */
     .tabs { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; display: flex; justify-content: center; gap: 4px;
@@ -92,10 +92,10 @@
 
     /* ---------- Photo strip ---------- */
     .hero {
-      position: relative; min-height: 200px; display: flex; align-items: flex-end;
+      position: relative; min-height: 96px; display: flex; align-items: flex-end;
       background: linear-gradient(160deg, #1b2a52 0%, #0d0d1a 70%);
       background-size: cover; background-position: center;
-      padding: 28px 20px 24px;
+      padding: 14px 16px 12px;
       border-bottom: 1px solid var(--line);
     }
     .hero::before {   /* your photo, darkened so the title stays readable */
@@ -108,54 +108,36 @@
       background: linear-gradient(180deg, rgba(13,13,26,0.15) 0%, rgba(13,13,26,0.92) 100%);
     }
     .hero-inner { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; width: 100%; }
-    .hero h1 { color: #fff; margin: 0 0 6px; font-size: clamp(26px, 5vw, 40px); line-height: 1.15; letter-spacing: 0.5px; }
-    .hero p { margin: 0; color: #DCE7EA; font-size: 17px; max-width: 640px; }
+    .hero h1 { color: #fff; margin: 0 0 2px; font-size: clamp(19px, 4vw, 28px); line-height: 1.2; }
+    .hero p { margin: 0; color: #DCE7EA; font-size: 13.5px; max-width: 640px; }
 
     /* ---------- Layout ---------- */
-    main { max-width: 960px; margin: 0 auto; padding: 28px 20px 10px; }
+    main { max-width: 960px; margin: 0 auto; padding: 12px 12px 4px; }
     h2 {
-      margin: 34px 0 14px; font-size: 19px; font-weight: 600; color: var(--text);
+      margin: 14px 0 8px; font-size: 14px; font-weight: 600; color: var(--text);
       display: flex; align-items: center; gap: 10px;
     }
     h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
-    /* Featured: the convective outlook */
-    .feature {
-      display: grid; grid-template-columns: 1fr auto; gap: 18px; align-items: center;
-      background: var(--panel);
-      border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 14px; padding: 22px;
-    }
-    .feature h3 { margin: 0 0 6px; font-size: 22px; }
-    .feature + .feature { margin-top: 14px; }
-    .feature.rain { background: var(--panel); border-color: var(--line); border-left-color: var(--accent); }
-    .feature .btn.btn-rain { background: var(--accent); }
-    .feature p { margin: 0; color: var(--muted); }
-    .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-    .tag { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--bg); border: 1px solid var(--line); color: var(--text); }
-    .tag .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
-    .btn {
-      display: inline-block; text-decoration: none; font-weight: 700; white-space: nowrap;
-      background: var(--accent); color: var(--onAccent); padding: 11px 20px; border-radius: 999px; font-size: 15px;
-    }
-    .btn:hover { filter: brightness(1.08); }
-
-    /* Link cards */
-    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
-    .card {
-      display: block; text-decoration: none; background: var(--panel); border: 1px solid var(--line);
-      border-radius: 12px; padding: 18px; transition: border-color .15s, transform .15s;
-    }
-    .card:hover { border-color: var(--blue); transform: translateY(-2px); }
-    .card .ico { font-size: 24px; line-height: 1; }
-    .card h3 { margin: 10px 0 4px; font-size: 17px; }
-    .card p { margin: 0; color: var(--muted); font-size: 14px; }
-    .card .note { display: inline-block; margin-top: 8px; font-size: 11px; color: var(--accent2); }
+    /* The four pages: one compact tile each (two across on phones) */
+    .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .tile { display: flex; flex-direction: column; gap: 4px; text-decoration: none; background: var(--panel);
+            border: 1px solid var(--line); border-top: 3px solid var(--tc, var(--accent)); border-radius: 12px; padding: 11px 12px 12px; }
+    .tile:hover { border-color: var(--tc, var(--accent)); }
+    .tile .th { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 15.5px; color: var(--text); }
+    .tile svg { width: 20px; height: 20px; flex: none; stroke: var(--tc, var(--accent)); }
+    .tile p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+    .t-rain { --tc: #2f7fc1; } .t-obs { --tc: #0E7C86; } .t-riv { --tc: #3a6fd8; } .t-rip { --tc: #c99700; }
+    [data-theme=dark] .t-rain { --tc: #4fc3f7; } [data-theme=dark] .t-obs { --tc: #3FC1C9; } [data-theme=dark] .t-riv { --tc: #82a8ff; } [data-theme=dark] .t-rip { --tc: #F2C230; }
+    .appnote { margin: 10px 2px 0; font-size: 12.5px; color: var(--muted); }
+    .appnote a { color: var(--accent); font-weight: 600; }
+    .app-only { display: none; } .in-app .app-only { display: inline; } .in-app .web-only { display: none; }
 
     /* Socials */
-    .socials { display: flex; flex-wrap: wrap; gap: 10px; }
+    .socials { display: flex; flex-wrap: wrap; gap: 8px; }
     .social {
-      display: inline-flex; align-items: center; gap: 8px; text-decoration: none;
-      background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 600;
+      display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+      background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 13px; font-weight: 600;
     }
     .social:hover { filter: brightness(1.1); }
     .social.instagram { background: linear-gradient(45deg, #f9a825 0%, #e1306c 50%, #833ab4 100%); border-color: transparent; color: #fff; }
@@ -163,23 +145,25 @@
     .social.x         { background: #000; border-color: #444; color: #fff; }
     .social.youtube   { background: #ff0000; border-color: transparent; color: #fff; }
     .social.tiktok    { background: #000; border-color: #25f4ee; color: #fff; }
-    .social svg { width: 18px; height: 18px; fill: currentColor; }
+    .social svg { width: 15px; height: 15px; fill: currentColor; }
     .socials-empty { color: var(--muted); font-size: 14px; }
 
     .copy { display: inline-flex; align-items: center; gap: 8px; }
     .copy img { height: 20px; width: auto; }
     footer {
-      max-width: 960px; margin: 30px auto 0; padding: 18px 20px 26px; border-top: 1px solid var(--line);
+      max-width: 960px; margin: 16px auto 0; padding: 12px 14px 18px; border-top: 1px solid var(--line);
       color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
     }
 
     @media (max-width: 600px) {
-      .hero { min-height: 170px; }
-      .banner { padding-top: calc(env(safe-area-inset-top, 0px) + 12px); padding-bottom: 10px; }
-      .feature { grid-template-columns: 1fr; }
-      .btn { text-align: center; }
+      .hero { min-height: 78px; padding: 10px 12px; }
+      .banner { padding-top: calc(env(safe-area-inset-top, 0px) + 6px); padding-bottom: 4px; }
+      .banner img { max-width: 300px; }
+      .tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .tile { padding: 9px 10px 10px; }
+      .tile .th { font-size: 14.5px; }
+      .tile p { font-size: 12px; }
     }
-    @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
     /* Live BoM warning banner (severe thunderstorms and tropical cyclones) */
     .wbanner { display: none; flex-shrink: 0; background: #5a1414; border-bottom: 1px solid #c62828; color: #ffe3e3;
                font: 600 12.5px/1.4 "Segoe UI", system-ui, Arial, sans-serif; padding: 5px 12px; }
@@ -234,64 +218,30 @@
   <section class="hero">
     <div class="hero-inner">
       <h1>Western Australian severe weather</h1>
-      <p>Rainfall, lightning, live observations and river levels across Western Australia.</p>
+      <p>Live rain, weather, lightning, warnings and river levels across WA.</p>
     </div>
   </section>
 
   <main>
-    <h2>Forecasts &amp; data</h2>
-    <section class="feature rain">
-      <div>
-        <h3>WA Rainfall</h3>
-        <p>Rainfall heat map for Western Australia from more than 700 gauges, showing where the rain has fallen across the state, plus lightning over the last 24 hours.</p>
-        <div class="tags">
-          <span class="tag"><span class="dot" style="background:#4fc3f7"></span>Heat map</span>
-          <span class="tag"><span class="dot" style="background:#7c4dff"></span>Western Australia</span>
-          <span class="tag"><span class="dot" style="background:#ffca28"></span>Lightning 24 hrs</span>
-        </div>
-      </div>
-      <a class="btn btn-rain" href="/rainfall/">Open the rainfall map →</a>
-    </section>
-
-    <section class="feature">
-      <div>
-        <h3>Live Observations</h3>
-        <p>Temperature, humidity, wind and rain from more than 700 BoM, DPIRD and DWER stations across WA, refreshed every 10 minutes, with live lightning strikes, current BoM severe weather warnings on the map and email alerts when they change.</p>
-        <div class="tags">
-          <span class="tag"><span class="dot" style="background:#ef5350"></span>Temperature</span>
-          <span class="tag"><span class="dot" style="background:#66bb6a"></span>Wind and gusts</span>
-          <span class="tag"><span class="dot" style="background:#ab47bc"></span>Live lightning</span>
-          <span class="tag"><span class="dot" style="background:#ffca28"></span>BoM warnings</span>
-        </div>
-      </div>
-      <a class="btn" href="/obs/">Open Live Obs →</a>
-    </section>
-
-    <section class="feature">
-      <div>
-        <h3>River Levels</h3>
-        <p>Every WA river gauge on one map: which rivers are rising, the highest levels and biggest rises over the last day to month, river flow, flood levels, rain upstream, and road closures from Main Roads and shire road reports. Updated within minutes of new readings.</p>
-        <div class="tags">
-          <span class="tag"><span class="dot" style="background:#2f7fc1"></span>250+ river gauges</span>
-          <span class="tag"><span class="dot" style="background:#e8590c"></span>Flood levels</span>
-          <span class="tag"><span class="dot" style="background:#d32f2f"></span>Road closures</span>
-        </div>
-      </div>
-      <a class="btn" href="/rivers/">Open River Levels →</a>
-    </section>
-
-    <section class="feature">
-      <div>
-        <h3>Ripper Weather</h3>
-        <p>Where in WA has the best weather today and the next few days: towns ranked on sunshine, comfortable temperatures, light winds and no rain, with a tally of the best towns this month and year.</p>
-        <div class="tags">
-          <span class="tag"><span class="dot" style="background:#ffca28"></span>Best towns today</span>
-          <span class="tag"><span class="dot" style="background:#66bb6a"></span>Next few days</span>
-          <span class="tag"><span class="dot" style="background:#4fc3f7"></span>Month and year tally</span>
-        </div>
-      </div>
-      <a class="btn" href="/ripper/">Open Ripper Weather →</a>
-    </section>
+    <nav class="tiles" aria-label="Maps and data">
+      <a class="tile t-rain" href="/rainfall/">
+        <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>Rainfall</span>
+        <p>Rain totals from 700+ BoM, DPIRD, DWER and personal gauges, heavy-rain alerts and 24 h lightning.</p>
+      </a>
+      <a class="tile t-obs" href="/obs/">
+        <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Live Obs</span>
+        <p>Temperature, wind, gusts and more every 10 min, with live lightning and BoM warnings on the map.</p>
+      </a>
+      <a class="tile t-riv" href="/rivers/">
+        <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 8c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/><path d="M2 15c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/></svg>Rivers</span>
+        <p>250+ gauges: rising rivers, flood levels, rain upstream and road closures.</p>
+      </a>
+      <a class="tile t-rip" href="/ripper/">
+        <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Ripper</span>
+        <p>Towns with the best weather today and the next few days, plus month and year tallies.</p>
+      </a>
+    </nav>
+    <p class="appnote">Search any map by town, postcode or station.<span class="web-only"> Get warning, rain, wind and river alerts on your phone: <a href="/alerts/">West WX Watchers alerts</a>.</span><span class="app-only"> Set up warning, rain, wind and river alerts in the Alerts tab.</span></p>
 
     <h2>Follow West WX Watchers</h2>
     <div class="socials" id="socials"></div>
