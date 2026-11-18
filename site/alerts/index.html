@@ -80,8 +80,9 @@ label.ck small{display:block;color:var(--muted);font-size:12.5px;}
 .gauge .gn small{display:block;color:var(--muted);font-size:12px;}
 .gauge input[type=number]{width:96px;}
 .two{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px;}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 14px;position:sticky;bottom:0;background:var(--bg);padding:10px 0 calc(10px + env(safe-area-inset-bottom,0));}
-.actions .main{flex:1;min-height:50px;font-size:16px;border-radius:14px;}
+.actions{display:flex;gap:6px;flex-wrap:nowrap;margin:12px 0 10px;position:sticky;bottom:0;background:var(--bg);padding:6px 0 calc(6px + env(safe-area-inset-bottom,0));}
+.actions button{min-height:36px;padding:6px 12px;font-size:13px;white-space:nowrap;}
+.actions .main{flex:1;min-height:38px;font-size:14px;border-radius:999px;}
 .note{color:var(--muted);font-size:12.5px;}
 .note a{color:var(--accent);}
 #iosHint ol{margin:6px 0 0 20px;font-size:14px;}
@@ -89,7 +90,9 @@ label.ck small{display:block;color:var(--muted);font-size:12.5px;}
 /* our own suggestions under a search box (phones' built-in ones drew over the page) */
 .sugwrap{position:relative;flex:1;min-width:150px;display:flex;}
 .sugwrap input{flex:1;min-width:0;}
-.sug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.18);overflow:hidden;}
+.sug{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.18);max-height:min(60vh,420px);overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;}
+.sugwrap{flex-wrap:wrap;}
+#gaugeSug{position:static;flex:1 1 100%;margin-top:4px;max-height:none;overflow:visible;box-shadow:none;}   /* the gauge list sits in the page (it can be long), so it scrolls with the page */
 .sug button{display:block;width:100%;text-align:left;border:0;border-radius:0;border-bottom:1px solid var(--line);padding:10px 12px;min-height:44px;font-size:14px;background:transparent;}
 .sug button:last-child{border-bottom:0;}
 .sug button small{display:block;color:var(--muted);font-size:12px;}
