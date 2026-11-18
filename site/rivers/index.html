@@ -83,6 +83,7 @@
     .key span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
     .key i { width: 11px; height: 11px; border-radius: 50%; background: var(--c); display: inline-block; border: 1.5px solid var(--surface); box-shadow: 0 0 0 1px var(--c); }
     .key i.hollow { background: transparent; }
+    .key em { font-style: normal; } .key .ks { display: none; }
     .msg { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); padding: 24px; font-size: 14px; }
     .msg[hidden] { display: none; }
 
@@ -206,8 +207,11 @@
       .finder select, .finder input { padding: 4px 10px; font-size: 12.5px; }
       .main { padding: 0 6px 12px; gap: 10px; }
       .mapwrap { height: calc(100svh - 140px); max-height: none; min-height: 440px; border-radius: 12px; }
-      .key { left: 6px; bottom: 6px; max-width: calc(100% - 56px); gap: 2px 8px; padding: 4px 8px; font-size: 10.5px; border-radius: 9px; }
-      .key i { width: 8px; height: 8px; }
+      /* the key: a small column on the right, over the empty eastern desert */
+      .key { left: auto; right: 6px; bottom: 24%; max-width: none; flex-direction: column; gap: 1px; padding: 4px 7px; font-size: 9.5px; line-height: 1.25; border-radius: 8px;
+             background: color-mix(in srgb, var(--surface) 88%, transparent); }
+      .key .kl { display: none; } .key .ks { display: inline; }
+      .key i { width: 7px; height: 7px; }
       .key .kx { display: none; }
     }
     .foot.legalnote { margin-top: -14px; font-weight: 600; }
@@ -218,10 +222,11 @@
       .top { position: absolute; width: 0; height: 0; padding: 0; overflow: visible; }
       .mapwrap > .themebtn { position: absolute; z-index: 6; right: 8px; bottom: 8px; }
       .mstate { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; position: absolute; z-index: 6; top: 8px; left: 8px;
-        max-width: calc(100% - 64px); text-align: left; padding: 5px 10px 6px; border-radius: 10px; font: inherit; font-size: 11.5px; color: var(--muted);
+        max-width: calc(100% - 64px); text-align: left; padding: 3px 8px 4px; border-radius: 8px; font: inherit; font-size: 10px; line-height: 1.3; color: var(--muted);
         background: color-mix(in srgb, var(--surface) 92%, transparent); border: 1px solid var(--line); border-left: 5px solid var(--statec, var(--steady));
         box-shadow: 0 2px 8px rgba(0,0,0,.12); cursor: pointer; }
-      .mstate b { font-size: 13px; color: var(--text); font-weight: 700; }
+      .mstate b { font-size: 11.5px; color: var(--text); font-weight: 700; }
+      .mstate { border-left-width: 4px; }
       .mstate .msub { color: var(--text); margin-top: 2px; line-height: 1.35; }
       .mapwrap { height: calc(100svh - 112px); }
       /* lists: the river and gauge names get the full width; the time / flow line goes underneath */
@@ -482,7 +487,7 @@
     function mirrorState() {
       var st = $('state'), b = $('mstate'); if (!b) return;
       b.style.setProperty('--statec', st.style.getPropertyValue('--statec') || 'var(--steady)');
-      $('msHead').textContent = $('stHead').textContent; $('msStamp').textContent = $('stamp').textContent; $('msSub').textContent = $('stSub').textContent;
+      $('msHead').textContent = $('stHead').textContent; $('msStamp').textContent = $('stamp').textContent.replace(/^(Updated)\s+\w+,?\s+/, '$1 ').replace(/(\d+) of (\d+) gauges reporting/, '$1/$2 gauges'); $('msSub').textContent = $('stSub').textContent;
     }
     document.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('#mstate')) mstateToggle(); });
     // phones: the light/dark button moves onto the map (its row at the top is hidden)
@@ -681,7 +686,9 @@
     }
     // the whole state in view: clear of the key along the bottom; again on resize until someone moves the map
     var WA = [[112.9, -35.2], [129.0, -13.7]], moved = false;
-    function fitPad() { var k = $('key'), kh = k ? k.offsetHeight : 50, w = $('map').clientWidth; return { top: 14, left: 14, right: w > 500 ? 54 : 44, bottom: kh + 22 }; }
+    function fitPad() { var k = $('key'), kh = k ? k.offsetHeight : 50, w = $('map').clientWidth;
+      if (w <= 600) return { top: 40, left: 8, right: 40, bottom: 8 };   // phones: the key sits over the empty desert on the right, so WA fills the map
+      return { top: 14, left: 14, right: w > 500 ? 54 : 44, bottom: kh + 22 }; }
     window.addEventListener('resize', function () { if (map && !moved) map.fitBounds(WA, { padding: fitPad(), duration: 0 }); });
     function WAControl() {}
     WAControl.prototype.onAdd = function () {
@@ -756,7 +763,7 @@
     function byId(id) { for (var i = 0; i < G.length; i++) if (G[i].id === id) return G[i]; return null; }
     function drawKey() {
       $('key').innerHTML = ['fast', 'rise', 'steady', 'fall', 'tide', 'off'].map(function (k) {
-        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i>Ring: above flood level</span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i>Road closed by flooding</span><span class="kx" style="color:var(--muted)">Bigger dot: bigger rise ' + PERS[PER][1] + '</span>';
+        return '<span><i' + (k === 'off' ? ' class="hollow"' : '') + ' style="--c:var(' + STATUS[k][1] + ')"></i>' + STATUS[k][0] + '</span>'; }).join('') + '<span><i class="hollow" style="--c:var(--moderate);border-width:3px"></i><em class="kl">Ring: above flood level</em><em class="ks">Above flood</em></span><span><i style="--c:var(--major);border-radius:2px;height:4px;width:16px"></i><em class="kl">Road closed by flooding</em><em class="ks">Road closed</em></span><span class="kx" style="color:var(--muted)">Bigger dot: bigger rise ' + PERS[PER][1] + '</span>';
     }
 
     // ---- one gauge: the numbers and a 7-day chart
