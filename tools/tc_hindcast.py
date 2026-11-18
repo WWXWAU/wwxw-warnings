@@ -1,32 +1,38 @@
-"""Hindcast: how Google's AI cyclone models and ECMWF did on past Southern Hemisphere cyclones.
+"""Hindcast: how every cyclone model did on past Southern Hemisphere cyclones, scored the same way as the live
+verification in Cyclones.gs, so the result can seed the live model weights.
 
-Forecasts: Google DeepMind Weather Lab 'paired' ATCF a-decks (CC BY 4.0 for past data), which carry the AI model's
-ensemble mean alongside ECMWF's for the same storms. Best tracks: IBTrACS v04r01 (South Indian + South Pacific), using
-the Bureau of Meteorology's positions where it tracked the storm, else JTWC's, else the WMO agency's.
-Errors: great-circle distance from each forecast position to the best-track position at the same time, at 24-120 h,
-by region (WA 90-135E, northern Australia east 135-160E, South Pacific 160E+, south-west Indian Ocean <90E).
-Output: verify/tc-hindcast.json and verify/tc-hindcast.md (committed to the 'verification' branch by the workflow).
+Forecasts:
+  - UCAR/NCAR open a-decks (the same files the live page reads): JTWC's official forecast and every model JTWC
+    receives (GFS, GEFS, UKMO, Canadian, NAVGEM, their ensembles, consensus aids...). ECMWF is not in the open files.
+  - Google DeepMind Weather Lab archive (CC BY 4.0): FNV3 (WeatherNext) and GenCast ensemble means.
+Best tracks: IBTrACS v04r01 (South Indian + South Pacific): BoM positions where BoM tracked the storm, else JTWC, else WMO.
+Scoring (as Cyclones.gs cyVerifyScore_): great-circle error at 24-120 h; ensemble suites (XX01..XX30) as their mean
+when at least 5 members; JTWC's official forecast as OFF; region from the storm's first best-track position.
+Output: cy-skill-seed.json in the live record's layout { region: { key: { lead: [n, sum km] } } } and tc-hindcast.md.
 """
-import csv, io, json, math, os, sys, time, urllib.request, datetime as dt
-from collections import defaultdict
+import csv, io, json, math, os, re, sys, time, urllib.request, datetime as dt
+from collections import defaultdict, Counter
 
 OUT = sys.argv[1] if len(sys.argv) > 1 else 'verify'
 os.makedirs(OUT, exist_ok=True)
-G = 'https://deepmind.google.com/science/weatherlab/download/cyclones/{m}/ensemble_mean/paired/atcf/{m}_{d}_atcf_a_deck.txt'
-MODELS = ['FNV3', 'FNV2', 'GENC']
-SEASONS = [(2023, 11), (2024, 11), (2025, 11)]   # Nov to May
-LEADS = [24, 48, 72, 96, 120]
 UA = {'User-Agent': 'Mozilla/5.0 (WWXW verification)'}
+LEADS = [24, 48, 72, 96, 120]
+WL = 'https://deepmind.google.com/science/weatherlab/download/cyclones/{m}/ensemble_mean/paired/atcf/{m}_{d}_atcf_a_deck.txt'
+WL_MODELS = ['FNV3', 'GENC']
+SEASONS = [2024, 2025, 2026]           # SH season year (2024 = Jul 2023 - Jun 2024)
+UCAR = 'https://hurricanes.ral.ucar.edu/repository/data/adecks_open/{Y}/'
+stat = Counter()
 
 def get(u, tries=3):
     for k in range(tries):
         try:
-            return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=90).read()
+            return urllib.request.urlopen(urllib.request.Request(u, headers=UA), timeout=120).read()
         except urllib.error.HTTPError as e:
-            if e.code == 404: return None
+            if e.code == 404: stat['404'] += 1; return None
+            stat['http%d' % e.code] += 1
         except Exception:
-            pass
-        time.sleep(2 + 3 * k)
+            stat['err'] += 1
+        time.sleep(3 + 5 * k)
     return None
 
 def ll(s):
@@ -37,119 +43,136 @@ def ll(s):
 
 def km(a, b, c, d):
     p1, p2, dl = math.radians(a), math.radians(c), math.radians(d - b)
-    x = math.sin(p1) * math.sin(p2) + math.cos(p1) * math.cos(p2) * math.cos(dl)
-    return 6371.0 * math.acos(max(-1, min(1, x)))
+    return 6371.0 * math.acos(max(-1, min(1, math.sin(p1) * math.sin(p2) + math.cos(p1) * math.cos(p2) * math.cos(dl))))
 
-def region(lat, lon):
+def region(lat, lon):   # as Cyclones.gs cyRegion_
     L = lon % 360
-    if lat >= 0: return None
+    if lat >= 0: return 'NIO' if L < 100 else 'WPAC' if L < 180 else 'NHE'
     return 'SWIO' if L < 90 else 'WA' if L < 135 else 'NAUS' if L < 160 else 'SP' if L < 300 else 'SWIO'
 
-# ---- best tracks
+def season_of(t):
+    return t.year + 1 if t.month >= 7 else t.year
+
+# ---------------- best tracks
 def ibtracs():
-    bt = defaultdict(dict)   # ATCF id -> {datetime: (lat, lon, src)}
+    bt = defaultdict(dict)
     for basin in ['SI', 'SP']:
         raw = get('https://www.ncei.noaa.gov/data/international-best-track-archive-for-climate-stewardship-ibtracs/v04r01/access/csv/ibtracs.%s.list.v04r01.csv' % basin)
         if not raw: print('IBTrACS', basin, 'not read'); continue
-        rd = csv.DictReader(io.StringIO(raw.decode('utf-8', 'replace')))
-        n = 0
-        for r in rd:
-            if r.get('SEASON', '').strip() in ('', 'Year') or int(r['SEASON']) < 2023: continue
+        for r in csv.DictReader(io.StringIO(raw.decode('utf-8', 'replace'))):
+            try:
+                if int(r['SEASON']) < SEASONS[0]: continue
+            except ValueError:
+                continue
             aid = (r.get('USA_ATCF_ID') or '').strip().upper()
             if not aid: continue
             t = dt.datetime.strptime(r['ISO_TIME'][:16], '%Y-%m-%d %H:%M')
-            for la, lo, src in (('BOM_LAT', 'BOM_LON', 'BoM'), ('USA_LAT', 'USA_LON', 'JTWC'), ('LAT', 'LON', 'WMO')):
+            for la, lo in (('BOM_LAT', 'BOM_LON'), ('USA_LAT', 'USA_LON'), ('LAT', 'LON')):
                 try:
-                    a, b = float(r[la]), float(r[lo]); bt[aid][t] = (a, b, src); n += 1; break
+                    bt[aid][t] = (float(r[la]), float(r[lo])); break
                 except (ValueError, KeyError, TypeError):
                     continue
-        print('IBTrACS', basin, n, 'positions')
+    print('IBTrACS storms since', SEASONS[0], ':', len(bt))
     return bt
 
 def bt_at(track, t):
     if t in track: return track[t]
     ks = sorted(track)
     for i in range(len(ks) - 1):
-        if ks[i] < t < ks[i + 1] and (ks[i + 1] - ks[i]).total_seconds() <= 6 * 3600:
+        if ks[i] < t < ks[i + 1] and (ks[i + 1] - ks[i]).total_seconds() <= 12 * 3600:
             f = (t - ks[i]).total_seconds() / (ks[i + 1] - ks[i]).total_seconds()
             a, b = track[ks[i]], track[ks[i + 1]]
-            return (a[0] + f * (b[0] - a[0]), a[1] + f * (((b[1] - a[1] + 180) % 360) - 180), a[2])
+            return (a[0] + f * (b[0] - a[0]), a[1] + f * (((b[1] - a[1] + 180) % 360) - 180))
     return None
+
+# ---------------- forecasts: fc[(sid, init)][tech][tau] = (lat, lon)
+fc = defaultdict(lambda: defaultdict(dict))
+techs = Counter()
+
+def take(text, source):
+    for line in text.splitlines():
+        if line.startswith('#') or line.count(',') < 8: continue
+        f = [x.strip() for x in line.split(',')]
+        basin, cy, init, tech = f[0].upper(), f[1].zfill(2), f[2], f[4].upper()
+        try: tau = int(f[5])
+        except ValueError: continue
+        if tau not in LEADS: continue
+        lat, lon = ll(f[6]), ll(f[7])
+        if lat is None or lon is None or lat >= 0: continue
+        if basin not in ('SH', 'IO', 'SP', 'SI', 'S'): continue
+        if not re.match(r'^\d{10}$', init) or int(cy) >= 80: continue      # no invests
+        t0 = dt.datetime.strptime(init, '%Y%m%d%H')
+        sid = 'SH' + cy + str(season_of(t0))
+        if tech in ('CARQ', 'WRNG', 'BEST', 'TCVT', 'XTRP', 'CLIP', 'CLP5'): continue
+        fc[(sid, init)][tech][tau] = (lat, lon)
+        techs[(source, tech)] += 1
 
 def main():
     bt = ibtracs()
-    fc = {}      # (storm, init, tech) -> {tau: (lat, lon)}
-    techs = defaultdict(int)
-    for (y0, m0) in SEASONS:
-        d = dt.datetime(y0, m0, 1)
-        end = dt.datetime(y0 + 1, 6, 1)
-        while d < end and d < dt.datetime.utcnow() - dt.timedelta(days=6):
-            for m in MODELS:
-                raw = get(G.format(m=m, d=d.strftime('%Y_%m_%dT%H_00')))
-                if not raw: continue
-                for line in raw.decode('utf-8', 'replace').splitlines():
-                    if line.startswith('#') or line.count(',') < 8: continue
-                    f = [x.strip() for x in line.split(',')]
-                    basin, cy, init, tech, tau = f[0].upper(), f[1], f[2], f[4].upper(), f[5]
-                    if basin not in ('SH', 'SP', 'SI'): continue
-                    lat, lon = ll(f[6]), ll(f[7])
-                    if lat is None or lon is None: continue
-                    sid = 'SH' + cy.zfill(2) + init[:4]
-                    # season year: SH storms after July belong to the next year's ATCF number
-                    if int(init[4:6]) >= 7: sid = 'SH' + cy.zfill(2) + str(int(init[:4]) + 1)
-                    techs[tech] += 1
-                    fc.setdefault((sid, init, tech), {})[int(tau)] = (lat, lon)
-            d += dt.timedelta(hours=12)
-        print('season', y0, 'done:', len(fc), 'forecasts so far'); sys.stdout.flush()
-    print('Forecast models in the files:', dict(techs))
+    # UCAR a-decks
+    for Y in SEASONS:
+        idx = get(UCAR.format(Y=Y))
+        names = sorted(set(re.findall(r'ash(\d\d)%d\.dat' % Y, idx.decode('utf-8', 'replace')))) if idx else []
+        names = [n for n in names if int(n) < 80]
+        print('UCAR', Y, len(names), 'storms'); sys.stdout.flush()
+        for n in names:
+            raw = get(UCAR.format(Y=Y) + 'ash%s%d.dat' % (n, Y))
+            if raw: take(raw.decode('utf-8', 'replace'), 'adeck')
+    # Weather Lab, every 6 h
+    for Y in SEASONS:
+        d, end = dt.datetime(Y - 1, 10, 1), dt.datetime(Y, 6, 1)
+        while d < end and d < dt.datetime.now() - dt.timedelta(days=6):
+            for m in WL_MODELS:
+                raw = get(WL.format(m=m, d=d.strftime('%Y_%m_%dT%H_00')))
+                if raw: stat['wl_ok'] += 1; take(raw.decode('utf-8', 'replace'), 'weatherlab')
+            d += dt.timedelta(hours=6)
+        print('Weather Lab season', Y, 'done', dict(stat)); sys.stdout.flush()
+    print('Models:', sorted(((s, t), n) for (s, t), n in techs.items() if n >= 50))
     # score
-    err = defaultdict(lambda: defaultdict(list))   # (region, tech) -> lead -> [km]
-    pairs = defaultdict(lambda: defaultdict(list)) # (region, tech, 'EC') -> lead -> [(e_ai, e_ec)]
-    by_si = defaultdict(lambda: defaultdict(dict)) # (storm, init) -> tech -> {lead: km}
-    unmatched = set()
-    for (sid, init, tech), P in fc.items():
+    K = {}
+    first = {}
+    for sid, tr in bt.items():
+        if tr: k0 = min(tr); first[sid] = region(*tr[k0])
+    for (sid, init), T in fc.items():
         trk = bt.get(sid)
-        if not trk: unmatched.add(sid); continue
-        t0 = dt.datetime.strptime(init[:10], '%Y%m%d%H')
-        p0 = bt_at(trk, t0)
-        if not p0: continue
-        rg = region(p0[0], p0[1])
-        if not rg: continue
-        for L in LEADS:
-            if L not in P: continue
-            b = bt_at(trk, t0 + dt.timedelta(hours=L))
-            if not b: continue
-            e = km(P[L][0], P[L][1], b[0], b[1])
-            err[(rg, tech)][L].append(e)
-            by_si[(sid, init, rg)][tech][L] = e
-    # head-to-head: same storm, same start time, same lead
-    h2h = defaultdict(lambda: defaultdict(list))   # (region, a, b) -> lead -> [(ea, eb)]
-    tl = sorted(techs)
-    for (sid, init, rg), T in by_si.items():
-        for a in tl:
-            for b in tl:
-                if a >= b or a not in T or b not in T: continue
-                for L in LEADS:
-                    if L in T[a] and L in T[b]: h2h[(rg, a, b)][L].append((T[a][L], T[b][L]))
-    res = {'made': dt.datetime.utcnow().isoformat() + 'Z', 'seasons': ['%d-%02d' % (y, (y + 1) % 100) for y, _ in SEASONS],
-           'techs': dict(techs), 'unmatched': sorted(unmatched)[:50], 'err': {}, 'h2h': {}}
-    for (rg, tech), D in err.items():
-        res['err'].setdefault(rg, {})[tech] = {str(L): [len(v), round(sum(v) / len(v))] for L, v in D.items() if v}
-    for (rg, a, b), D in h2h.items():
-        res['h2h'].setdefault(rg, {})[a + ' vs ' + b] = {str(L): [len(v), round(sum(x[0] for x in v) / len(v)), round(sum(x[1] for x in v) / len(v))] for L, v in D.items() if v}
-    json.dump(res, open(os.path.join(OUT, 'tc-hindcast.json'), 'w'), indent=1)
+        if not trk or sid not in first: stat['no_best_track'] += 1; continue
+        rg = first[sid]; R = K.setdefault(rg, {})
+        t0 = dt.datetime.strptime(init, '%Y%m%d%H')
+        keys = {}
+        suites = defaultdict(lambda: defaultdict(list))
+        for tech, P in T.items():
+            if re.match(r'^[A-Z]{2}\d\d$', tech) and tech[2:] != '00':
+                for L, q in P.items(): suites[tech[:2]][L].append(q)
+                continue
+            keys['OFF' if tech == 'JTWC' else tech] = P
+        for s, D in suites.items():
+            P = {}
+            for L, qs in D.items():
+                if len(qs) >= 5:
+                    P[L] = (sum(q[0] for q in qs) / len(qs), sum(q[1] for q in qs) / len(qs))   # SH: no dateline issue for these
+            if P: keys[s + '##'] = P
+        for key, P in keys.items():
+            for L, q in P.items():
+                b = bt_at(trk, t0 + dt.timedelta(hours=L))
+                if not b: continue
+                c = R.setdefault(key, {}).setdefault(str(L), [0, 0])
+                c[0] += 1; c[1] += round(km(q[0], q[1], b[0], b[1]))
+    json.dump(K, open(os.path.join(OUT, 'cy-skill-seed.json'), 'w'), separators=(',', ':'))
+    # report
     names = {'WA': 'WA (90-135°E)', 'NAUS': 'Northern Australia east (135-160°E)', 'SP': 'South Pacific (160°E+)', 'SWIO': 'South-west Indian Ocean (<90°E)'}
-    md = ['# Cyclone track hindcast: AI vs ECMWF, Southern Hemisphere ' + ', '.join(res['seasons']), '',
-          'Mean track error (km) and number of forecasts, against IBTrACS best tracks (BoM positions where available).', '']
+    md = ['# Cyclone track errors, Southern Hemisphere seasons ' + ', '.join('%d-%02d' % (y - 1, y % 100) for y in SEASONS), '',
+          'Mean track error in km (number of forecasts) against IBTrACS best tracks (BoM positions where available).',
+          'Sources: UCAR/NCAR open a-decks (JTWC official and models received by JTWC), Google DeepMind Weather Lab (FNV3, GenCast; CC BY 4.0). ECMWF is not in the open archives.', '']
     for rg in ['WA', 'NAUS', 'SP', 'SWIO']:
-        if rg not in res['err']: continue
+        R = K.get(rg)
+        if not R: continue
+        rows = [(k, D) for k, D in R.items() if D.get('72', [0])[0] >= 10]
+        rows.sort(key=lambda x: x[1]['72'][1] / x[1]['72'][0])
         md += ['## ' + names[rg], '', '| Model | 24 h | 48 h | 72 h | 96 h | 120 h |', '|---|---|---|---|---|---|']
-        for tech, D in sorted(res['err'][rg].items(), key=lambda x: (x[1].get('72', [0, 9e9])[1])):
-            md.append('| ' + tech + ' | ' + ' | '.join(('%d (%d)' % (D[str(L)][1], D[str(L)][0])) if str(L) in D else '-' for L in LEADS) + ' |')
-        md += ['', 'Head to head (same storms, same start times): mean error A / B km', '']
-        for k, D in sorted(res['h2h'].get(rg, {}).items()):
-            md.append('- **' + k + '**: ' + ', '.join('%d h %d / %d (%d)' % (L, D[str(L)][1], D[str(L)][2], D[str(L)][0]) for L in LEADS if str(L) in D))
+        for k, D in rows[:30]:
+            md.append('| ' + k + ' | ' + ' | '.join(('%d (%d)' % (round(D[str(L)][1] / D[str(L)][0]), D[str(L)][0])) if str(L) in D else '-' for L in LEADS) + ' |')
         md.append('')
+    md.append('Fetch stats: ' + json.dumps(dict(stat)))
     open(os.path.join(OUT, 'tc-hindcast.md'), 'w').write('\n'.join(md))
     print('\n'.join(md))
 
