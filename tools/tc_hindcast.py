@@ -99,11 +99,12 @@ def take(text, source):
         if tau not in LEADS: continue
         lat, lon = ll(f[6]), ll(f[7])
         if lat is None or lon is None or lat >= 0: continue
+        lon = lon % 360   # 0-360, as the live page: ensemble means stay right across the dateline
         if basin not in ('SH', 'IO', 'SP', 'SI', 'S'): continue
         if not re.match(r'^\d{10}$', init) or int(cy) >= 80: continue      # no invests
         t0 = dt.datetime.strptime(init, '%Y%m%d%H')
         sid = 'SH' + cy + str(season_of(t0))
-        if tech in ('CARQ', 'WRNG', 'BEST', 'TCVT', 'XTRP', 'CLIP', 'CLP5'): continue
+        if tech in ('CARQ', 'WRNG', 'BEST', 'TCVT', 'XTRP', 'CLIP', 'CLP5') or re.match(r'^CHP\d$', tech): continue   # CHP2-7 repeat CHIP's track
         fc[(sid, init)][tech][tau] = (lat, lon)
         techs[(source, tech)] += 1
 
@@ -111,12 +112,16 @@ def main():
     bt = ibtracs()
     # UCAR a-decks
     for Y in SEASONS:
-        idx = get(UCAR.format(Y=Y))
+        base = UCAR.format(Y=Y)
+        idx = get(base)
         names = sorted(set(re.findall(r'ash(\d\d)%d\.dat' % Y, idx.decode('utf-8', 'replace')))) if idx else []
+        if not names:   # the current year's files sit in the top folder until the year is archived
+            base = UCAR.replace('{Y}/', ''); idx = get(base)
+            names = sorted(set(re.findall(r'ash(\d\d)%d\.dat' % Y, idx.decode('utf-8', 'replace')))) if idx else []
         names = [n for n in names if int(n) < 80]
         print('UCAR', Y, len(names), 'storms'); sys.stdout.flush()
         for n in names:
-            raw = get(UCAR.format(Y=Y) + 'ash%s%d.dat' % (n, Y))
+            raw = get(base + 'ash%s%d.dat' % (n, Y))
             if raw: take(raw.decode('utf-8', 'replace'), 'adeck')
     # Weather Lab, every 6 h
     for Y in SEASONS:
