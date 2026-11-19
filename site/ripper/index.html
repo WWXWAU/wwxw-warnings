@@ -445,8 +445,10 @@
       });
       el.addEventListener('mouseleave', function () { if (tip) { tip.remove(); tip = null; } });
     }
+    var WANT_DAY = (location.search.match(/[?&]day=(\d{4}-\d\d-\d\d)/) || [])[1];   // a Ripper alert opens on the day it's about (?day=2026-11-20)
     function buildDays() {
       var el = document.getElementById('days');
+      if (WANT_DAY) { var wi = D.days.map(function (d) { return d.date; }).indexOf(WANT_DAY); if (wi >= 0) dayI = wi; WANT_DAY = null; }
       el.innerHTML = D.days.map(function (d, i) { return '<button type="button" aria-pressed="' + (i === dayI) + '" data-i="' + i + '">' + dayLabel(d.date, i) + '</button>'; }).join('');
       el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
         dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); fit(true); }); });
