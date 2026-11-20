@@ -1,0 +1,33 @@
+name: Website upload (cPanel)
+# Uploads the website (the site/ folder) to the cPanel host over FTP whenever a page changes.
+# Only changed files are sent; files on the host that aren't in site/ (images, the app pages etc.) are left alone.
+# Secrets (Settings > Secrets and variables > Actions): FTP_SERVER, FTP_USERNAME, FTP_PASSWORD,
+# and optionally FTP_DIR (the folder the site lives in, as the FTP account sees it; default public_html/).
+on:
+  push:
+    branches: [main]
+    paths: ['site/**']
+  workflow_dispatch:
+    inputs:
+      dry:
+        description: 'Practice run: only list what would be uploaded'
+        type: boolean
+        default: true
+permissions:
+  contents: read
+concurrency: { group: site-upload, cancel-in-progress: false }
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftps
+          local-dir: ./site/
+          server-dir: ${{ secrets.FTP_DIR || 'public_html/' }}
+          dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry }}
+          log-level: standard
