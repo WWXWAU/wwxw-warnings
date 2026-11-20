@@ -1,0 +1,15 @@
+name: Store screenshots
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm i playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: mkdir -p shots && node tools/store_shots.js
+      - name: Save to the store-assets branch
+        run: |
+          cd shots && git init -q && git checkout -q -b store-assets && git add . && git -c user.name=wwxw-bot -c user.email=bot@users.noreply.github.com commit -qm "Store screenshots"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" store-assets
