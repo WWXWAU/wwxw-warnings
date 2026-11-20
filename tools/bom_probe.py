@@ -1,10 +1,14 @@
-"""Probe: is the WA land warnings RSS (IDZ00067) on BoM's anonymous FTP, and which WA warning products are there now?"""
+"""Probe: which WA warning products (flood, frost, etc.) are on BoM's anonymous FTP right now, with their titles."""
 import ftplib, io, re
 f = ftplib.FTP('ftp.bom.gov.au', timeout=60); f.login(); f.cwd('/anon/gen/fwo')
 names = f.nlst()
-print('IDZ files:', [n for n in names if n.startswith('IDZ')][:60])
-print('IDW warning-ish:', sorted(n for n in names if re.match(r'IDW(2|1[0-9]{4}|39|60)', n) and not n.endswith('.png'))[:200])
-for n in ['IDZ00067.warnings_land_wa.xml', 'IDZ00067.xml']:
-    if n in names:
-        b = io.BytesIO(); f.retrbinary('RETR ' + n, b.write); print('\n=====', n, '\n', b.getvalue().decode('utf-8', 'replace')[:4000])
+w = sorted(n for n in names if re.match(r'IDW(2\d|3\d|5\d|6\d)\d{3}', n) and not re.search(r'\.(png|gif|jpg)$', n))
+print('FILES:', ' '.join(w))
+for n in [x for x in w if x.endswith('.txt')]:
+    b = io.BytesIO()
+    try: f.retrbinary('RETR ' + n, b.write)
+    except Exception as e: print(n, 'ERR', e); continue
+    t = b.getvalue().decode('latin-1')
+    lines = [l.strip() for l in t.splitlines() if l.strip()][:8]
+    print('\n###', n, '|', ' / '.join(lines)[:300])
 f.quit()
