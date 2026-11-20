@@ -125,11 +125,25 @@
     var q = new URLSearchParams(location.search), x = '';
     ['stn', 'src'].forEach(function (k) { if (q.get(k)) x += '&' + k + '=' + encodeURIComponent(q.get(k)); });
     try { if (sessionStorage.getItem('wwxwApp') === '1') x += '&app=1'; } catch (e) {}   // in the WWXW app: the map's links stay in the app
-    document.getElementById('app').src = document.getElementById('app').getAttribute('data-src') + '?theme=' + window.WWXW_THEME + x;
+    var el = document.getElementById('app'), live = el.getAttribute('data-src') + '?theme=' + window.WWXW_THEME + x, done = false;
+    // Fast: the finished page saved to GitHub with each data update (opens in about a second). If it's missing, broken
+    // or more than 45 minutes old, load the map from Google as before.
+    var slow = function () { if (done) return; done = true; el.src = live; };
+    var tm = setTimeout(slow, 6000);
+    fetch('https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/pages/rain.html?t=' + Math.floor(Date.now() / 60000))
+      .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+      .then(function (h) {
+        var t = +((h.match(/var LIVE_T=(\d+)/) || [])[1] || 0);
+        if (done || h.length < 5000 || !/<\/html>\s*$/.test(h) || Date.now() - t > 45 * 60000) return slow();
+        clearTimeout(tm); done = true;
+        var P = { theme: window.WWXW_THEME, focus: q.get('stn') ? { stn: q.get('stn').substring(0, 80), src: (q.get('src') || '').substring(0, 8) } : null };
+        el.srcdoc = h.replace(/<head>/i, '<head><script>window.WWXWP=' + JSON.stringify(P).replace(/</g, '\\u003c') + ';<\/script>');
+      })
+      .catch(slow);
   })();</script>
   <script>   // in the app, the map's warning banner asks this page to open Live Obs (a plain link would leave the app)
   window.addEventListener('message', function (e) {
-    if (!/^https:\/\/([\w-]+\.)*googleusercontent\.com$/.test(e.origin) || !e.data || typeof e.data.wwxwGo !== 'string' || !/^\/[\w\/-]*$/.test(e.data.wwxwGo)) return;
+    if ((e.origin !== location.origin && !/^https:\/\/([\w-]+\.)*googleusercontent\.com$/.test(e.origin)) || !e.data || typeof e.data.wwxwGo !== 'string' || !/^\/[\w\/-]*$/.test(e.data.wwxwGo)) return;
     try { e.source.postMessage({ wwxwGoOk: 1 }, '*'); } catch (x) {}   // tell the map it's handled (else it opens the link itself)
     location.href = e.data.wwxwGo;
   });
