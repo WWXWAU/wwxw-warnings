@@ -65,6 +65,9 @@ def log(*a):
 
 
 # ---------------------------------------------------------------- fetching
+EXTRA_RE = re.compile(r'^IDW\d{5}\.cap\.xml$|^IDW[23]\d{4}\.txt$')   # other WA warnings (flood, frost): sorted out by their text
+
+
 def fetch_ftp(names):
     out = {}
     try:
@@ -72,6 +75,8 @@ def fetch_ftp(names):
         ftp.login()
         ftp.cwd('/anon/gen/fwo')
         present = set(ftp.nlst())
+        known = set(names)
+        names = list(names) + sorted(n for n in present if EXTRA_RE.match(n) and n not in known)
         for n in names:
             if n not in present:
                 continue
@@ -86,7 +91,52 @@ def fetch_ftp(names):
 
 
 def fetch_local(folder, names):
+    names = list(names) + [n for n in os.listdir(folder) if EXTRA_RE.match(n) and n not in names]
     return {n: open(os.path.join(folder, n), 'rb').read() for n in names if os.path.exists(os.path.join(folder, n))}
+
+
+# ---------------------------------------------------------------- flood and frost warnings
+def extra_kind(txt):
+    t = txt.lower()
+    if 'flood' in t and 'watch' in t[:200]: return 'Flood Watch'
+    if 'flood warning' in t or 'flood' in t[:200]: return 'Flood Warning'
+    if 'frost' in t[:300]: return 'Frost Warning'
+    return None
+
+
+MONTHS = {m: i + 1 for i, m in enumerate(['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
+                                          'september', 'october', 'november', 'december'])}
+
+
+def parse_txt(raw, code):
+    """A plain-text BoM warning (used when there's no CAP copy): headline, issue time, text."""
+    t = raw.decode('latin-1').replace('\r', '')
+    lines = [l.strip() for l in t.split('\n')]
+    head = next((l for l in lines[:15] if re.search(r'flood|frost', l, re.I)), '')
+    if not head: return []
+    m = re.search(r'Issued at (\d{1,2}):(\d{2}) ?([ap]m) (?:WST|AWST) on \w+ (\d{1,2}) (\w+) (\d{4})', t, re.I)
+    if not m: return []
+    hh = int(m.group(1)) % 12 + (12 if m.group(3).lower() == 'pm' else 0)
+    sent = dt.datetime(int(m.group(6)), MONTHS.get(m.group(5).lower(), 1), int(m.group(4)), hh, int(m.group(2)),
+                       tzinfo=dt.timezone(dt.timedelta(hours=8)))
+    body = '\n'.join(lines[lines.index(head) + 1:]).strip()
+    body = re.split(r'\n(?:The next|Next) [^\n]*will be issued', body)[0] if body else body
+    exp = sent + dt.timedelta(hours=24)
+    return [{'code': code, 'msgType': 'Alert', 'sent': sent.isoformat(), 'event': head, 'headline': head,
+             'description': re.sub(r'\n{3,}', '\n\n', body)[:3000], 'expires': exp.isoformat(), 'severity': '', 'urgency': '',
+             'areas': [], 'polys': [], 'cancelled': bool(re.match(r'(final|cancellation)', head, re.I))}]
+
+
+def places_named(desc, places):
+    """Places mentioned anywhere in a warning's text (flood warnings name river towns and gauges, not a list)."""
+    out = []
+    for m in re.finditer(r"\b([A-Z][a-z']+(?: [A-Z][a-z']+){0,2})\b", desc):
+        for k in range(3, 0, -1):
+            words = m.group(1).split()[:k]
+            nm = ' '.join(words)
+            if len(nm) >= 5 and norm(nm) in places and nm not in out:
+                out.append(nm); break
+    return out[:20]
 
 
 # ---------------------------------------------------------------- places (GeoNames, CC BY 4.0)
@@ -207,7 +257,7 @@ def warning_area(w, places, shapes, wa, img=None):
                 return tidy_area(g, named_districts(w['areas'], w['description'], shapes), shapes, wa), 'image', []
         except Exception as e:
             log('  image area failed:', e)
-    towns = towns_in(w['description'])
+    towns = towns_in(w['description']) or (places_named(w['headline'] + '. ' + w['description'], places) if w.get('scan') else [])
     pts = [(t, places[norm(t)]) for t in towns if norm(t) in places]
     dists = named_districts(w['areas'], w['description'], shapes)
     clip = unary_union([shapes[n] for n in dists]) if dists else wa
@@ -286,25 +336,35 @@ def main():
     os.makedirs(IMG, exist_ok=True)
     warnings, keep_imgs = [], set()
 
-    for code, (wtype, img) in PRODUCTS.items():
+    jobs = [(c, t, i) for c, (t, i) in PRODUCTS.items()]
+    extra = sorted(set(n.split('.')[0] for n in files if EXTRA_RE.match(n)) - set(PRODUCTS))
+    jobs += [(c, None, None) for c in extra]
+    for code, wtype, img in jobs:
         raw = files.get(code + '.cap.xml')
-        if not raw:
-            continue
         try:
-            infos = parse_cap(raw, code)
+            if raw:
+                infos = parse_cap(raw, code)
+            elif wtype is None and files.get(code + '.txt'):
+                infos = parse_txt(files[code + '.txt'], code)
+            else:
+                continue
         except Exception as e:
             log(code, 'could not be read:', e)
             continue
+        if wtype is None:                     # flood / frost: keep only those, skip every other product
+            infos = [w for w in infos if extra_kind(w['event'] + ' ' + w['headline'])]
+            for w in infos: w['scan'] = True
+            if not infos: continue
         for i, w in enumerate(infos):
             exp = dt.datetime.fromisoformat(w['expires']) if w['expires'] else None
             ended = w['cancelled'] or (exp is not None and exp < now)
             if ended and exp is not None and (now - exp).total_seconds() > KEEP_ENDED_H * 3600 and not w['cancelled']:
                 continue
-            pic = files.get(img + '.png') if not ended and not code.startswith('IDW245') else None
+            pic = files.get(img + '.png') if img and not ended and not code.startswith('IDW245') else None
             area, how, placed = warning_area(w, places, shapes, wa, pic)
             if how == 'image':
                 placed = [t for t in towns_in(w['description']) if norm(t) in places]
-            kind = wtype
+            kind = wtype or extra_kind(w['event'] + ' ' + w['headline'])
             if code.startswith('IDW245'):
                 kind = 'Tropical Cyclone ' + ('Watch' if 'watch' in w['headline'].lower() else 'Warning')
             item = {
@@ -313,11 +373,13 @@ def main():
                 'headline': w['headline'], 'sent': w['sent'], 'expires': w['expires'],
                 'hazards': hazards_in(w['headline'] + ' ' + w['description']),
                 'districts': [n.title() for n in named_districts(w['areas'], w['description'], shapes)],
-                'towns': towns_in(w['description']), 'townsPlaced': placed,
+                'towns': towns_in(w['description']) or (placed if wtype is None else []), 'townsPlaced': placed,
                 'description': w['description'][:3000], 'areaSource': how, 'area': geojson(area),
                 'bomUrl': 'https://www.bom.gov.au/products/' + code + '.shtml',
             }
-            if files.get(img + '.png') and item['status'] == 'current':
+            if wtype is None:
+                item['hazards'] = (['flooding'] if 'Flood' in kind else ['frost']) + [h for h in item['hazards'] if h == 'heavy rainfall']
+            if img and files.get(img + '.png') and item['status'] == 'current':
                 open(os.path.join(IMG, img + '.png'), 'wb').write(files[img + '.png'])
                 item['image'] = 'img/' + img + '.png'
                 keep_imgs.add(img + '.png')
@@ -328,7 +390,7 @@ def main():
                     item['people'], item['peopleTowns'] = n, [t for t, _ in towns[:8]]
                 except Exception as e:
                     log('  people count failed:', e)
-            if warn_images and item['status'] == 'current':
+            if warn_images and wtype is not None and item['status'] == 'current':
                 # a square post and a story image, named after this issue of the warning (made once per issue)
                 tag = item['id'] + '-' + re.sub(r'\D', '', item['sent'])[:12]
                 post, story = tag + '-post.png', tag + '-story.png'
@@ -346,7 +408,7 @@ def main():
             os.remove(os.path.join(IMG, f))
     result = {'source': 'Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)',
               'note': 'Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. '
-                      'Severe thunderstorm and severe weather areas are approximate, drawn around the locations listed in each warning.',
+                      'Severe thunderstorm, severe weather, flood and frost areas are approximate, drawn around the locations named in each warning.',
               'warnings': warnings}
     # write (and so commit) only when the warnings themselves change, not just the check time
     if not os.path.exists(out_path) or json.dumps(prev.get('warnings'), sort_keys=True) != json.dumps(warnings, sort_keys=True):

@@ -1,0 +1,17 @@
+name: Relay test (flood/frost samples)
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install -q shapely pillow numpy h5py
+      - run: |
+          python relay.py --local tools/testwarn
+          python -c "
+          import json;d=json.load(open('data/warnings.json'))
+          for w in d['warnings']: print(w['id'],'|',w['type'],'|',w['status'],'|',w['headline'],'|',w['towns'],'|',w['districts'],'|',w['areaSource'],'|',w['hazards'],'|',w['sent'],w['expires'],'|',(w.get('area') or {}).get('type'),'|',w['description'][:200])"
