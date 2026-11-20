@@ -91,6 +91,7 @@
       <a href="/obs/">Live Obs</a>
       <a href="/rivers/">River Levels</a>
       <a href="/ripper/">Ripper Weather</a>
+      <a class="kofi-nav" data-kofi href="https://ko-fi.com/westweatherwatchers" target="_blank" rel="noopener" title="Support West WX Watchers on Ko-fi">☕ Support</a>
       <a href="/cyclones/" class="on" aria-current="page">Cyclones</a>
   </nav>
   <div class="wbanner" id="wbanner" role="alert" aria-live="polite"></div>
@@ -173,5 +174,38 @@
   });
   (function () { var m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', window.WWXW_THEME === 'dark' ? '#10232A' : '#FFFFFF'); })();
   </script>
+  <style>
+    /* Ko-fi: the Support button in the menu and its payment box */
+    .tabs a.kofi-nav, a.kofi-nav { color: #fff !important; background: #E8504D; border-radius: 999px; font-weight: 700; }
+    a.kofi-nav:hover { filter: brightness(1.08); }
+    #kofiBox { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(5, 15, 20, .55); padding: 12px; }
+    #kofiBox.on { display: flex; }
+    #kofiBox .in { position: relative; width: 100%; max-width: 420px; height: min(690px, 92vh); background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+    #kofiBox iframe { width: 100%; height: 100%; border: 0; }
+    #kofiBox button { position: absolute; top: 6px; right: 8px; z-index: 1; border: 0; background: rgba(0,0,0,.55); color: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; line-height: 1; cursor: pointer; }
+  </style>
+  <div id="kofiBox" role="dialog" aria-modal="true" aria-label="Support West WX Watchers on Ko-fi"><div class="in"><button type="button" aria-label="Close">&times;</button></div></div>
+  <script>(function () {   // Ko-fi payment box over the page (in the app: Ko-fi opens in the browser, where Apple Pay and Google Pay work best)
+    var box = document.getElementById('kofiBox'), inApp = false, last = null;
+    try { inApp = sessionStorage.getItem('wwxwApp') === '1'; } catch (e) {}
+    if (!box || inApp) return;
+    var close = function () { box.classList.remove('on'); if (last) last.focus(); };
+    document.querySelectorAll('[data-kofi]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.preventDefault(); last = b;
+        var inn = box.querySelector('.in');
+        if (!inn.querySelector('iframe')) {
+          var f = document.createElement('iframe');
+          f.src = 'https://ko-fi.com/westweatherwatchers/?hidefeed=true&widget=true&embed=true';
+          f.title = 'Support West WX Watchers on Ko-fi'; f.setAttribute('allow', 'payment');
+          inn.appendChild(f);
+        }
+        box.classList.add('on'); box.querySelector('button').focus();
+      });
+    });
+    box.querySelector('button').addEventListener('click', close);
+    box.addEventListener('click', function (e) { if (e.target === box) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && box.classList.contains('on')) close(); });
+  })();</script>
 </body>
 </html>
