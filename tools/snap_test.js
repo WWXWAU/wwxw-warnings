@@ -10,9 +10,9 @@ http.createServer((q, r) => { let p = decodeURIComponent(q.url.split('?')[0]); i
     p.on('pageerror', e => console.log(pg, 'pageerror', e.message.slice(0, 300)));
     p.on('requestfailed', r => console.log(pg, 'failed', r.url().slice(0, 120), r.failure() && r.failure().errorText));
     p.on('response', r => { if (r.status() >= 400) console.log(pg, 'http', r.status(), r.url().slice(0, 120)); });
-    await p.goto('http://localhost:8765/' + pg + '/'); await p.waitForTimeout(15000);
+    await p.goto('http://localhost:8765/' + pg + '/'); await p.waitForTimeout(25000);
     for (const f of p.frames()) { console.log(pg, 'frame', f.url().slice(0, 80));
-      if (f.url() === 'about:srcdoc') console.log(pg, 'state', await f.evaluate(() => JSON.stringify({ map: typeof map, loaded: typeof map !== 'undefined' && map && map.loaded && map.loaded(), layers: typeof map !== 'undefined' && map && map.getStyle ? map.getStyle().layers.length : -1, canv: document.querySelectorAll('canvas').length, text: document.body.innerText.slice(0, 160) })).catch(e => 'eval ' + e.message)); }
+      if (/^(about:srcdoc|blob:)/.test(f.url())) console.log(pg, 'state', await f.evaluate(() => JSON.stringify({ map: typeof map, loaded: typeof map !== 'undefined' && map && map.loaded && map.loaded(), layers: typeof map !== 'undefined' && map && map.getStyle ? map.getStyle().layers.length : -1, tiles: typeof map !== 'undefined' && map && map.areTilesLoaded ? map.areTilesLoaded() : null, feats: typeof map !== 'undefined' && map && map.querySourceFeatures ? Object.keys(map.getStyle().sources).map(function(k){try{return k+':'+map.querySourceFeatures(k).length}catch(e){return k+':x'}}).join(' ') : '', canv: document.querySelectorAll('canvas').length, text: document.body.innerText.slice(0, 160) })).catch(e => 'eval ' + e.message)); }
     console.log(pg, 'parent', await p.evaluate(() => { const l = document.querySelector('.loading,.loader,#loading,[class*=load]'); return l ? (l.className + ' ' + getComputedStyle(l).display + ' ' + getComputedStyle(l).opacity) : 'no loader'; }));
     await p.screenshot({ path: 'shot-' + pg + '.png' });
   }

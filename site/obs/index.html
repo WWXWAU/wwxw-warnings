@@ -138,7 +138,9 @@
         var P = { theme: window.WWXW_THEME,
           focus: q.get('stn') ? { stn: q.get('stn').substring(0, 80), src: (q.get('src') || '').substring(0, 8), p: (q.get('p') || '').replace(/\W/g, '').substring(0, 8) } : null,
           warn: q.get('warn') ? (q.get('warn').replace(/[^\w.:-]/g, '').substring(0, 80) || '1') : '' };
-        el.srcdoc = h.replace(/<head>/i, '<head><script>window.WWXWP=' + JSON.stringify(P).replace(/</g, '\\u003c') + ';<\/script>');
+        h = h.replace(/<head>/i, '<head><script>window.WWXWP=' + JSON.stringify(P).replace(/</g, '\\u003c') + ';<\/script>');
+        // as a file (blob) rather than srcdoc: the map library's background workers need a real address
+        el.src = URL.createObjectURL(new Blob([h], { type: 'text/html' }));
       })
       .catch(slow);
   })();</script>
