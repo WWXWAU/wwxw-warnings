@@ -119,7 +119,7 @@ def parse_txt(raw, code):
     hh = int(m.group(1)) % 12 + (12 if m.group(3).lower() == 'pm' else 0)
     sent = dt.datetime(int(m.group(6)), MONTHS.get(m.group(5).lower(), 1), int(m.group(4)), hh, int(m.group(2)),
                        tzinfo=dt.timezone(dt.timedelta(hours=8)))
-    body = '\n'.join(lines[lines.index(head) + 1:]).strip()
+    body = '\n'.join(l for l in lines[lines.index(head) + 1:] if not re.match(r'(Issued at|by the Bureau|Australian Government)', l, re.I)).strip()
     body = re.split(r'\n(?:The next|Next) [^\n]*will be issued', body)[0] if body else body
     exp = sent + dt.timedelta(hours=24)
     return [{'code': code, 'msgType': 'Alert', 'sent': sent.isoformat(), 'event': head, 'headline': head,
@@ -130,13 +130,15 @@ def parse_txt(raw, code):
 def places_named(desc, places):
     """Places mentioned anywhere in a warning's text (flood warnings name river towns and gauges, not a list)."""
     out = []
-    for m in re.finditer(r"\b([A-Z][a-z']+(?: [A-Z][a-z']+){0,2})\b", desc):
+    desc = re.sub(r'Bureau of Meteorology,? \w+', '', desc)
+    for m in re.finditer(r"\b([A-Z][a-z']+(?: [A-Z][a-z']+){0,2})\b(?! (?:River|Creek|Brook|Dam|Catchment|Basin|Range))", desc):
         for k in range(3, 0, -1):
             words = m.group(1).split()[:k]
             nm = ' '.join(words)
-            if len(nm) >= 5 and norm(nm) in places and nm not in out:
-                out.append(nm); break
-    return out[:20]
+            if len(words) == k and len(nm) >= 5 and norm(nm) in places:
+                if nm not in out: out.append(nm)
+                break
+    return [n for n in out if not any(n != o and o.startswith(n + ' ') for o in out)][:20]
 
 
 # ---------------------------------------------------------------- places (GeoNames, CC BY 4.0)
