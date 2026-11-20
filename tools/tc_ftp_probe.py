@@ -1,9 +1,5 @@
-import ftplib, io
+import ftplib, io, re
 f = ftplib.FTP('ftp.bom.gov.au', timeout=60); f.login(); f.cwd('/anon/gen/fwo')
-names = f.nlst()
-want = [n for n in names if n.startswith(('IDW108', 'IDW276', 'IDW602', 'IDW241', 'IDW242', 'IDD108', 'IDQ108', 'IDD2002', 'IDQ2002', 'IDW6028'))]
-print('files:', sorted(want))
-for n in sorted(want):
-    if n.endswith(('.txt', '.xml')) and ('IDW108' in n or 'IDW6028' in n or 'IDW276' in n):
-        b = io.BytesIO(); f.retrbinary('RETR ' + n, b.write); t = b.getvalue().decode('utf-8', 'replace')
-        print('=====', n, len(t)); print(t[:2500])
+b = io.BytesIO(); f.retrbinary('RETR IDW60281.xml', b.write); t = b.getvalue().decode('utf-8', 'replace')
+i = t.find('intensit'); print(t[i-200:i+9000])
+print('NAMES', sorted(n for n in f.nlst() if re.match(r'ID[DQWNT]\d{5}', n) and ('6028' in n or '1080' in n or '65' == n[3:5]))[:60])
