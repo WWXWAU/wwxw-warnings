@@ -554,5 +554,11 @@ window.addEventListener('load', function () {
   }
 });
 </script>
+<script>
+  // A Support (Ko-fi) button anywhere in the pages asks the app to open Ko-fi: leaving the app's address opens the phone's browser
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.wwxwKofi === 1) { location.href = 'https://ko-fi.com/westweatherwatchers'; }
+  });
+</script>
 </body>
 </html>
