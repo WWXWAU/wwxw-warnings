@@ -130,7 +130,8 @@
     .t-rain { --tc: #2f7fc1; } .t-obs { --tc: #0E7C86; } .t-riv { --tc: #3a6fd8; } .t-rip { --tc: #c99700; }
     [data-theme=dark] .t-rain { --tc: #4fc3f7; } [data-theme=dark] .t-obs { --tc: #3FC1C9; } [data-theme=dark] .t-riv { --tc: #82a8ff; } [data-theme=dark] .t-rip { --tc: #F2C230; }
     /* Ko-fi: a coffee to support the site */
-    .support { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 2px 0; }
+    .support { display: none; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 2px 0; }
+    .in-app .support { display: flex; }   /* on the website the Support button is in the top menu */
     .support span { font-size: 12.5px; color: var(--muted); }
     .kofi { display: inline-flex; align-items: center; gap: 7px; text-decoration: none; font-weight: 700; font-size: 14px;
             color: #fff; background: #0E7C86; border-radius: 999px; padding: 8px 15px 8px 12px; }
