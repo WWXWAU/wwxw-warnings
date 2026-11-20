@@ -124,7 +124,23 @@
   <script>(function () {   // a link to one station (?stn=…&src=…&p=…) or a warning (?warn=…), e.g. from an alert, is passed on to the map
     var q = new URLSearchParams(location.search), x = '';
     ['stn', 'src', 'p', 'warn'].forEach(function (k) { if (q.get(k)) x += '&' + k + '=' + encodeURIComponent(q.get(k)); });
-    document.getElementById('app').src = document.getElementById('app').getAttribute('data-src') + '&theme=' + window.WWXW_THEME + x;
+    var el = document.getElementById('app'), live = el.getAttribute('data-src') + '&theme=' + window.WWXW_THEME + x, done = false;
+    // Fast: the finished page saved to GitHub with each data update (opens in about a second). If it's missing, broken
+    // or more than 45 minutes old, load the map from Google as before.
+    var slow = function () { if (done) return; done = true; el.src = live; };
+    var tm = setTimeout(slow, 6000);
+    fetch('https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/pages/obs.html?t=' + Math.floor(Date.now() / 60000))
+      .then(function (r) { return r.ok ? r.text() : Promise.reject(r.status); })
+      .then(function (h) {
+        var t = +((h.match(/var LIVE_T=(\d+)/) || [])[1] || 0);
+        if (done || h.length < 5000 || !/<\/html>\s*$/.test(h) || Date.now() - t > 45 * 60000) return slow();
+        clearTimeout(tm); done = true;
+        var P = { theme: window.WWXW_THEME,
+          focus: q.get('stn') ? { stn: q.get('stn').substring(0, 80), src: (q.get('src') || '').substring(0, 8), p: (q.get('p') || '').replace(/\W/g, '').substring(0, 8) } : null,
+          warn: q.get('warn') ? (q.get('warn').replace(/[^\w.:-]/g, '').substring(0, 80) || '1') : '' };
+        el.srcdoc = h.replace(/<head>/i, '<head><script>window.WWXWP=' + JSON.stringify(P).replace(/</g, '\\u003c') + ';<\/script>');
+      })
+      .catch(slow);
   })();</script>
   <script>
   // The map page tells us when its sun/moon button is pressed: follow it and remember it
