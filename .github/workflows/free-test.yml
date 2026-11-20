@@ -1,0 +1,14 @@
+name: Free design test
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npm i playwright@1.48.2 && npx playwright install --with-deps chromium
+      - run: node tools/freetest/test.js
+      - run: |
+          mkdir o && cp free-shot.png free-out.png o/ && cd o && git init -q && git checkout -q -b free-test && git add . && git -c user.name=bot -c user.email=bot@users.noreply.github.com commit -qm shots
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" free-test
