@@ -1,0 +1,93 @@
+{
+ "updated": "2026-11-20T07:05Z",
+ "source": "Bureau of Meteorology, ftp.bom.gov.au",
+ "systems": [
+  {
+   "product": "IDW60281",
+   "id": "01U",
+   "name": "Tropical Low 01U",
+   "cyclone": "",
+   "type": "Tropical Low",
+   "issued": "2026-11-20T06:35:59Z",
+   "headline": "Tropical Low 01U lies well west northwest of Cocos (Keeling) Islands. No direct impacts are expected.",
+   "discussion": "Tropical Low 01U lies over the Indian Ocean, about 800 kilometres to the west northwest of the Cocos (Keeling) Islands. It should move towards the southeast overnight and during Saturday, before turning towards the west on Sunday. It will remain well to the west of the Cocos (Keeling) Islands, with no direct impacts expected.\n\n01U is a Moderate (25%) chance of developing into a tropical cyclone on Saturday. The more likely scenario is that gales develop only in the southwest quadrant of the system, before it then weakens during Sunday.",
+   "intensity": "tropical low, sustained winds near the centre of 55 kilometres per hour with wind gusts to 85 kilometres per hour",
+   "chance": 25,
+   "next": "The next Forecast Track Map will be issued by 9:00 pm AWST Friday",
+   "pts": [
+    {
+     "h": 0,
+     "t": "2026-11-20T14:00:00+08:00",
+     "lat": -10.0,
+     "lng": 89.8,
+     "cat": "tropical low",
+     "acc": "35"
+    },
+    {
+     "h": 6,
+     "t": "2026-11-20T20:00:00+08:00",
+     "lat": -10.4,
+     "lng": 90.1,
+     "cat": "tropical low",
+     "acc": "55"
+    },
+    {
+     "h": 12,
+     "t": "2026-11-21T02:00:00+08:00",
+     "lat": -10.8,
+     "lng": 90.4,
+     "cat": "tropical low",
+     "acc": "70"
+    },
+    {
+     "h": 18,
+     "t": "2026-11-21T08:00:00+08:00",
+     "lat": -11.2,
+     "lng": 90.7,
+     "cat": "tropical low",
+     "acc": "80"
+    },
+    {
+     "h": 24,
+     "t": "2026-11-21T14:00:00+08:00",
+     "lat": -11.6,
+     "lng": 90.7,
+     "cat": "tropical low",
+     "acc": "85"
+    },
+    {
+     "h": 36,
+     "t": "2026-11-22T02:00:00+08:00",
+     "lat": -12.3,
+     "lng": 90.1,
+     "cat": "tropical low",
+     "acc": "90"
+    },
+    {
+     "h": 48,
+     "t": "2026-11-22T14:00:00+08:00",
+     "lat": -13.3,
+     "lng": 88.6,
+     "cat": "tropical low",
+     "acc": "115"
+    },
+    {
+     "h": 60,
+     "t": "2026-11-23T02:00:00+08:00",
+     "lat": -14.2,
+     "lng": 86.8,
+     "cat": "tropical low",
+     "acc": "135"
+    },
+    {
+     "h": 72,
+     "t": "2026-11-23T14:00:00+08:00",
+     "lat": -15.2,
+     "lng": 85.3,
+     "cat": "tropical low",
+     "acc": "160"
+    }
+   ]
+  }
+ ]
+}
