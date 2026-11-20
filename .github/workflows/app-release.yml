@@ -34,6 +34,7 @@ jobs:
           GSJ: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
           npx cap add android
+          sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 24/' android/variables.gradle && grep -n minSdkVersion android/variables.gradle   # Android 7.0+: Google Play's minimum
           RES=android/app/src/main/res
           cp -r res/mipmap-* res/drawable-* $RES/
           printf '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="ic_launcher_background">#EEF4F5</color>\n    <color name="wwxw_accent">#0E7C86</color>\n</resources>\n' > $RES/values/ic_launcher_background.xml
