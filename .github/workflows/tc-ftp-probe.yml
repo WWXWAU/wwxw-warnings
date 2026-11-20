@@ -1,8 +1,0 @@
-name: TC FTP probe
-on: workflow_dispatch
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: python3 tools/tc_ftp_probe.py

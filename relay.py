@@ -233,10 +233,50 @@ def geojson(g):
 
 
 # ---------------------------------------------------------------- main
+# ---------------------------------------------------------------- tropical cyclone forecast tracks (for the cyclone page)
+# BoM's Tropical Cyclone Forecast Track Map product (IDW60281, one per system: IDW60281-IDW60289) as data: the
+# system's number (01U) and name, the forecast positions to +72 h, the headline and discussion (with the chance of
+# it becoming a cyclone). Written to data/cyclone-bom.json; the cyclone page (Cyclones.gs) reads it.
+TC_TRACKS = ['IDW6028%d.xml' % i for i in range(1, 10)]
+
+
+def tc_tracks(files):
+    out = []
+    for n in TC_TRACKS:
+        if n not in files: continue
+        root = ET.fromstring(files[n])
+        el = {e.get('type'): (e.text or '').strip() for e in root.iter('element')}
+        issued = (root.findtext('.//amoc/issue-time-utc') or '').strip()
+        pts = []
+        for h in range(0, 241, 6):
+            k = 'plus%d' % h
+            if 'latitude_' + k not in el: continue
+            la, lo = el['latitude_' + k], el['longitude_' + k]
+            lat = -float(la[:-1]) if la.endswith('S') else float(la[:-1])
+            lng = float(lo[:-1]) if lo.endswith('E') else 360 - float(lo[:-1])
+            pts.append({'h': h, 't': el.get('date_' + k), 'lat': lat, 'lng': lng, 'cat': el.get('category_name_' + k, ''), 'acc': el.get('position_acc_km_' + k)})
+        if not pts: continue
+        dist = el.get('disturbance_id', '')
+        m = re.search(r'(\d+)\s*%\)?\s*chance', el.get('discussion', ''))
+        out.append({'product': n.split('.')[0], 'id': dist.split('_')[-1] if dist else '', 'name': el.get('disturbance_full_name', ''),
+                    'cyclone': el.get('cyclone_name', ''), 'type': el.get('dist_type', ''), 'issued': issued,
+                    'headline': el.get('headline', ''), 'discussion': el.get('discussion', ''), 'intensity': el.get('intensity', ''),
+                    'chance': int(m.group(1)) if m else None, 'next': root.findtext('.//text[@type="warning_next_issue"]') or '', 'pts': pts})
+    path = os.path.join(DATA, 'cyclone-bom.json')
+    res = {'updated': dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Bureau of Meteorology, ftp.bom.gov.au', 'systems': out}
+    prev = json.load(open(path)) if os.path.exists(path) else {}
+    if json.dumps(prev.get('systems'), sort_keys=True) != json.dumps(out, sort_keys=True):
+        json.dump(res, open(path, 'w'), indent=1)
+        log('Cyclone tracks:', ', '.join(s['name'] + ' (' + str(len(s['pts'])) + ' points)' for s in out) or 'none')
+
 def main():
     local = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == '--local' else None
     names = [c + '.cap.xml' for c in PRODUCTS] + [img + '.png' for _, img in PRODUCTS.values()]
+    names += TC_TRACKS
     files = fetch_local(local, names) if local else fetch_ftp(names)
+    if files is not None:
+        try: tc_tracks(files)
+        except Exception as e: log('Cyclone tracks:', e)
     if files is None:
         sys.exit(0)
     places, (shapes, wa) = load_places(), load_districts()
