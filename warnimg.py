@@ -588,12 +588,15 @@ def draw_map(img, box, item, col, style='classic', rounded=True, brand=False):
         for bx, by, pos in cands:
             if bx < 6 * S or bx + bw > W - 6 * S or by < 6 * S or by + bh > H - 6 * S: continue
             if any(bx < q[2] and bx + bw > q[0] and by < q[3] and by + bh > q[1] for q in boxes): continue
+            # nor over any gauge's dot (its own or another's)
+            if any(bx - rr < qx < bx + bw + rr and by - rr < qy < by + bh + rr for qx, qy in dots): continue
             best = (bx, by, pos); break
         if best is None: mk['box'] = None; return None   # no room: the marks become numbered dots (see below)
         bx, by, pos = best; boxes.append((bx - 8 * S, by - 8 * S, bx + bw + 8 * S, by + bh + 8 * S))
         mk['box'] = (l1, l2, bx, by, bw, bh, pos); return mk['box']
     item.pop('_numbered', None)
     marks = [mk for mk in item.get('_marks', []) if mk.get('name')]
+    dots = [(X(mk['lng']) - ox, Y(mk['lat']) - oy) for mk in item.get('_marks', [])]   # every mark's spot: no callout box may cover one
     for mk in marks:   # callouts first; if any won't fit clear of the others, every mark becomes a numbered dot instead
         if callout(mk, X(mk['lng']) - ox, Y(mk['lat']) - oy) is None:
             item['_numbered'] = True; break

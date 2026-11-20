@@ -28,7 +28,13 @@ def val(v):
     return ('%g' % v['v']) + (' ' + v['unit'] if v['unit'] else '')
 
 
+def biggest_first(a):   # the heaviest fall (or strongest gust) leads the text, the list and the map
+    try: a['items'] = sorted(a['items'], key=lambda i: -float(i['vals'][0]['v']))
+    except Exception: pass
+
+
 def summary(a):
+    biggest_first(a)
     """The alert in words, as the email's copy-and-paste story text says it."""
     items = a['items']; i = items[0]
     where = i['name'] + (' (' + i['district'] + ')' if i.get('district') else '')
@@ -74,6 +80,7 @@ def rivers(lo, la):
 def render(a, story_path, post_path, style='light'):
     col, title, todo = KIND.get(a['kind'], KIND['rain'])
     th = W.DARK
+    biggest_first(a)
     items = a['items'][:5]
     # the map: a plain map fitted to the stations (at least ~3 degrees across), with the places around them named
     pts = [[i['lng'], i['lat']] for i in items if i.get('lat') is not None]
