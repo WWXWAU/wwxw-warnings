@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');parent.postMessage({wwxwPath:location.pathname},'*');}}catch(e){}</script>
+<style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>Privacy policy — West WX Watchers</title>
+  <meta name="description" content="Privacy policy for the West WX Watchers website and Android app: what we keep to send your alerts, and nothing sold or shared for advertising.">
+  <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
+  <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap">
+  <script>
+  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <style>
+    :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF; color-scheme: light; }
+    [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
+    a { color: var(--accent); }
+    .tabs { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs .brand { display: flex; align-items: center; margin-right: 6px; flex-shrink: 0; }
+    .tabs .brand img { width: 26px; height: 26px; border-radius: 6px; }
+    .tabs a:not(.brand) { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 5px 13px; border-radius: 999px; flex-shrink: 0; }
+    .tabs a:not(.brand):hover { color: var(--text); background: var(--bg); }
+    [data-theme=dark] .tabs .brand img { background: #f8faf9; padding: 2px; }
+    main { max-width: 760px; margin: 0 auto; padding: 28px 20px 40px; }
+    h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+    .when { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+    .key { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid #D32F2F; border-radius: 14px; padding: 16px 18px; margin: 0 0 26px; }
+    .key p { margin: 0; font-weight: 600; }
+    .key p + p { margin-top: 8px; font-weight: 400; }
+    h2 { font-size: 19px; margin: 28px 0 8px; }
+    p, li { color: var(--text); }
+    li { margin: 4px 0; }
+    .small { color: var(--muted); font-size: 13.5px; }
+    @media (max-width: 600px) { .tabs { height: 30px; padding: 0 5px; gap: 2px; } .tabs .brand img { width: 18px; height: 18px; } .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; } h1 { font-size: 23px; } }
+  </style>
+</head>
+<body>
+  <nav class="tabs" aria-label="West WX Watchers">
+    <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
+    <a href="/">Home</a>
+    <a href="/rainfall/">Rainfall</a>
+    <a href="/obs/">Live Obs</a>
+    <a href="/rivers/">River Levels</a>
+    <a href="/ripper/">Ripper Weather</a>
+    <a class="kofi-nav" data-kofi href="https://ko-fi.com/westweatherwatchers" target="_blank" rel="noopener" title="Support West WX Watchers on Ko-fi">☕ Support</a>
+  </nav>
+  <main>
+    <h1>Privacy policy</h1>
+    <p><em>Last updated 20 November 2026.</em> This covers the West WX Watchers website (westweatherwatchers.com) and the West WX Watchers Android app.</p>
+
+    <h2>The short version</h2>
+    <p>You can use the maps and data without an account and without giving us anything. We only keep what's needed to send the alerts you ask for, we don't sell or share it for advertising, and there are no ads.</p>
+
+    <h2>What the app keeps, and why</h2>
+    <ul>
+      <li><strong>A notification token</strong> from Google (Firebase Cloud Messaging), so we can send alerts to your phone. It identifies the app on your phone, not you.</li>
+      <li><strong>The places and alert settings you choose</strong> (towns, postcodes or river gauges, and which alerts you want), so we know which warnings, rain, wind and river alerts to send you.</li>
+      <li><strong>Your location, only if you tap "Use my location"</strong>, rounded to about 1 km and saved as one of your places. The app doesn't track your location in the background.</li>
+    </ul>
+    <p>This is stored with our alert service (Google Apps Script, on Google's servers). Turning alerts off in the app (or uninstalling it) stops the alerts. To have your token and places removed entirely, email us (below).</p>
+
+    <h2>Email alerts on the website</h2>
+    <p>If you sign up for warning emails, we keep your email address to send them, and every email has a link to unsubscribe. Emails are sent through our email provider (Brevo). We don't use your address for anything else.</p>
+
+    <h2>Website statistics</h2>
+    <p>The website uses Google Analytics to count visits and see which pages are used, with no advertising features. Your browser also remembers a few settings on your device, such as light or dark mode and the last map view.</p>
+
+    <h2>Support (Ko-fi)</h2>
+    <p>Donations are handled by Ko-fi and its payment providers (Stripe, PayPal). We never see your card details; Ko-fi's own privacy policy applies to the payment.</p>
+
+    <h2>Data from other services</h2>
+    <p>The maps load map tiles, fonts and weather data from other services (for example OpenFreeMap, Google Fonts, the Bureau of Meteorology, DPIRD, DWER and Weather Underground). These requests carry the usual technical details any web page sends, such as your IP address.</p>
+
+    <h2>Children</h2>
+    <p>West WX Watchers is a general weather service and isn't directed at children.</p>
+
+    <h2>Contact</h2>
+    <p>Questions, or want your details removed? Email <a href="mailto:wwxwau@gmail.com">wwxwau@gmail.com</a>.</p>
+  </main>
+  <script>document.getElementById('yr').textContent = new Date().getFullYear();</script>
+  <style>
+    /* Ko-fi: the Support button in the menu and its payment box */
+    .tabs a.kofi-nav, a.kofi-nav { color: #fff !important; background: #E8504D; border-radius: 999px; font-weight: 700; }
+    a.kofi-nav:hover { filter: brightness(1.08); }
+    #kofiBox { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(5, 15, 20, .55); padding: 12px; }
+    #kofiBox.on { display: flex; }
+    #kofiBox .in { position: relative; width: 100%; max-width: 420px; height: min(690px, 92vh); background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.35); }
+    #kofiBox iframe { width: 100%; height: 100%; border: 0; }
+    #kofiBox button { position: absolute; top: 6px; right: 8px; z-index: 1; border: 0; background: rgba(0,0,0,.55); color: #fff; width: 32px; height: 32px; border-radius: 50%; font-size: 20px; line-height: 1; cursor: pointer; }
+  </style>
+  <div id="kofiBox" role="dialog" aria-modal="true" aria-label="Support West WX Watchers on Ko-fi"><div class="in"><button type="button" aria-label="Close">&times;</button></div></div>
+  <script>(function () {   // Ko-fi payment box over the page. In the app, Ko-fi opens in the phone's browser (the app does it), where Apple Pay and Google Pay work best
+    var box = document.getElementById('kofiBox'), inApp = false, last = null;
+    try { inApp = sessionStorage.getItem('wwxwApp') === '1'; } catch (e) {}
+    if (!box) return;
+    var up = function () { var w = window; try { while (w.parent && w.parent !== w) { w = w.parent; w.postMessage({ wwxwKofi: 1 }, '*'); } } catch (x) {} };
+    var open = function () {
+      if (inApp) { up(); return; }
+      var inn = box.querySelector('.in');
+      if (!inn.querySelector('iframe')) {
+        var f = document.createElement('iframe');
+        f.src = 'https://ko-fi.com/westweatherwatchers/?hidefeed=true&widget=true&embed=true';
+        f.title = 'Support West WX Watchers on Ko-fi'; f.setAttribute('allow', 'payment');
+        inn.appendChild(f);
+      }
+      box.classList.add('on'); box.querySelector('button').focus();
+    };
+    var close = function () { box.classList.remove('on'); if (last) last.focus(); };
+    document.querySelectorAll('[data-kofi]').forEach(function (b) { b.addEventListener('click', function (e) { e.preventDefault(); last = b; open(); }); });
+    // the map's Support button (inside the map frame) asks this page to open it
+    window.addEventListener('message', function (e) {
+      if (!e.data || e.data.wwxwKofi !== 1) return;
+      if (e.origin !== location.origin && e.origin !== 'null' && !/^https:\/\/([\w-]+\.)*googleusercontent\.com$/.test(e.origin)) return;
+      last = null; if (!inApp) open();   // in the app the map tells the app itself
+    });
+    box.querySelector('button').addEventListener('click', close);
+    box.addEventListener('click', function (e) { if (e.target === box) close(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && box.classList.contains('on')) close(); });
+  })();</script>
+</body>
+</html>
