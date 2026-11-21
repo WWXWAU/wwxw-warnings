@@ -107,6 +107,7 @@ body{display:flex;flex-direction:column;padding:0;overflow:hidden;}
 .tabs button{border:0;border-radius:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 10px;font-size:10.5px;color:var(--muted);min-height:58px;white-space:nowrap;letter-spacing:-0.2px;min-width:0;}
 .tabs button[aria-selected=true]{color:var(--accent);font-weight:600;}
 .tabs svg{width:22px;height:22px;}
+body.full .tabs,body.full .top{display:none;}   /* a map's full-screen button: the page gets the whole screen */
 .actions{bottom:0;}
 .web-note{position:absolute;left:0;right:0;top:40%;text-align:center;color:var(--muted);font-size:14px;padding:0 24px;}
 .notice{position:fixed;inset:0;z-index:50;background:rgba(8,24,29,.6);display:flex;align-items:flex-end;justify-content:center;padding:16px;}
@@ -117,7 +118,7 @@ body{display:flex;flex-direction:column;padding:0;overflow:hidden;}
 </head>
 <body>
 <div class="top"><div class="in"><b>WEST WX WATCHERS</b><span id="tabName" style="font-size:13.5px;color:#E2EEF0">Alerts</span></div></div>
-<div id="sWeb" class="screen" style="position:relative"><iframe id="web" title="West WX Watchers" allow="geolocation"></iframe></div>
+<div id="sWeb" class="screen" style="position:relative"><iframe id="web" title="West WX Watchers" allow="geolocation; fullscreen" allowfullscreen></iframe></div>
 <div id="sAlerts" class="screen on">
 <div class="wrap">
   <h1>Alerts</h1>
@@ -524,6 +525,11 @@ window.addEventListener('load', function () {
     FS.writeFile({ path: name, data: d.data.split('base64,')[1], directory: 'CACHE' })
       .then(function (r) { return SH.share({ title: 'West WX Watchers', files: [r.uri], dialogTitle: 'Save or share the image' }); })
       .catch(function (x) { if (!/cancel/i.test(String(x && x.message || x))) { showTab('alerts'); say('Couldn\'t save the image: ' + (x && x.message || x), 'bad'); } });
+  });
+  // A map's full-screen button (the WebView can't do real full screen): hide the tab bar while it's on
+  window.addEventListener('message', function (e) {
+    if (!/^https:\/\/([\w-]+\.)*(westweatherwatchers\.com|googleusercontent\.com)$/.test(e.origin) || !e.data || typeof e.data.wwxwFull !== 'boolean') return;
+    document.body.classList.toggle('full', e.data.wwxwFull);
   });
   // A link inside a map (the Rainfall page's warning banner) asks to open another page: open it in its tab, not the browser
   window.addEventListener('message', function (e) {

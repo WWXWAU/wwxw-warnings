@@ -247,5 +247,13 @@
     box.addEventListener('click', function (e) { if (e.target === box) close(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && box.classList.contains('on')) close(); });
   })();</script>
+  <style>html.wwfull body > *:not(.frame):not(script):not(style) { display: none !important; } html.wwfull .frame { position: fixed !important; inset: 0; z-index: 9999; margin: 0; border-radius: 0; }</style>
+  <script>   // in the app: the map's full-screen button asks for the whole screen (wwxwFull): hide this page's bars, and ask the app to hide its own
+  window.addEventListener('message', function (e) {
+    if (!e.data || typeof e.data.wwxwFull !== 'boolean') return;
+    document.documentElement.classList.toggle('wwfull', e.data.wwxwFull);
+    try { if (window.parent !== window) window.parent.postMessage({ wwxwFull: e.data.wwxwFull }, '*'); } catch (x) {}
+  });
+  </script>
 </body>
 </html>
