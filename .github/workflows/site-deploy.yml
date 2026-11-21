@@ -31,3 +31,8 @@ jobs:
           server-dir: ${{ secrets.FTP_DIR || 'public_html/' }}
           dry-run: ${{ github.event_name == 'workflow_dispatch' && inputs.dry }}
           log-level: standard
+          # the alerts page is left out until you want the website version live (the app has its own Alerts tab)
+          exclude: |
+            **/.git*
+            **/.git*/**
+            alerts/**
