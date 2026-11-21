@@ -342,9 +342,18 @@ def tc_tracks(files):
     for f in os.listdir(folder):
         if f not in keep: os.remove(os.path.join(folder, f))
     path = os.path.join(DATA, 'cyclone-bom.json')
-    res = {'updated': dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Bureau of Meteorology, ftp.bom.gov.au', 'systems': out}
     prev = json.load(open(path)) if os.path.exists(path) else {}
-    if json.dumps(prev.get('systems'), sort_keys=True) != json.dumps(out, sort_keys=True):
+    # systems the Bureau has stopped tracking (its last map was issued): kept for 4 days, so the page can say that
+    # JTWC's invest there is the same one ("ex-Tropical Low 01U")
+    now = dt.datetime.utcnow(); ids = {x['id'] for x in out}
+    ended = [e for e in prev.get('ended', []) if e['id'] not in ids and (now - dt.datetime.strptime(e['ended'], '%Y-%m-%dT%H:%MZ')).days < 4]
+    for x in prev.get('systems', []):
+        if x['id'] not in ids and x['id'] not in {e['id'] for e in ended}:
+            p0 = x['pts'][0]
+            ended.append({'id': x['id'], 'name': x.get('name'), 'cyclone': x.get('cyclone'), 'lat': p0['lat'], 'lng': p0['lng'],
+                          'last': x.get('issued'), 'ended': now.strftime('%Y-%m-%dT%H:%MZ')})
+    res = {'updated': now.strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Bureau of Meteorology, ftp.bom.gov.au', 'systems': out, 'ended': ended}
+    if json.dumps([prev.get('systems'), prev.get('ended', [])], sort_keys=True) != json.dumps([out, ended], sort_keys=True):
         json.dump(res, open(path, 'w'), indent=1)
         log('Cyclone tracks:', ', '.join(s['name'] + ' (' + str(len(s['pts'])) + ' points)' for s in out) or 'none')
 

@@ -1,5 +1,16 @@
 {
  "updated": "2026-11-21T21:21Z",
  "source": "Bureau of Meteorology, ftp.bom.gov.au",
- "systems": []
+ "systems": [],
+ "ended": [
+  {
+   "id": "01U",
+   "name": "Tropical Low 01U",
+   "cyclone": "",
+   "lat": -11.7,
+   "lng": 90.7,
+   "last": "2026-11-21T12:27:08Z",
+   "ended": "2026-11-21T21:00Z"
+  }
+ ]
 }

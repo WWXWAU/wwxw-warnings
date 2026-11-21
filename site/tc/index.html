@@ -155,6 +155,10 @@
         if (m) { if (!m.jtwc) { m.inv = v; m.ids.push(v.id); } }
         else out.push({ key: 'i' + v.id, name: 'Invest ' + v.id, ids: [v.id], inv: v, at: v, cat: 0 });
       });
+      (bom.ended || []).forEach(function (e) {   // a system the Bureau has stopped tracking: JTWC's one there is the same system
+        var m = out.filter(function (o) { return !o.bom && km(o.at, e) < 700; })[0];
+        if (m) { m.ex = e; m.name += ' (ex-' + (e.cyclone ? 'Tropical Cyclone ' + cap(e.cyclone.toLowerCase()) : e.name) + ')'; }
+      });
       out.forEach(function (o) {   // most serious first: named/category, then Bureau systems, then invests
         o.rank = o.cat * 10 + (o.bom ? 5 : 0) + (o.jtwc ? 3 : 0) + ({ high: 2, medium: 1 }[(o.inv || {}).chance] || 0); });
       return out.sort(function (a, b) { return b.rank - a.rank; });
@@ -204,7 +208,8 @@
       }
       if (o.inv) {
         var v = o.inv;
-        if (!o.bom) h += '<p class="lead">An area JTWC is watching for development' + (v.chance ? ' (' + v.chance + ' chance of a significant tropical cyclone within 24 hours)' : '') + '.</p>';
+        if (!o.bom && o.ex) h += '<p class="lead">The Bureau has stopped tracking ' + esc(o.ex.cyclone || o.ex.name) + ' (its last forecast track map was ' + esc(when(o.ex.last, true)) + '). JTWC is still watching it' + (v.chance ? ': ' + v.chance + ' chance of a significant tropical cyclone within 24 hours.' : '.') + '</p>';
+        else if (!o.bom) h += '<p class="lead">An area JTWC is watching for development' + (v.chance ? ' (' + v.chance + ' chance of a significant tropical cyclone within 24 hours)' : '') + '.</p>';
         if (v.kt) dl.push([o.bom ? 'JTWC' : 'Winds', (o.bom ? 'Estimates about ' : 'About ') + Math.round(v.kt[0] * KMH / 5) * 5 + '–' + Math.round(v.kt[1] * KMH / 5) * 5 + ' km/h' + (v.hpa ? ', ' + v.hpa + ' hPa' : '')]);
         if (!o.bom) invTxt(v).slice(0, 1).forEach(function (x) { dl.push(['Where', x]); });
         var ms = (v.models || []).filter(function (p) { return p.h > 0; });
