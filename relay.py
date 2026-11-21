@@ -344,6 +344,90 @@ def tc_tracks(files):
         json.dump(res, open(path, 'w'), indent=1)
         log('Cyclone tracks:', ', '.join(s['name'] + ' (' + str(len(s['pts'])) + ' points)' for s in out) or 'none')
 
+# ---------------------------------------------------------------- JTWC (US Joint Typhoon Warning Center)
+JTWC = 'https://www.metoc.navy.mil/jtwc/'
+
+
+def _jget(u):
+    req = urllib.request.Request(u, headers={'User-Agent': 'Mozilla/5.0 (westweatherwatchers.com relay)'})
+    return urllib.request.urlopen(req, timeout=40).read().decode('utf-8', 'replace')
+
+
+def _jlat(a):
+    return -float(a[:-1]) if a.endswith('S') else float(a[:-1])
+
+
+def _jlon(a):
+    return float(a[:-1]) if a.endswith('E') else 360 - float(a[:-1])
+
+
+def _jtime(ddhhmm):
+    """'201800Z' -> ISO time; the month and year are the nearest that fit (warnings are a few days old at most)."""
+    now = dt.datetime.utcnow(); d, h, m = int(ddhhmm[:2]), int(ddhhmm[2:4]), int(ddhhmm[4:6])
+    for mo in (0, -1, 1):
+        y, mm = now.year, now.month + mo
+        if mm < 1: y, mm = y - 1, 12
+        if mm > 12: y, mm = y + 1, 1
+        try: t = dt.datetime(y, mm, d, h, m)
+        except ValueError: continue
+        if abs((t - now).total_seconds()) < 12 * 86400: return t.strftime('%Y-%m-%dT%H:%M:00Z')
+    return ''
+
+
+def jtwc():
+    """Current JTWC warnings (forecast tracks) and the areas they're watching (invests), from JTWC's public RSS
+    list, to data/cyclone-jtwc.json (written only when something changed)."""
+    try:
+        rss = _jget(JTWC + 'rss/jtwc.rss')
+    except Exception as e:  # noqa: BLE001
+        log('JTWC list not read:', e); return
+    links = sorted(set(re.findall(r'https?://[^"<\s]+?web\.txt', rss)))
+    storms, invests = [], []
+    for u in links:
+        try: txt = _jget(u)
+        except Exception as e:  # noqa: BLE001
+            log('JTWC', u, 'not read:', e); continue
+        name = os.path.basename(u)
+        if name.startswith('ab'):   # the daily advisories: the invests
+            for m in re.finditer(r'\(INVEST (\d\d[A-Z])\)(.*?)(?=\n\s*\(\d\)|\n\s*[A-C]\. |\Z)', txt, re.S):
+                body = re.sub(r'\s+', ' ', m.group(2))
+                pos = re.search(r'NOW LOCATED NEAR (\d+\.\d[NS]) (\d+\.\d[EW])', body) or re.search(r'LOCATED NEAR (\d+\.\d[NS]) (\d+\.\d[EW])', body)
+                if not pos: continue
+                ch = re.search(r'TROPICAL CYCLONE WITHIN THE NEXT 24 HOURS (?:IS|REMAINS|IS UPGRADED TO|IS DOWNGRADED TO|HAS BEEN UPGRADED TO)?\s*(LOW|MEDIUM|HIGH)', body)
+                wind = re.search(r'MAXIMUM SUSTAINED SURFACE WINDS ARE ESTIMATED AT (\d+) TO (\d+) KNOTS', body)
+                mslp = re.search(r'NEAR (\d{3,4}) MB', body)
+                invests.append({'id': m.group(1), 'lat': _jlat(pos.group(1)), 'lng': _jlon(pos.group(2)), 'chance': ch.group(1).lower() if ch else '',
+                                'kt': [int(wind.group(1)), int(wind.group(2))] if wind else None, 'hpa': int(mslp.group(1)) if mslp else None,
+                                'text': body.strip()[:2500], 'src': u})
+            continue
+        sub = re.search(r'SUBJ/(.*?)//', txt, re.S)
+        subj = re.sub(r'\s+', ' ', sub.group(1)) if sub else ''
+        mm = re.search(r'(TROPICAL (?:CYCLONE|STORM|DEPRESSION)|TYPHOON|SUPER TYPHOON|SUBTROPICAL STORM) (\d\d[A-Z])(?: \(([A-Z\- ]+)\))? WARNING NR (\d+)', subj)
+        if not mm:
+            if 'FORMATION ALERT' in txt.upper(): log('JTWC formation alert seen:', name)
+            continue
+        pts = []
+        for b in re.split(r'\n\s*---', txt):
+            p = re.search(r'(\d{6})Z --- (?:NEAR )?(\d+\.\d[NS]) (\d+\.\d[EW])', b)
+            if not p: continue
+            w = re.search(r'MAX SUSTAINED WINDS - (\d+) KT, GUSTS (\d+) KT', b)
+            hrs = re.search(r'(\d+) HRS, VALID AT', b)
+            pts.append({'h': int(hrs.group(1)) if hrs else 0, 't': _jtime(p.group(1)), 'lat': _jlat(p.group(2)), 'lng': _jlon(p.group(3)),
+                        'kt': int(w.group(1)) if w else None, 'gust': int(w.group(2)) if w else None})
+        if not pts: continue
+        mv = re.search(r'MOVEMENT PAST SIX HOURS - (\d+) DEGREES AT (\d+) KTS', txt)
+        storms.append({'id': mm.group(2), 'name': (mm.group(3) or '').title(), 'kind': mm.group(1).title(), 'warning': int(mm.group(4)),
+                       'issued': pts[0]['t'], 'move': [int(mv.group(1)), int(mv.group(2))] if mv else None, 'pts': pts, 'src': u})
+    path = os.path.join(DATA, 'cyclone-jtwc.json')
+    res = {'updated': dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Joint Typhoon Warning Center (metoc.navy.mil/jtwc)',
+           'storms': storms, 'invests': invests}
+    prev = json.load(open(path)) if os.path.exists(path) else {}
+    if json.dumps([prev.get('storms'), prev.get('invests')], sort_keys=True) != json.dumps([storms, invests], sort_keys=True):
+        json.dump(res, open(path, 'w'), indent=1)
+        log('JTWC:', ', '.join(s['id'] + (' ' + s['name'] if s['name'] else '') for s in storms) or 'no warnings', '·',
+            ', '.join('Invest ' + i['id'] for i in invests) or 'no invests')
+
+
 def main():
     local = sys.argv[2] if len(sys.argv) > 2 and sys.argv[1] == '--local' else None
     names = [c + '.cap.xml' for c in PRODUCTS] + [img + '.png' for _, img in PRODUCTS.values()]
@@ -352,6 +436,9 @@ def main():
     if files is not None:
         try: tc_tracks(files)
         except Exception as e: log('Cyclone tracks:', e)
+    if '--local' not in sys.argv:
+        try: jtwc()
+        except Exception as e: log('JTWC:', e)
     if files is None:
         sys.exit(0)
     places, (shapes, wa) = load_places(), load_districts()
