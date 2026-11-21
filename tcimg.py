@@ -86,7 +86,7 @@ def extent(s, box_w, box_h):
     return clon - math.degrees(span_x) / 2, clon + math.degrees(span_x) / 2, box_w / span_x, cm
 
 
-def draw_map(img, box, s):
+def draw_map(img, box, s, sc=1.0):
     x0, y0, x1, y1 = box; Wb, Hb = x1 - x0, y1 - y0
     lng0, lng1, k, cm = extent(s, Wb, Hb)
     X = lambda lo: x0 + (lo % 360 - lng0) * math.pi / 180 * k
@@ -118,7 +118,7 @@ def draw_map(img, box, s):
             d.line(pts + [pts[0]], fill=(255, 255, 255, 170), width=int(2 * S))
     img.paste(lay, (0, 0), lay); d = ImageDraw.Draw(img)
     # places
-    fp = font(600, 17)
+    fp = font(600, 17 * sc)
     for n, la, lo in PLACES:
         px, py = X(lo), Y(la)
         if not (x0 + 30 * S < px < x1 - 30 * S and y0 + 20 * S < py < y1 - 20 * S): continue
@@ -130,9 +130,9 @@ def draw_map(img, box, s):
     P = [(X(p['lng']), Y(p['lat'])) for p in s['pts']]
     d.line(P, fill=(13, 29, 35), width=int(7 * S), joint='curve')
     d.line(P, fill=(255, 255, 255), width=int(3 * S), joint='curve')
-    ft = font(700, 16)
+    ft = font(700, 16 * sc)
     for i, (p, (px, py)) in enumerate(zip(s['pts'], P)):
-        c = CAT_COL.get(cat_of(p), (200, 200, 200)); r = (13 if i == 0 else 9) * S
+        c = CAT_COL.get(cat_of(p), (200, 200, 200)); r = (13 if i == 0 else 9) * S * sc
         d.ellipse([px - r, py - r, px + r, py + r], fill=c, outline=(13, 29, 35), width=int(3 * S))
         if i == 0 or p.get('h', 0) % 24 == 0:
             lab = 'Now' if i == 0 else when(p.get('t'))
@@ -216,7 +216,7 @@ def render(s, post_path=None, story_path=None):
         ph = panel(scratch, 0) + 34 * S
         map_bot = Hd - fh - ph - 46 * S
         img = Image.new('RGB', (Wd, Hd), th['bg']); d = ImageDraw.Draw(img)
-        credit = draw_map(img, (0, hh, Wd, map_bot), s)
+        credit = draw_map(img, (0, hh, Wd, map_bot), s, 1.45 if story else 1.0)
         d = ImageDraw.Draw(img)
         brand_header(img, d, Wd, hh, title, stamp(s), tsize)
         d.text((Wd - 16 * S, map_bot - 12 * S), credit, font=font(500, 14 if not story else 17), fill=(235, 241, 243), anchor='rs',
