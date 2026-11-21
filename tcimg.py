@@ -95,13 +95,13 @@ def draw_map(img, box, s):
     lat_top, lat_bot = lat_at(0), lat_at(Hb)
     credit = 'Blue Marble: NASA'
     try:
-        base = W.gibs_map('BlueMarble_ShadedRelief_Bathymetry', lng0, lng1, lat_top, lat_bot, Wb, Hb, k, cm)
+        base = W.gibs_map('BlueMarble_ShadedRelief_Bathymetry', lng0, lng1, lat_top, lat_bot, Wb, Hb, k * math.pi / 180, cm)
     except Exception as e:  # noqa: BLE001
         print('base map:', e); base = Image.new('RGB', (Wb, Hb), (24, 52, 72))
     base = Image.blend(base, Image.new('RGB', base.size, (10, 25, 35)), 0.28)   # a little darker, so the track stands out
     try:   # the newest Himawari-9 infrared: cold cloud tops white
         import numpy as np
-        bt, t = W.himawari_map(lng0, lng1, lat_top, lat_bot, Wb, Hb, k, cm)
+        bt, t = W.himawari_map(lng0, lng1, lat_top, lat_bot, Wb, Hb, k * math.pi / 180, cm)
         if bt is not None:
             a = np.clip((288.0 - np.nan_to_num(bt, nan=300.0)) / 78.0, 0, 1) ** 0.8 * 235
             cloud = Image.new('RGB', base.size, (240, 246, 250))
