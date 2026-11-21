@@ -47,7 +47,7 @@
     .wrap { max-width: 1100px; margin: 0 auto; padding: 0 8px 20px; }
     .mapwrap { position: relative; height: min(62svh, 640px); min-height: 360px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--water); }
     #map { position: absolute; inset: 0; }
-    .key { display: flex; flex-wrap: wrap; row-gap: 4px; gap: 12px; align-items: center; padding: 6px 4px 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .key { display: flex; flex-wrap: wrap; row-gap: 3px; gap: 4px 10px; font-size: 10.5px !important; align-items: center; padding: 6px 4px 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
     .key::-webkit-scrollbar { display: none; }
     .key span { display: inline-flex; align-items: center; gap: 5px; }
     .key i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--bom); }
@@ -94,9 +94,8 @@
   <div class="wrap">
     <div class="mapwrap"><div id="map"></div></div>
     <div class="key" id="key">
-      <span><b></b>Bureau track</span><span><b class="j"></b>JTWC track</span><span><u></u>Bureau likely-track area</span>
-      <span><i style="background:var(--low)"></i>Low</span><span><i style="background:var(--c1)"></i>Cat 1</span><span><i style="background:var(--c2)"></i>2</span>
-      <span><i style="background:var(--c3)"></i>3</span><span><i style="background:var(--c4)"></i>4</span><span><i style="background:var(--c5)"></i>5</span>
+      <span><b></b>Bureau</span><span><b class="j"></b>JTWC</span><span><u></u>Likely area</span>
+      <span><i style="background:var(--low)"></i>Low</span><span style="gap:2px">Cat <i style="background:var(--c1)"></i>1 <i style="background:var(--c2)"></i>2 <i style="background:var(--c3)"></i>3 <i style="background:var(--c4)"></i>4 <i style="background:var(--c5)"></i>5</span>
     </div>
     <div class="cards" id="cards"><div class="msg">Loading…</div></div>
     <p class="note" id="note"></p>
@@ -270,6 +269,9 @@
         if (o.inv && !o.jtwc && !o.bom) F.push({ type: 'Feature', properties: { k: o.key, kind: 'inv', lab: 'Invest ' + o.inv.id, c: { high: '#E53935', medium: '#FB8C00', low: '#90A4AE' }[o.inv.chance] || '#90A4AE', tip: '<b>JTWC Invest ' + o.inv.id + '</b><br>' + (o.inv.chance ? cap(o.inv.chance) + ' chance in 24 hours' : '') }, geometry: { type: 'Point', coordinates: [lng(o.inv.lng), o.inv.lat] } });
         F.push({ type: 'Feature', properties: { k: o.key, kind: 'name', lab: o.name.replace(/^Tropical Cyclone /, 'TC ') }, geometry: { type: 'Point', coordinates: [lng(o.at.lng), o.at.lat] } });
       });
+      [['Cocos (Keeling) Is', -12.19, 96.83], ['Christmas Island', -10.49, 105.63], ['Diego Garcia', -7.32, 72.42], ['Perth', -31.95, 115.86], ['Exmouth', -21.93, 114.13],
+       ['Port Hedland', -20.31, 118.6], ['Broome', -17.96, 122.24], ['Darwin', -12.46, 130.84], ['Mauritius', -20.2, 57.5]].forEach(function (p) {
+        F.push({ type: 'Feature', properties: { kind: 'ref', lab: p[0] }, geometry: { type: 'Point', coordinates: [p[2], p[1]] } }); });
       return { type: 'FeatureCollection', features: F };
     }
     function addLayers() {
@@ -282,6 +284,10 @@
       map.addLayer({ id: 'jpt', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'jpt'], paint: { 'circle-color': ['get', 'c'], 'circle-radius': ['get', 'r'], 'circle-stroke-color': jt, 'circle-stroke-width': 2 } });
       map.addLayer({ id: 'bompt', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'bompt'], paint: { 'circle-color': ['get', 'c'], 'circle-radius': ['get', 'r'], 'circle-stroke-color': bom, 'circle-stroke-width': 2 } });
       map.addLayer({ id: 'inv', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'inv'], paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-radius': 14, 'circle-stroke-color': ['get', 'c'], 'circle-stroke-width': 3 } });
+      map.addLayer({ id: 'ref', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'ref'], paint: { 'circle-radius': 3, 'circle-color': css('--text'), 'circle-stroke-color': halo, 'circle-stroke-width': 1.5 } });
+      map.addLayer({ id: 'reflab', type: 'symbol', source: 'tc', filter: ['==', ['get', 'kind'], 'ref'],
+        layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-offset': [0, 0.9], 'text-anchor': 'top', 'text-optional': true },
+        paint: { 'text-color': css('--muted'), 'text-halo-color': halo, 'text-halo-width': 1.5 } });
       map.addLayer({ id: 'labs', type: 'symbol', source: 'tc', filter: ['all', ['match', ['get', 'kind'], ['bompt', 'jpt'], true, false], ['!=', ['get', 'lab'], '']],
         layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-offset': [0.9, 0], 'text-anchor': 'left', 'text-optional': true },
         paint: { 'text-color': css('--text'), 'text-halo-color': halo, 'text-halo-width': 1.5 } });
