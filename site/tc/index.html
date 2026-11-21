@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="preconnect" href="https://raw.githubusercontent.com">
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://tiles.openfreemap.org">
+  <meta charset="UTF-8">
+<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');parent.postMessage({wwxwPath:location.pathname},'*');}}catch(e){}</script>
+<style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>Tropical cyclones — West WX Watchers</title>
+  <meta name="description" content="Tropical lows and cyclones near Australia: the Bureau of Meteorology's and JTWC's forecast tracks on one map, in plain English.">
+  <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
+  <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <script>
+  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <style>
+    :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
+            --land: #F3F6F4; --water: #C9E2EA; --border: #9AAFB5; --bom: #0E2A33; --jtwc: #C2185B; --cone: rgba(14, 42, 51, 0.10);
+            --low: #64B5F6; --c1: #FDD835; --c2: #FFB300; --c3: #FB8C00; --c4: #E53935; --c5: #8E24AA; color-scheme: light; }
+    [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
+            --land: #1B323B; --water: #0E2229; --border: #4E6E78; --bom: #FFFFFF; --jtwc: #FF6FA8; --cone: rgba(255, 255, 255, 0.10); color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
+    a { color: var(--accent); }
+    button { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .tabs { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs .brand img { width: 26px; height: 26px; border-radius: 6px; display: block; margin-right: 6px; }
+    .tabs a:not(.brand) { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 5px 13px; border-radius: 999px; }
+    .tabs a:not(.brand):hover { color: var(--text); background: var(--bg); }
+    .top { display: flex; align-items: center; gap: 10px; padding: 10px 14px 6px; }
+    h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+    .stamp { font-size: 12px; color: var(--muted); }
+    .themebtn { margin-left: auto; flex: none; width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .themebtn svg { width: 16px; height: 16px; }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 0 8px 20px; }
+    .mapwrap { position: relative; height: min(62svh, 640px); min-height: 360px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--water); }
+    #map { position: absolute; inset: 0; }
+    .key { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 12px; align-items: center; padding: 6px 4px 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .key::-webkit-scrollbar { display: none; }
+    .key span { display: inline-flex; align-items: center; gap: 5px; }
+    .key i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--bom); }
+    .key b { display: inline-block; width: 20px; height: 0; border-top: 3px solid var(--bom); }
+    .key b.j { border-top: 3px dashed var(--jtwc); }
+    .key u { display: inline-block; width: 16px; height: 10px; background: var(--cone); border: 1px solid var(--border); border-radius: 3px; }
+    .msg { padding: 14px; color: var(--muted); font-size: 14px; }
+    .cards { display: grid; gap: 10px; margin-top: 10px; }
+    @media (min-width: 900px) { .cards { grid-template-columns: 1fr 1fr; } }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; border-left: 6px solid var(--c, var(--low)); }
+    .card.sel { box-shadow: 0 0 0 2px var(--accent); }
+    .card h2 { margin: 0; font-size: 17px; line-height: 1.25; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; cursor: pointer; }
+    .card h2 small { font-size: 12px; font-weight: 500; color: var(--muted); }
+    .pill { display: inline-block; font-size: 11.5px; font-weight: 700; border-radius: 999px; padding: 2px 9px; color: #fff; background: var(--pc, #607D8B); margin: 6px 6px 0 0; }
+    .lead { margin: 8px 0 4px; font-size: 14.5px; font-weight: 600; }
+    dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; font-size: 13.5px; }
+    dt { color: var(--accent); font-weight: 600; }
+    dd { margin: 0; }
+    details { margin-top: 8px; font-size: 13.5px; }
+    details summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+    details p { margin: 6px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 6px; }
+    th, td { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+    th { color: var(--muted); font-weight: 600; }
+    td i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--c); margin-right: 5px; vertical-align: -1px; }
+    .src { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+    .note { font-size: 12px; color: var(--muted); margin: 12px 4px 0; }
+    .maplibregl-popup-content { background: var(--surface); color: var(--text); border-radius: 10px; padding: 7px 10px; font: 12.5px/1.4 Lexend, system-ui, sans-serif; box-shadow: 0 4px 14px rgba(0,0,0,0.25); }
+    .maplibregl-popup-tip { border-top-color: var(--surface) !important; border-bottom-color: var(--surface) !important; }
+    .maplibregl-popup-close-button { color: var(--muted); font-size: 18px; }
+    .legal { font-size: 11.5px; color: var(--muted); text-align: center; padding: 10px 14px 18px; }
+  </style>
+</head>
+<body>
+  <nav class="tabs" aria-label="West WX Watchers">
+    <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
+    <a href="/">Home</a><a href="/rainfall/">Rainfall</a><a href="/obs/">Live Obs</a><a href="/rivers/">River Levels</a><a href="/ripper/">Ripper Weather</a>
+  </nav>
+  <div class="top">
+    <div><h1>Tropical cyclones</h1><div class="stamp" id="stamp">Loading the latest tracks…</div></div>
+    <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
+  </div>
+  <div class="wrap">
+    <div class="mapwrap"><div id="map"></div></div>
+    <div class="key" id="key">
+      <span><b></b>Bureau track</span><span><b class="j"></b>JTWC track</span><span><u></u>Bureau likely-track area</span>
+      <span><i style="background:var(--low)"></i>Low</span><span><i style="background:var(--c1)"></i>Cat 1</span><span><i style="background:var(--c2)"></i>2</span>
+      <span><i style="background:var(--c3)"></i>3</span><span><i style="background:var(--c4)"></i>4</span><span><i style="background:var(--c5)"></i>5</span>
+    </div>
+    <div class="cards" id="cards"><div class="msg">Loading…</div></div>
+    <p class="note" id="note"></p>
+    <p class="note">Tap a track or a system for the details. Bureau of Meteorology forecast tracks (IDW6028x) and Joint Typhoon Warning Center warnings and advisories, checked every 5 minutes.
+      JTWC winds are 1-minute averages, so they read higher than the Bureau's 10-minute winds for the same system. Unofficial: for warnings and advice, see
+      <a href="https://www.bom.gov.au/cyclone/" target="_blank" rel="noopener">bom.gov.au/cyclone</a>.</p>
+  </div>
+  <div class="legal">Not for the protection of life or property · © West WX Watchers, no copying or reposting without consent · <a href="/terms/">Terms of use</a></div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script>
+  (function () {
+    var RAW = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/main/data/';
+    var $ = function (id) { return document.getElementById(id); };
+    var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+    var KMH = 1.852, map = null, SYS = [], sel = null, popup = null;
+    var REGION = function (lat, lng) { return lat < 5 && lat > -50 && lng >= 60 && lng <= 180; };   // the Australian region and the south Indian Ocean
+    var CATS = ['low', 'c1', 'c2', 'c3', 'c4', 'c5'], CATN = ['Tropical low', 'Category 1', 'Category 2', 'Category 3', 'Category 4', 'Category 5'];
+    function catBom(c) { c = String(c || '').toLowerCase(); var m = /category (\d)/.exec(c); return m ? +m[1] : 0; }
+    function catKt(kt1) {   // JTWC 1-minute knots -> Australian category (10-minute ~ 0.88 x 1-minute)
+      if (kt1 == null) return 0; var k = kt1 * 0.88;
+      return k >= 108 ? 5 : k >= 86 ? 4 : k >= 64 ? 3 : k >= 48 ? 2 : k >= 34 ? 1 : 0; }
+    function lng(x) { return x > 180 ? x - 360 : x; }
+    function km(a, b) { var R = 6371, r = Math.PI / 180, dl = (b.lat - a.lat) * r, dg = (b.lng - a.lng) * r;
+      var h = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dg / 2) * Math.sin(dg / 2); return 2 * R * Math.asin(Math.sqrt(h)); }
+    function when(t, long) { if (!t) return ''; var d = new Date(t); if (isNaN(d)) return '';
+      return d.toLocaleString('en-AU', long ? { timeZone: 'Australia/Perth', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }
+                                             : { timeZone: 'Australia/Perth', weekday: 'short', hour: 'numeric' }).replace(/\s?([ap])m/, '$1m'); }
+    function short(s) { return String(s || '').replace(/\s+/g, ' ').trim().replace(/kilometres per hour/gi, 'km/h').replace(/kilometres/gi, 'km').replace(/\s+([.,])/g, '$1').replace(/[\s.]+$/, ''); }
+    function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+    function compass(d) { return ['north', 'north-northeast', 'northeast', 'east-northeast', 'east', 'east-southeast', 'southeast', 'south-southeast', 'south', 'south-southwest', 'southwest', 'west-southwest', 'west', 'west-northwest', 'northwest', 'north-northwest'][Math.round(d / 22.5) % 16]; }
+    function sentenceCase(t) { return String(t || '').toLowerCase().replace(/(^|[.!?]\s+)([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); })
+      .replace(/\b(jtwc|llcc|vws|sst|ssts|ascat|eir|mb|kts?|nm|utc|bom)\b/gi, function (w) { return w.toUpperCase(); })
+      .replace(/\b(cocos|keeling|diego garcia|christmas|indian ocean|australia|indonesia|java|timor|darwin|broome|madagascar|mauritius|reunion|pago pago)\b/gi, function (w) { return w.replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }); }
+
+    // ---- data -> systems (a Bureau system and JTWC's storm or invest for it on one card)
+    function build(bom, jt) {
+      var out = [];
+      (bom.systems || []).forEach(function (s) {
+        var pts = (s.pts || []).filter(function (p) { return p.lat != null; }); if (!pts.length) return;
+        out.push({ key: 'b' + s.id, name: s.cyclone ? 'Tropical Cyclone ' + cap(s.cyclone.toLowerCase()) : (s.name || 'Tropical low'), ids: [s.id], bom: s, at: pts[0], cat: catBom(pts[0].cat) });
+      });
+      (jt.storms || []).forEach(function (s) {
+        var p0 = s.pts[0]; if (!REGION(p0.lat, p0.lng)) return;
+        var m = out.filter(function (o) { return km(o.at, p0) < 500; })[0];
+        if (m) { m.jtwc = s; m.ids.push(s.id); if (!m.bom.cyclone && s.name) m.alias = s.name; }
+        else out.push({ key: 'j' + s.id, name: (s.kind || 'Tropical Cyclone') + ' ' + s.id + (s.name ? ' (' + s.name + ')' : ''), ids: [s.id], jtwc: s, at: p0, cat: catKt(p0.kt) });
+      });
+      (jt.invests || []).forEach(function (v) {
+        if (!REGION(v.lat, v.lng)) return;
+        var m = out.filter(function (o) { return km(o.at, v) < 500; })[0];
+        if (m) { if (!m.jtwc) { m.inv = v; m.ids.push(v.id); } }
+        else out.push({ key: 'i' + v.id, name: 'Invest ' + v.id, ids: [v.id], inv: v, at: v, cat: 0 });
+      });
+      out.forEach(function (o) {   // most serious first: named/category, then Bureau systems, then invests
+        o.rank = o.cat * 10 + (o.bom ? 5 : 0) + (o.jtwc ? 3 : 0) + ({ high: 2, medium: 1 }[(o.inv || {}).chance] || 0); });
+      return out.sort(function (a, b) { return b.rank - a.rank; });
+    }
+
+    // ---- the cards
+    function chanceTxt(s) {
+      var m = /(Very Low|Low|Moderate|High)\s*\((\d+)%\)\s*chance of developing into a tropical cyclone\s*([^.]*)/i.exec(s.discussion || '');
+      return m ? cap(m[1].toLowerCase()) + ' (' + m[2] + '%) chance of becoming a tropical cyclone ' + m[3].trim() : (s.chance != null ? s.chance + '% chance of becoming a tropical cyclone' : '');
+    }
+    function invTxt(v) {
+      var t = v.text || '', bits = [];
+      var near = /APPROXIMATELY (\d+) NM ([A-Z-]+) OF ([A-Z][A-Z .]+?)\./.exec(t);
+      if (near) bits.push('About ' + Math.round(+near[1] * 1.852 / 10) * 10 + ' km ' + near[2].toLowerCase() + ' of ' + near[3].toLowerCase().replace(/\b\w/g, function (c) { return c.toUpperCase(); }) + '.');
+      var shear = /(LOW|MODERATE|HIGH|STRONG)(?: TO (?:MODERATE|HIGH|STRONG))? (?:\(?\d+[- TO]*\d* ?(?:KTS?|KNOTS)\)?\s*)?VERTICAL WIND SHEAR|VERTICAL WIND SHEAR \(VWS\) OF \((\d+) TO (\d+) KNOTS\)/.exec(t);
+      if (shear) bits.push('Wind shear: ' + (shear[1] ? shear[1].toLowerCase() : shear[2] + '–' + shear[3] + ' knots') + '.');
+      var sst = /SEA SURFACE TEMPERATURES \(SSTS\) OF \(?(\d+) TO (\d+) ?C/.exec(t) || /\((\d+)-(\d+)C\)/.exec(t);
+      if (sst) bits.push('Sea temperature ' + sst[1] + '–' + sst[2] + ' °C.');
+      if (/ENVIRONMENT FOR DEVELOPMENT/.test(t)) { var e = /(MARGINAL|FAVORABLE|UNFAVORABLE|CONDUCIVE)[^.]*ENVIRONMENT FOR DEVELOPMENT|ENVIRONMENT FOR DEVELOPMENT[^.]*?(MARGINAL|FAVORABLE|UNFAVORABLE)/.exec(t); if (e) bits.push('Conditions for development: ' + (e[1] || e[2]).toLowerCase().replace('favorable', 'favourable') + '.'); }
+      if (/MODELS[^.]*(SLOW|STEADY|RAPID|LITTLE)[^.]*DEVELOPMENT|MODELS DEPICT A ([A-Z -]+) (?:INTENSITY )?TREND/.test(t)) {
+        var md = /MODELS DEPICT A ([A-Z -]+?) (?:INTENSITY |DEVELOPMENT )?TREND OVER THE NEXT ([\d-]+) HOURS/.exec(t);
+        if (md) bits.push('Models: ' + md[1].toLowerCase() + ' trend over the next ' + md[2] + ' hours.');
+      }
+      return bits;
+    }
+    function card(o) {
+      var c = 'var(--' + CATS[o.cat] + ')', h = '<div class="card' + (sel === o.key ? ' sel' : '') + '" id="card-' + o.key + '" style="--c:' + c + '">';
+      h += '<h2 data-k="' + o.key + '">' + esc(o.name) + ' <small>' + esc(o.ids.join(' · ') + (o.alias ? ' · JTWC: ' + o.alias : '')) + '</small></h2>';
+      var pills = [];
+      pills.push('<span class="pill" style="--pc:' + c + ';color:' + (o.cat >= 1 && o.cat <= 3 ? '#222' : '#fff') + '">' + CATN[o.cat] + '</span>');
+      if (o.bom && chanceTxt(o.bom)) { var ch = chanceTxt(o.bom); pills.push('<span class="pill" style="--pc:' + (/^high/i.test(ch) ? '#E53935' : /^moderate/i.test(ch) ? '#FB8C00' : '#607D8B') + '">' + esc(ch) + '</span>'); }
+      if (o.inv && o.inv.chance) pills.push('<span class="pill" style="--pc:' + ({ high: '#E53935', medium: '#FB8C00', low: '#607D8B' }[o.inv.chance]) + '">JTWC: ' + o.inv.chance + ' chance in 24 hours</span>');
+      h += '<div>' + pills.join('') + '</div>';
+      var dl = [];
+      if (o.bom) {
+        var b = o.bom, wm = /(\d+) km\/h with wind gusts to (\d+) km\/h/.exec(short(b.intensity));
+        h += '<p class="lead">' + esc(short(b.headline)) + '.</p>';
+        dl.push(['Winds', wm ? wm[1] + ' km/h near the centre, gusts to ' + wm[2] + ' km/h' : cap(short(b.intensity))]);
+        if (b.nearby || b.location) dl.push(['Where', cap(short(b.nearby || b.location))]);
+        if (b.movement) dl.push(['Moving', cap(short(b.movement))]);
+        [['Warning zone', b.warning_zones], ['Watch zone', b.watch_zones]].forEach(function (z) { var v = short(z[1]); if (v && !/^none$/i.test(v)) dl.push([z[0], v]); });
+      }
+      if (o.jtwc) {
+        var j = o.jtwc, p0 = j.pts[0], pk = j.pts.reduce(function (a, p) { return (p.kt || 0) > (a.kt || 0) ? p : a; }, p0);
+        dl.push(['JTWC', (p0.kt ? Math.round(p0.kt * KMH / 5) * 5 + ' km/h (1-min), gusts ' + Math.round(p0.gust * KMH / 5) * 5 + ' km/h' : '') + (j.move ? ', moving ' + compass(j.move[0]) + ' at ' + Math.round(j.move[1] * KMH) + ' km/h' : '')]);
+        if (pk !== p0 && pk.kt > p0.kt) dl.push(['JTWC peak', 'About ' + Math.round(pk.kt * KMH / 5) * 5 + ' km/h by ' + when(pk.t)]);
+      }
+      if (o.inv) {
+        var v = o.inv;
+        if (!o.bom) h += '<p class="lead">An area JTWC is watching for development' + (v.chance ? ' (' + v.chance + ' chance of a significant tropical cyclone within 24 hours)' : '') + '.</p>';
+        if (v.kt) dl.push(['Winds', 'About ' + Math.round(v.kt[0] * KMH / 5) * 5 + '–' + Math.round(v.kt[1] * KMH / 5) * 5 + ' km/h' + (v.hpa ? ', ' + v.hpa + ' hPa' : '')]);
+        invTxt(v).slice(0, 1).forEach(function (x) { dl.push(['Where', x]); });
+      }
+      if (dl.length) h += '<dl>' + dl.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('') + '</dl>';
+      // more: the outlook, the forecast positions, JTWC's reasoning
+      var more = '';
+      if (o.bom && o.bom.discussion) more += String(o.bom.discussion).split(/\n\s*\n/).map(function (p) { return '<p>' + esc(short(p)) + '.</p>'; }).join('');
+      var rows = [], seen = {};
+      if (o.bom) o.bom.pts.forEach(function (p) { var k = p.t && new Date(p.t).getTime(); seen[k] = rows.length; rows.push({ t: p.t, b: catBom(p.cat), bl: p.cat, j: null }); });
+      if (o.jtwc) o.jtwc.pts.forEach(function (p) { var k = new Date(p.t).getTime(); if (seen[k] != null) rows[seen[k]].j = p; else rows.push({ t: p.t, j: p }); });
+      rows.sort(function (a, b) { return new Date(a.t) - new Date(b.t); });
+      if (rows.length) more += '<table><tr><th>When (AWST)</th>' + (o.bom ? '<th>Bureau</th>' : '') + (o.jtwc ? '<th>JTWC</th>' : '') + '</tr>' + rows.map(function (r) {
+        return '<tr><td>' + esc(when(r.t)) + '</td>' + (o.bom ? '<td>' + (r.bl ? '<i style="--c:var(--' + CATS[r.b] + ')"></i>' + esc(cap(r.bl)) : '–') + '</td>' : '')
+          + (o.jtwc ? '<td>' + (r.j ? '<i style="--c:var(--' + CATS[catKt(r.j.kt)] + ')"></i>' + Math.round(r.j.kt * KMH / 5) * 5 + ' km/h' : '–') + '</td>' : '') + '</tr>'; }).join('') + '</table>';
+      if (o.inv) { var bits = invTxt(o.inv).slice(1); if (bits.length) more += '<p><b>JTWC\'s reasoning:</b> ' + esc(bits.join(' ')) + '</p>';
+        more += '<p style="font-size:12.5px;color:var(--muted)">' + esc(sentenceCase(o.inv.text).substring(0, 1400)) + '</p>'; }
+      if (more) h += '<details' + (sel === o.key ? ' open' : '') + '><summary>Outlook and forecast</summary>' + more + '</details>';
+      var src = [];
+      if (o.bom) src.push('Bureau ' + esc(when(o.bom.issued, true)) + (o.bom.next ? ' · ' + esc(short(o.bom.next).replace(/^The next Forecast Track Map will be issued by /, 'next by ')) : ''));
+      if (o.jtwc) src.push('JTWC warning ' + o.jtwc.warning + ', ' + esc(when(o.jtwc.issued, true)));
+      if (o.inv && !o.jtwc) src.push('JTWC advisory');
+      h += '<div class="src">' + src.join(' · ') + '</div></div>';
+      return h;
+    }
+    function drawCards() {
+      $('cards').innerHTML = SYS.length ? SYS.map(card).join('') : '<div class="msg">No tropical lows or cyclones in the Australian region right now.</div>';
+      Array.prototype.forEach.call(document.querySelectorAll('.card h2'), function (h) { h.addEventListener('click', function () { pick(h.getAttribute('data-k'), true, false); }); });
+    }
+    function pick(k, fly, scroll) {
+      sel = k; drawCards();
+      var o = SYS.filter(function (x) { return x.key === k; })[0]; if (!o || !map) return;
+      if (fly) { var b = new maplibregl.LngLatBounds(); pointsOf(o).forEach(function (p) { b.extend([lng(p.lng), p.lat]); });
+        map.fitBounds(b, { padding: 50, maxZoom: 6, duration: 700 }); }
+      if (scroll) { var el = $('card-' + k); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+    }
+    function pointsOf(o) { var p = []; if (o.bom) p = p.concat(o.bom.pts); if (o.jtwc) p = p.concat(o.jtwc.pts); if (o.inv) p.push(o.inv); return p; }
+
+    // ---- the map
+    function style() {
+      return { version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+        sources: { omt: { type: 'vector', url: 'https://tiles.openfreemap.org/planet' } },
+        layers: [
+          { id: 'bg', type: 'background', paint: { 'background-color': css('--water') } },
+          { id: 'land', type: 'fill', source: 'omt', 'source-layer': 'landcover', paint: { 'fill-color': css('--land'), 'fill-opacity': 0 } },
+          { id: 'earth', type: 'fill', source: 'omt', 'source-layer': 'water', paint: { 'fill-color': css('--water') } },
+          { id: 'borders', type: 'line', source: 'omt', 'source-layer': 'boundary', filter: ['<=', ['get', 'admin_level'], 4], paint: { 'line-color': css('--border'), 'line-width': 0.6, 'line-dasharray': [3, 2] } },
+          { id: 'places', type: 'symbol', source: 'omt', 'source-layer': 'place', filter: ['match', ['get', 'class'], ['city', 'town', 'island'], true, false],
+            layout: { 'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']], 'text-font': ['Noto Sans Regular'], 'text-size': 11, 'text-padding': 6 },
+            paint: { 'text-color': css('--muted'), 'text-halo-color': css('--land'), 'text-halo-width': 1.2 } }
+        ] };
+    }
+    function fc() {
+      var F = [];
+      SYS.forEach(function (o) {
+        if (o.bom) {
+          (o.bom.cone || []).forEach(function (poly) { F.push({ type: 'Feature', properties: { k: o.key, kind: 'cone' }, geometry: { type: 'Polygon', coordinates: [poly.map(function (c) { return [lng(c[0]), c[1]]; })] } }); });
+          F.push({ type: 'Feature', properties: { k: o.key, kind: 'bomline' }, geometry: { type: 'LineString', coordinates: o.bom.pts.map(function (p) { return [lng(p.lng), p.lat]; }) } });
+          o.bom.pts.forEach(function (p, i) { F.push({ type: 'Feature', properties: { k: o.key, kind: 'bompt', c: css('--' + CATS[catBom(p.cat)]), r: i ? 5 : 8, lab: i === 0 ? '' : (p.h % 24 === 0 ? when(p.t) : ''), tip: '<b>Bureau</b> · ' + when(p.t, true) + '<br>' + cap(p.cat || '') + (p.acc ? '<br>Position within ' + p.acc + ' km' : '') }, geometry: { type: 'Point', coordinates: [lng(p.lng), p.lat] } }); });
+        }
+        if (o.jtwc) {
+          F.push({ type: 'Feature', properties: { k: o.key, kind: 'jline' }, geometry: { type: 'LineString', coordinates: o.jtwc.pts.map(function (p) { return [lng(p.lng), p.lat]; }) } });
+          o.jtwc.pts.forEach(function (p, i) { F.push({ type: 'Feature', properties: { k: o.key, kind: 'jpt', c: css('--' + CATS[catKt(p.kt)]), r: i ? 4 : 7, lab: o.bom ? '' : (i === 0 ? '' : when(p.t)), tip: '<b>JTWC</b> · ' + when(p.t, true) + '<br>' + (p.kt ? Math.round(p.kt * KMH / 5) * 5 + ' km/h (1-min), gusts ' + Math.round(p.gust * KMH / 5) * 5 + ' km/h' : '') }, geometry: { type: 'Point', coordinates: [lng(p.lng), p.lat] } }); });
+        }
+        if (o.inv && !o.jtwc) F.push({ type: 'Feature', properties: { k: o.key, kind: 'inv', lab: 'Invest ' + o.inv.id, c: { high: '#E53935', medium: '#FB8C00', low: '#90A4AE' }[o.inv.chance] || '#90A4AE', tip: '<b>JTWC Invest ' + o.inv.id + '</b><br>' + (o.inv.chance ? cap(o.inv.chance) + ' chance in 24 hours' : '') }, geometry: { type: 'Point', coordinates: [lng(o.inv.lng), o.inv.lat] } });
+        F.push({ type: 'Feature', properties: { k: o.key, kind: 'name', lab: o.name.replace(/^Tropical Cyclone /, 'TC ') }, geometry: { type: 'Point', coordinates: [lng(o.at.lng), o.at.lat] } });
+      });
+      return { type: 'FeatureCollection', features: F };
+    }
+    function addLayers() {
+      var bom = css('--bom'), jt = css('--jtwc'), halo = css('--water');
+      map.addSource('tc', { type: 'geojson', data: fc() });
+      map.addLayer({ id: 'cone', type: 'fill', source: 'tc', filter: ['==', ['get', 'kind'], 'cone'], paint: { 'fill-color': css('--cone'), 'fill-outline-color': css('--border') } });
+      map.addLayer({ id: 'cone-edge', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'cone'], paint: { 'line-color': css('--border'), 'line-width': 1 } });
+      map.addLayer({ id: 'jline', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'jline'], paint: { 'line-color': jt, 'line-width': 2.5, 'line-dasharray': [2, 1.5] } });
+      map.addLayer({ id: 'bomline', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'bomline'], paint: { 'line-color': bom, 'line-width': 3 } });
+      map.addLayer({ id: 'jpt', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'jpt'], paint: { 'circle-color': ['get', 'c'], 'circle-radius': ['get', 'r'], 'circle-stroke-color': jt, 'circle-stroke-width': 2 } });
+      map.addLayer({ id: 'bompt', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'bompt'], paint: { 'circle-color': ['get', 'c'], 'circle-radius': ['get', 'r'], 'circle-stroke-color': bom, 'circle-stroke-width': 2 } });
+      map.addLayer({ id: 'inv', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'inv'], paint: { 'circle-color': 'rgba(0,0,0,0)', 'circle-radius': 14, 'circle-stroke-color': ['get', 'c'], 'circle-stroke-width': 3 } });
+      map.addLayer({ id: 'labs', type: 'symbol', source: 'tc', filter: ['all', ['match', ['get', 'kind'], ['bompt', 'jpt'], true, false], ['!=', ['get', 'lab'], '']],
+        layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-offset': [0.9, 0], 'text-anchor': 'left', 'text-optional': true },
+        paint: { 'text-color': css('--text'), 'text-halo-color': halo, 'text-halo-width': 1.5 } });
+      map.addLayer({ id: 'names', type: 'symbol', source: 'tc', filter: ['match', ['get', 'kind'], ['name', 'inv'], true, false],
+        layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'text-offset': [0, -1.6], 'text-anchor': 'bottom', 'text-allow-overlap': false },
+        paint: { 'text-color': css('--text'), 'text-halo-color': halo, 'text-halo-width': 2 } });
+      ['bompt', 'jpt', 'inv', 'bomline', 'jline', 'cone'].forEach(function (L) {
+        map.on('click', L, function (e) {
+          var f = e.features[0]; if (!f) return;
+          if (popup) popup.remove();
+          if (f.properties.tip) popup = new maplibregl.Popup({ closeButton: true, maxWidth: '240px', offset: 10 }).setLngLat(e.lngLat).setHTML(f.properties.tip).addTo(map);
+          pick(f.properties.k, false, true);
+        });
+        map.on('mouseenter', L, function () { map.getCanvas().style.cursor = 'pointer'; });
+        map.on('mouseleave', L, function () { map.getCanvas().style.cursor = ''; });
+      });
+    }
+    function fitAll() {
+      var b = new maplibregl.LngLatBounds(); SYS.forEach(function (o) { pointsOf(o).forEach(function (p) { b.extend([lng(p.lng), p.lat]); }); });
+      b.extend([113, -35]); b.extend([129, -12]);   // WA always in view, so it's clear where they are
+      map.fitBounds(b, { padding: 36, maxZoom: 5, duration: 0 });
+    }
+    // land: everything that isn't water (the tiles' water layer is drawn over a land-coloured background)
+    function startMap() {
+      if (map) { map.remove(); map = null; }
+      var st = style(); st.layers[0].paint['background-color'] = css('--land'); st.layers.splice(1, 1);
+      map = new maplibregl.Map({ container: 'map', style: st, attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
+        bounds: [[80, -40], [140, -5]], minZoom: 1.5, maxZoom: 9, renderWorldCopies: false });
+      map.touchZoomRotate.disableRotation();
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Tracks: Bureau of Meteorology, JTWC' }), 'bottom-right');
+      map.on('load', function () { addLayers(); fitAll(); });
+    }
+
+    // ---- load
+    var DATA = null;
+    function load() {
+      var t = Math.floor(Date.now() / 60000);
+      Promise.all([fetch(RAW + 'cyclone-bom.json?t=' + t).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+                   fetch(RAW + 'cyclone-jtwc.json?t=' + t).then(function (r) { return r.json(); }).catch(function () { return {}; })])
+        .then(function (d) {
+          DATA = d; SYS = build(d[0], d[1]);
+          var other = (d[1].storms || []).filter(function (s) { return !REGION(s.pts[0].lat, s.pts[0].lng); });
+          $('note').textContent = other.length ? 'Elsewhere: ' + other.map(function (s) { return s.kind + ' ' + s.id + (s.name ? ' (' + s.name + ')' : ''); }).join(', ') + ' — outside the Australian region.' : '';
+          $('stamp').textContent = (SYS.length ? SYS.length + ' system' + (SYS.length > 1 ? 's' : '') + ' · ' : '') + 'checked ' + when(d[0].updated && d[0].updated.replace('Z', ':00Z'), true);
+          drawCards();
+          if (!map) startMap(); else if (map.getSource('tc')) map.getSource('tc').setData(fc());
+        });
+    }
+    load(); setInterval(load, 5 * 60000);
+
+    // ---- light / dark (shared with the rest of the site)
+    var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+    var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+    function themeIcon() { $('themeBtn').innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON; }
+    themeIcon();
+    $('themeBtn').addEventListener('click', function () {
+      var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('wwxw-theme', t); } catch (e) {}
+      try { parent.postMessage({ wwxwTheme: t }, '*'); } catch (e) {}
+      themeIcon(); if (map) startMap(); drawCards();
+    });
+  })();
+  </script>
+</body>
+</html>
