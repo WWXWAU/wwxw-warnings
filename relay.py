@@ -310,10 +310,33 @@ def tc_tracks(files):
         if not pts: continue
         dist = el.get('disturbance_id', '')
         m = re.search(r'(\d+)\s*%\)?\s*chance', el.get('discussion', ''))
+        cone = []   # the Bureau's likely-track area(s): WKT polygons, lon lat
+        for t in root.iter('text'):
+            if t.get('type') == 'warning_area_polygons' and t.text and 'EMPTY' not in t.text:
+                for ring in re.findall(r'\(\(([^()]+)\)', t.text):
+                    cone.append([[round(float(a), 3), round(float(b), 3)] for a, b in (xy.split() for xy in ring.split(','))][::3])
+        extra = {k: el.get(k, '') for k in ('warning_zones', 'watch_zones', 'cancelled_zones', 'location', 'movement')}
+        extra.update({'analysis': el.get('analysis_time', ''), 'nearby': el.get('nearby_town_1', ''), 'cone': cone})
         out.append({'product': n.split('.')[0], 'id': dist.split('_')[-1] if dist else '', 'name': el.get('disturbance_full_name', ''),
                     'cyclone': el.get('cyclone_name', ''), 'type': el.get('dist_type', ''), 'issued': issued,
                     'headline': el.get('headline', ''), 'discussion': el.get('discussion', ''), 'intensity': el.get('intensity', ''),
-                    'chance': int(m.group(1)) if m else None, 'next': root.findtext('.//text[@type="warning_next_issue"]') or '', 'pts': pts})
+                    'chance': int(m.group(1)) if m else None, 'next': root.findtext('.//text[@type="warning_next_issue"]') or '', 'pts': pts, **extra})
+    # post and story images of each new issue (for the owner's email), in data/tcimg; older ones are removed
+    folder = os.path.join(DATA, 'tcimg'); os.makedirs(folder, exist_ok=True); keep = set()
+    for sy in out:
+        tag = 'tc-' + (sy['id'] or 'x') + '-' + re.sub(r'\D', '', sy['issued'])[:12]
+        post, story = tag + '-post.png', tag + '-story.png'
+        try:
+            if not (os.path.exists(os.path.join(folder, post)) and os.path.exists(os.path.join(folder, story))):
+                from tcimg import render as tc_render
+                tc_render(sy, os.path.join(folder, post), os.path.join(folder, story))
+                log('Cyclone images:', post, story)
+            sy['post'], sy['story'] = 'tcimg/' + post, 'tcimg/' + story
+            keep.update([post, story])
+        except Exception as e:  # noqa: BLE001
+            log('Cyclone images failed:', e)
+    for f in os.listdir(folder):
+        if f not in keep: os.remove(os.path.join(folder, f))
     path = os.path.join(DATA, 'cyclone-bom.json')
     res = {'updated': dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Bureau of Meteorology, ftp.bom.gov.au', 'systems': out}
     prev = json.load(open(path)) if os.path.exists(path) else {}
