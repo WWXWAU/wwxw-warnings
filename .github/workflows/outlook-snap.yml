@@ -26,10 +26,20 @@ jobs:
           print('locked copy OK:', p, round(os.path.getsize(p) / 1024), 'KB, key', d['kid'])
           PY
           done
-          ls out/*.json
+          # the outlook's other days, each its own locked file
+          curl -sSL --max-time 280 "https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec?page=snapjson&kind=days" -o days.json || true
+          python3 - <<'PY' || true
+          import json, os
+          d = json.load(open('days.json'))
+          os.makedirs('out/days', exist_ok=True)
+          for k, v in (d.get('days') or {}).items():
+              open('out/days/' + k + '.json', 'w').write(v)
+          print('days:', ', '.join(sorted(d.get('days') or {})) or 'none', str(d)[:200] if not d.get('days') else '')
+          PY
+          ls -R out | head -30
       - name: Save them to the pages-outlook branch (one commit, no history)
         run: |
           cd out
-          git init -q -b pages-outlook && git add *.json
+          git init -q -b pages-outlook && git add -A .
           git -c user.name='wwxw-bot' -c user.email='actions@users.noreply.github.com' commit -qm "outlook and cyclone pages $(TZ=Australia/Perth date '+%-d %b %H:%M')"
           git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pages-outlook

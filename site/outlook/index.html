@@ -154,7 +154,7 @@
     var b64 = function (s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
     var open = function (pass) {
       if (!pass || gm || !(window.crypto && crypto.subtle) || typeof Proxy !== 'function') return live(pass);
-      var done = false, slow = function () { if (done) return; done = true; live(pass); }, tm = setTimeout(slow, 8000);
+      var KV = null, done = false, slow = function () { if (done) return; done = true; live(pass); }, tm = setTimeout(slow, 8000);
       var key = function (kid) {
         var k = kget(); if (k && k.kid === kid) return Promise.resolve(k);
         return fetch(exec + '?page=snapkey&pass=' + encodeURIComponent(pass)).then(function (r) { return r.json(); }).then(function (d) {
@@ -169,6 +169,7 @@
           if (done || !f || !(f.v === 1 || (f.v === 2 && typeof DecompressionStream === 'function')) || Date.now() - f.t > 3 * 3600000) return Promise.reject('old');
           return key(f.kid).then(function (k) {
             if (k.kid !== f.kid) return Promise.reject('key');
+            KV = k;   // the page uses it to unlock the other days' copies
             return crypto.subtle.importKey('raw', b64(k.k), { name: 'AES-CTR' }, false, ['decrypt'])
               .then(function (ck) { return crypto.subtle.decrypt({ name: 'AES-CTR', counter: b64(f.iv), length: 64 }, ck, b64(f.ct)); })
               .then(function (buf) { return f.gz ? new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer() : buf; });
@@ -178,7 +179,7 @@
           var h = new TextDecoder().decode(buf);
           if (done || !/^\s*<!DOCTYPE html>/i.test(h) || !/<\/html>\s*$/.test(h)) return slow();
           clearTimeout(tm); done = true;
-          h = h.replace(/<head>/i, '<head><script>window.WWXWP=' + JSON.stringify({ pass: pass }).replace(/</g, '\\u003c') + ';<\/script>');
+          h = h.replace(/<head>/i, '<head><script>window.WWXWP=' + JSON.stringify({ pass: pass, k: KV && KV.k, kid: KV && KV.kid }).replace(/</g, '\\u003c') + ';<\/script>');
           frame.src = URL.createObjectURL(new Blob([h], { type: 'text/html' }));   // a real address, so the map's workers run
         })
         .catch(function (x) { if (x !== 'locked') slow(); });
