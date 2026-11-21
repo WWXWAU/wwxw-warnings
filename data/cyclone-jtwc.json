@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-21T19:47Z",
+ "updated": "2026-11-21T23:07Z",
  "source": "Joint Typhoon Warning Center (metoc.navy.mil/jtwc)",
  "storms": [
   {
@@ -74,7 +74,220 @@
    "kt": null,
    "hpa": null,
    "text": "PREVIOUSLY LOCATED NEAR 10.8S 90.4E HAS DISSIPATED AND IS NO LONGER SUSPECT FOR THE DEVELOPMENT OF A SIGNIFICANT TROPICAL CYCLONE IN THE NEXT 24 HOURS.",
-   "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt"
+   "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt",
+   "past": [
+    {
+     "t": "2026-11-16T06:00:00Z",
+     "lat": -1.4,
+     "lng": 92.2,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-16T12:00:00Z",
+     "lat": -1.2,
+     "lng": 91.4,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-16T18:00:00Z",
+     "lat": -2.3,
+     "lng": 91.2,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-17T00:00:00Z",
+     "lat": -3.6,
+     "lng": 90.6,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-17T06:00:00Z",
+     "lat": -4.6,
+     "lng": 90.1,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-17T12:00:00Z",
+     "lat": -5.3,
+     "lng": 90.0,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-17T18:00:00Z",
+     "lat": -6.2,
+     "lng": 89.7,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-18T00:00:00Z",
+     "lat": -6.6,
+     "lng": 89.6,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-18T06:00:00Z",
+     "lat": -7.0,
+     "lng": 88.7,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-18T12:00:00Z",
+     "lat": -7.3,
+     "lng": 88.6,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-18T18:00:00Z",
+     "lat": -7.5,
+     "lng": 88.4,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-19T00:00:00Z",
+     "lat": -8.1,
+     "lng": 88.3,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-19T06:00:00Z",
+     "lat": -8.6,
+     "lng": 88.1,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-19T12:00:00Z",
+     "lat": -9.0,
+     "lng": 89.0,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-19T18:00:00Z",
+     "lat": -9.1,
+     "lng": 89.4,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-20T00:00:00Z",
+     "lat": -9.5,
+     "lng": 89.4,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-20T06:00:00Z",
+     "lat": -10.1,
+     "lng": 89.6,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-20T12:00:00Z",
+     "lat": -10.4,
+     "lng": 90.2,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-20T18:00:00Z",
+     "lat": -10.8,
+     "lng": 90.4,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-21T00:00:00Z",
+     "lat": -11.1,
+     "lng": 90.8,
+     "kt": 30
+    },
+    {
+     "t": "2026-11-21T06:00:00Z",
+     "lat": -11.5,
+     "lng": 90.9,
+     "kt": 25
+    },
+    {
+     "t": "2026-11-21T12:00:00Z",
+     "lat": -11.9,
+     "lng": 91.1,
+     "kt": 25
+    }
+   ],
+   "models": [
+    {
+     "t": "2026-11-21T12:00:00Z",
+     "h": 0,
+     "lat": -12.0,
+     "lng": 90.6,
+     "n": 77
+    },
+    {
+     "t": "2026-11-22T00:00:00Z",
+     "h": 12,
+     "lat": -12.5,
+     "lng": 89.5,
+     "n": 76
+    },
+    {
+     "t": "2026-11-22T12:00:00Z",
+     "h": 24,
+     "lat": -13.2,
+     "lng": 87.8,
+     "n": 74
+    },
+    {
+     "t": "2026-11-23T00:00:00Z",
+     "h": 36,
+     "lat": -14.0,
+     "lng": 85.9,
+     "n": 73
+    },
+    {
+     "t": "2026-11-23T12:00:00Z",
+     "h": 48,
+     "lat": -14.7,
+     "lng": 84.0,
+     "n": 69
+    },
+    {
+     "t": "2026-11-24T00:00:00Z",
+     "h": 60,
+     "lat": -15.1,
+     "lng": 82.3,
+     "n": 57
+    },
+    {
+     "t": "2026-11-24T12:00:00Z",
+     "h": 72,
+     "lat": -15.0,
+     "lng": 80.4,
+     "n": 42
+    },
+    {
+     "t": "2026-11-25T00:00:00Z",
+     "h": 84,
+     "lat": -14.4,
+     "lng": 79.5,
+     "n": 27
+    },
+    {
+     "t": "2026-11-25T12:00:00Z",
+     "h": 96,
+     "lat": -13.8,
+     "lng": 79.1,
+     "n": 20
+    },
+    {
+     "t": "2026-11-26T00:00:00Z",
+     "h": 108,
+     "lat": -13.7,
+     "lng": 78.3,
+     "n": 15
+    },
+    {
+     "t": "2026-11-26T12:00:00Z",
+     "h": 120,
+     "lat": -14.0,
+     "lng": 76.6,
+     "n": 15
+    }
+   ]
   },
   {
    "id": "98S",
@@ -87,7 +300,9 @@
    ],
    "hpa": 1009,
    "text": "PREVIOUSLY LOCATED NEAR 7.7S 75.3E IS NOW LOCATED NEAR 7.4S 75.4E, APPROXIMATELY 175. NM EAST OF DIEGO GARCIA. ANIMATED ENHANCED INFRARED SATELLITE IMAGERY INDICATES PATCHY DEEP CONVECTION FLARING OVER A DEVELOPING, ELONGATED LOW-LEVEL CIRCULATION. A 211539Z PARTIAL ASCAT-B PASS DEPICTS A BROAD CIRCULATION WITH 15-25 KTS WINDS AROUND THE PERIPHERY. THIS DISTURBANCE LIES IN AN AREA OF LOW VERTICAL WIND SHEAR (10-15 KTS), FAVORABLE UPPER-LEVEL OUTFLOW, AND WARM SEA SURFACE TEMPERATURES (28- 29C). HOWEVER, THE DEVELOPING CIRCULATION IS STILL QUITE WEAK AND DISORGANIZED, AND DETERMINISTIC MODELS AND ENSEMBLES BOTH INDICATE SLOW DEVELOPMENT OVER THE NEXT FEW DAYS AS THE SYSTEM TRACKS GENERALLY EASTWARD. MAXIMUM SUSTAINED SURFACE WINDS ARE ESTIMATED AT 20 TO 25 KNOTS. MINIMUM SEA LEVEL PRESSURE IS ESTIMATED TO BE NEAR 1009 MB. THE POTENTIAL FOR THE DEVELOPMENT OF A SIGNIFICANT TROPICAL CYCLONE WITHIN THE NEXT 24 HOURS REMAINS LOW.",
-   "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt"
+   "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt",
+   "past": [],
+   "models": []
   },
   {
    "id": "97S",
@@ -100,7 +315,9 @@
    ],
    "hpa": 1009,
    "text": "PREVIOUSLY LOCATED NEAR 6.6S 66.3E IS NOW LOCATED NEAR 6.7S 65.1E, APPROXIMATELY 441. NM WEST OF DIEGO GARCIA. ANIMATED ENHANCED INFRARED SATELLITE IMAGERY SHOWS DISORGANIZED DEEP CONVECTION OVER THE MONSOON TROUGH. THIS DISTURBANCE LIES IN A MARGINALLY FAVORABLE ENVIRONMENT WITH MODERATE VERTICAL WIND SHEAR (20 KTS), MODERATE POLEWARD UPPER-LEVEL OUTFLOW, AND WARM SEA SURFACE TEMPERATURES (28-29C). DETERMINISTIC AND ENSEMBLE MODELS INDICATE WEAK DEVELOPMENT AS IT MEANDERS EASTWARD OVER THE NEXT SEVERAL DAYS. MAXIMUM SUSTAINED SURFACE WINDS ARE ESTIMATED AT 15 TO 20 KNOTS. MINIMUM SEA LEVEL PRESSURE IS ESTIMATED TO BE NEAR 1009 MB. THE POTENTIAL FOR THE DEVELOPMENT OF A SIGNIFICANT TROPICAL CYCLONE WITHIN THE NEXT 24 HOURS REMAINS LOW.",
-   "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt"
+   "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt",
+   "past": [],
+   "models": []
   }
  ]
 }
