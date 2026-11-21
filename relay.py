@@ -378,6 +378,56 @@ def _jtime(ddhhmm):
     return ''
 
 
+UCAR_DECK = 'https://hurricanes.ral.ucar.edu/repository/data/{d}_open/'
+DECK_SKIP = {'CARQ', 'WRNG', 'XTRP', 'CLIP', 'CLP5', 'SHIP', 'DSHP', 'LGEM', 'SHF5', 'TCLP', 'DRCL', 'OCD5', 'JTWC', 'JTWI', 'BEST'}
+
+
+def _deck(kind, sid):
+    """The text of a JTWC a-deck or b-deck from NCAR's open copy (this season's folder, then the newest files)."""
+    now = dt.datetime.utcnow(); n, b = sid[:2], sid[2]
+    basin = 'sh' if b in 'SP' else 'io' if b in 'AB' else 'wp'
+    y = now.year + 1 if basin == 'sh' and now.month >= 7 else now.year
+    name = '%s%s%s%d.dat' % (kind[0], basin, n, y)
+    for base in (UCAR_DECK.format(d=kind) + '%d/' % y, UCAR_DECK.format(d=kind)):
+        try: return _jget(base + name)
+        except Exception: pass  # noqa: S110
+    return ''
+
+
+def _dlat(a): return (-1 if a.endswith('S') else 1) * int(a[:-1]) / 10.0
+def _dlon(a): return (int(a[:-1]) / 10.0) if a.endswith('E') else 360 - int(a[:-1]) / 10.0
+
+
+def _decks(sid):
+    """(past, models): the best-track positions of the last 5 days, and the median model track from the newest run."""
+    past, seen = [], set()
+    for ln in _deck('bdecks', sid).splitlines():
+        f = [c.strip() for c in ln.split(',')]
+        if len(f) < 9 or f[4] != 'BEST' or f[2] in seen: continue
+        seen.add(f[2]); t = dt.datetime.strptime(f[2], '%Y%m%d%H')
+        if (dt.datetime.utcnow() - t).days > 5: continue
+        past.append({'t': t.strftime('%Y-%m-%dT%H:00:00Z'), 'lat': _dlat(f[6]), 'lng': _dlon(f[7]), 'kt': int(f[8] or 0)})
+    runs = {}
+    for ln in _deck('adecks', sid).splitlines():
+        f = [c.strip() for c in ln.split(',')]
+        if len(f) < 8 or f[4] in DECK_SKIP or not f[6] or not f[7]: continue
+        try: tau = int(f[5]); lat, lng = _dlat(f[6]), _dlon(f[7])
+        except ValueError: continue
+        if tau % 12 or tau > 120 or (lat == 0 and lng == 360): continue
+        runs.setdefault(f[2], {}).setdefault(tau, {})[f[4]] = (lat, lng)
+    models = []
+    if runs:
+        cyc = max(runs); t0 = dt.datetime.strptime(cyc, '%Y%m%d%H')
+        if (dt.datetime.utcnow() - t0).total_seconds() < 36 * 3600:
+            for tau in sorted(runs[cyc]):
+                v = list(runs[cyc][tau].values())
+                if len(v) < 3: continue
+                la = sorted(a for a, _ in v); lo = sorted(b for _, b in v)
+                models.append({'t': (t0 + dt.timedelta(hours=tau)).strftime('%Y-%m-%dT%H:00:00Z'), 'h': tau,
+                               'lat': la[len(la) // 2], 'lng': lo[len(lo) // 2], 'n': len(v)})
+    return past, models
+
+
 def jtwc():
     """Current JTWC warnings (forecast tracks) and the areas they're watching (invests), from JTWC's public RSS
     list, to data/cyclone-jtwc.json (written only when something changed)."""
@@ -422,6 +472,12 @@ def jtwc():
         mv = re.search(r'MOVEMENT PAST SIX HOURS - (\d+) DEGREES AT (\d+) KTS', txt)
         storms.append({'id': mm.group(2), 'name': (mm.group(3) or '').title(), 'kind': mm.group(1).title(), 'warning': int(mm.group(4)),
                        'issued': pts[0]['t'], 'move': [int(mv.group(1)), int(mv.group(2))] if mv else None, 'pts': pts, 'src': u})
+    # where each one has been (JTWC best track) and where the models take it (median of the latest model run)
+    for x in storms + invests:
+        p0 = x['pts'][0] if x.get('pts') else x
+        if p0['lat'] > 5 or not (60 <= p0['lng'] <= 180): continue
+        try: x['past'], x['models'] = _decks(x['id'])
+        except Exception as e: log('JTWC decks', x['id'], e)  # noqa: BLE001
     path = os.path.join(DATA, 'cyclone-jtwc.json')
     res = {'updated': dt.datetime.utcnow().strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Joint Typhoon Warning Center (metoc.navy.mil/jtwc)',
            'storms': storms, 'invests': invests}
