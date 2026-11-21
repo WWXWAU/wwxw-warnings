@@ -37,6 +37,8 @@
     .tabs .brand img { width: 26px; height: 26px; border-radius: 6px; display: block; margin-right: 6px; }
     .tabs a:not(.brand) { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 5px 13px; border-radius: 999px; }
     .tabs a:not(.brand):hover { color: var(--text); background: var(--bg); }
+    .tabs a.on { color: var(--onAccent); background: var(--accent); }
+    .tabs a.kofi-nav { color: #fff; background: #E8504D; font-weight: 700; }
     .top { display: flex; align-items: center; gap: 10px; padding: 10px 14px 6px; }
     h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
     .stamp { font-size: 12px; color: var(--muted); }
@@ -82,7 +84,8 @@
 <body>
   <nav class="tabs" aria-label="West WX Watchers">
     <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
-    <a href="/">Home</a><a href="/rainfall/">Rainfall</a><a href="/obs/">Live Obs</a><a href="/rivers/">River Levels</a><a href="/ripper/">Ripper Weather</a>
+    <a href="/">Home</a><a href="/rainfall/">Rainfall</a><a href="/obs/">Live Obs</a><a href="/rivers/">River Levels</a><a href="/ripper/">Ripper Weather</a><a href="/tc/" class="on" aria-current="page">Cyclones</a>
+    <a class="kofi-nav" href="https://ko-fi.com/westweatherwatchers" target="_blank" rel="noopener" title="Support West WX Watchers on Ko-fi">☕ Support</a>
   </nav>
   <div class="top">
     <div><h1>Tropical cyclones</h1><div class="stamp" id="stamp">Loading the latest tracks…</div></div>

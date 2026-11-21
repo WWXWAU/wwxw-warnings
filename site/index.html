@@ -120,15 +120,15 @@
     h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
     /* The four pages: one compact tile each (two across on phones) */
-    .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+    .tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; }
     .tile { display: flex; flex-direction: column; gap: 4px; text-decoration: none; background: var(--panel);
             border: 1px solid var(--line); border-top: 3px solid var(--tc, var(--accent)); border-radius: 12px; padding: 11px 12px 12px; }
     .tile:hover { border-color: var(--tc, var(--accent)); }
     .tile .th { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 15.5px; color: var(--text); }
     .tile svg { width: 20px; height: 20px; flex: none; stroke: var(--tc, var(--accent)); }
     .tile p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
-    .t-rain { --tc: #2f7fc1; } .t-obs { --tc: #0E7C86; } .t-riv { --tc: #3a6fd8; } .t-rip { --tc: #c99700; }
-    [data-theme=dark] .t-rain { --tc: #4fc3f7; } [data-theme=dark] .t-obs { --tc: #3FC1C9; } [data-theme=dark] .t-riv { --tc: #82a8ff; } [data-theme=dark] .t-rip { --tc: #F2C230; }
+    .t-rain { --tc: #2f7fc1; } .t-obs { --tc: #0E7C86; } .t-riv { --tc: #3a6fd8; } .t-rip { --tc: #c99700; } .t-tc { --tc: #8E24AA; }
+    [data-theme=dark] .t-rain { --tc: #4fc3f7; } [data-theme=dark] .t-obs { --tc: #3FC1C9; } [data-theme=dark] .t-riv { --tc: #82a8ff; } [data-theme=dark] .t-rip { --tc: #F2C230; } [data-theme=dark] .t-tc { --tc: #CE93D8; }
     /* Ko-fi: a coffee to support the site */
     .support { display: none; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 2px 0; }
     .in-app .support { display: flex; }   /* on the website the Support button is in the top menu */
@@ -164,6 +164,7 @@
       color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
     }
 
+    @media (max-width: 900px) and (min-width: 601px) { .tiles { grid-template-columns: repeat(3, 1fr); } }
     @media (max-width: 600px) {
       .hero { min-height: 78px; padding: 10px 12px; }
       .banner { padding-top: calc(env(safe-area-inset-top, 0px) + 6px); padding-bottom: 4px; }
@@ -171,6 +172,7 @@
       .hero p { display: none; }
       .in-app .hero { display: none; }
       .tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .tiles .tile:last-child:nth-child(odd) { grid-column: 1 / -1; }   /* the fifth tile: the full width */
       .tile { padding: 9px 10px 10px; }
       .tile .th { font-size: 14.5px; }
       .tile p { font-size: 12px; }
@@ -202,6 +204,7 @@
       <a href="/obs/">Live Obs</a>
       <a href="/rivers/">River Levels</a>
       <a href="/ripper/">Ripper Weather</a>
+      <a href="/tc/">Cyclones</a>
       <a class="kofi-nav" data-kofi href="https://ko-fi.com/westweatherwatchers" target="_blank" rel="noopener" title="Support West WX Watchers on Ko-fi">☕ Support</a>
     <button class="themebtn" id="themeBtn" type="button" onclick="wwxwToggleTheme()" aria-label="Switch between light and dark"></button>
   </nav>
@@ -251,6 +254,10 @@
       <a class="tile t-rip" href="/ripper/">
         <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>Ripper</span>
         <p>The best-weather towns today and this week.</p>
+      </a>
+      <a class="tile t-tc" href="/tc/">
+        <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 1 0 7.6a3.8 3.8 0 1 1 0-7.6zM15.8 12c0-5.5-3.5-8.5-9-9M8.2 12c0 5.5 3.5 8.5 9 9"/></svg>Cyclones</span>
+        <p>Tropical lows and cyclones: Bureau and JTWC tracks on one map.</p>
       </a>
     </nav>
     <div class="support">
