@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-20T18:44Z",
+ "updated": "2026-11-21T00:52Z",
  "source": "Bureau of Meteorology, ftp.bom.gov.au",
  "systems": [
   {
@@ -8,84 +8,84 @@
    "name": "Tropical Low 01U",
    "cyclone": "",
    "type": "Tropical Low",
-   "issued": "2026-11-20T18:41:52Z",
-   "headline": "Tropical Low 01U lies well west northwest of Cocos (Keeling) Islands. No direct impacts are expected.",
-   "discussion": "Tropical Low 01U lies over the Indian Ocean, and is forecast to continue moving towards the southeast today, before turning towards the west on Sunday. It will remain well to the west of the Cocos (Keeling) Islands, with no direct impacts expected.\n\n01U is a Moderate (25%) chance of developing into a tropical cyclone today. The more likely scenario is that gales develop only in the southwest quadrant of the system, before it then weakens during Sunday.",
-   "intensity": "tropical low, sustained winds near the centre of 55 kilometres per hour with wind gusts to 85 kilometres per hour",
+   "issued": "2026-11-21T00:49:26Z",
+   "headline": "Tropical Low 01U lies well west of Cocos (Keeling) Islands. No direct impacts are expected.",
+   "discussion": "Tropical Low 01U lies over the Indian Ocean, and is forecast to continue moving towards the south today, before turning towards the west on Sunday. It will remain well to the west of the Cocos (Keeling) Islands, with no direct impacts expected.\n\n01U is a Moderate (25%) chance of developing into a tropical cyclone today. The more likely scenario is that gales develop only in the southwest quadrant of the system, before it then weakens during Sunday.",
+   "intensity": "tropical low, sustained winds near the centre of 65 kilometres per hour with wind gusts to 95 kilometres per hour",
    "chance": 25,
-   "next": "The next Forecast Track Map will be issued by 9:00 am AWST Saturday",
+   "next": "The next Forecast Track Map will be issued by 3:00 pm AWST Saturday",
    "pts": [
     {
      "h": 0,
-     "t": "2026-11-21T02:00:00+08:00",
-     "lat": -11.0,
-     "lng": 90.2,
+     "t": "2026-11-21T08:00:00+08:00",
+     "lat": -11.4,
+     "lng": 90.6,
      "cat": "tropical low",
-     "acc": "65"
+     "acc": "55"
     },
     {
      "h": 6,
-     "t": "2026-11-21T08:00:00+08:00",
-     "lat": -11.6,
+     "t": "2026-11-21T14:00:00+08:00",
+     "lat": -12.0,
      "lng": 90.6,
      "cat": "tropical low",
      "acc": "80"
     },
     {
      "h": 12,
-     "t": "2026-11-21T14:00:00+08:00",
-     "lat": -12.0,
-     "lng": 90.8,
+     "t": "2026-11-21T20:00:00+08:00",
+     "lat": -12.2,
+     "lng": 90.6,
      "cat": "tropical low",
      "acc": "95"
     },
     {
      "h": 18,
-     "t": "2026-11-21T20:00:00+08:00",
-     "lat": -12.4,
-     "lng": 90.9,
-     "cat": "tropical low",
-     "acc": "95"
-    },
-    {
-     "h": 24,
      "t": "2026-11-22T02:00:00+08:00",
-     "lat": -12.7,
-     "lng": 90.7,
-     "cat": "tropical low",
-     "acc": "95"
-    },
-    {
-     "h": 36,
-     "t": "2026-11-22T14:00:00+08:00",
-     "lat": -13.6,
-     "lng": 89.1,
-     "cat": "tropical low",
-     "acc": "75"
-    },
-    {
-     "h": 48,
-     "t": "2026-11-23T02:00:00+08:00",
-     "lat": -14.6,
-     "lng": 87.4,
+     "lat": -12.5,
+     "lng": 90.3,
      "cat": "tropical low",
      "acc": "100"
     },
     {
-     "h": 60,
-     "t": "2026-11-23T14:00:00+08:00",
-     "lat": -15.6,
-     "lng": 86.3,
+     "h": 24,
+     "t": "2026-11-22T08:00:00+08:00",
+     "lat": -12.9,
+     "lng": 89.7,
+     "cat": "tropical low",
+     "acc": "100"
+    },
+    {
+     "h": 36,
+     "t": "2026-11-22T20:00:00+08:00",
+     "lat": -13.8,
+     "lng": 88.2,
+     "cat": "tropical low",
+     "acc": "100"
+    },
+    {
+     "h": 48,
+     "t": "2026-11-23T08:00:00+08:00",
+     "lat": -14.9,
+     "lng": 86.6,
      "cat": "tropical low",
      "acc": "130"
     },
     {
-     "h": 72,
-     "t": "2026-11-24T02:00:00+08:00",
-     "lat": -16.4,
-     "lng": 84.6,
+     "h": 60,
+     "t": "2026-11-23T20:00:00+08:00",
+     "lat": -15.8,
+     "lng": 85.4,
      "cat": "tropical low",
-     "acc": "175"
+     "acc": "150"
+    },
+    {
+     "h": 72,
+     "t": "2026-11-24T08:00:00+08:00",
+     "lat": -16.3,
+     "lng": 83.9,
+     "cat": "tropical low",
+     "acc": "195"
     }
    ]
   }
