@@ -11,17 +11,25 @@ jobs:
   snap:
     runs-on: ubuntu-latest
     steps:
-      - name: Fetch the locked copy
+      - name: Fetch the locked copies (outlook, cyclones, cyclones world view)
         run: |
-          curl -sSL --max-time 280 "https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec?page=snapjson" -o outlook.json
-          python3 -c "
-          import json,sys
-          d=json.load(open('outlook.json'))
-          if d.get('v')!=1 or len(d.get('ct',''))<10000: print('not saved:', str(d)[:300]); sys.exit(1)
-          print('locked copy OK,', round(len(open('outlook.json').read())/1024), 'KB, key', d['kid'])"
-      - name: Save it to the pages-outlook branch (one commit, no history)
+          mkdir out
+          for k in outlook cyclones world; do
+            f=$k; [ $k = world ] && f=cyclones-world
+            curl -sSL --max-time 280 "https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec?page=snapjson&kind=$k" -o "out/$f.json" || true
+            python3 - "out/$f.json" <<'PY' || rm -f "out/$f.json"
+          import json, sys, os
+          p = sys.argv[1]
+          d = json.load(open(p))
+          if d.get('v') not in (1, 2) or len(d.get('ct', '')) < 10000:
+              print('not saved:', p, str(d)[:300]); sys.exit(1)
+          print('locked copy OK:', p, round(os.path.getsize(p) / 1024), 'KB, key', d['kid'])
+          PY
+          done
+          ls out/*.json
+      - name: Save them to the pages-outlook branch (one commit, no history)
         run: |
-          mkdir out && mv outlook.json out/ && cd out
-          git init -q -b pages-outlook && git add outlook.json
-          git -c user.name='wwxw-bot' -c user.email='actions@users.noreply.github.com' commit -qm "outlook page $(TZ=Australia/Perth date '+%-d %b %H:%M')"
+          cd out
+          git init -q -b pages-outlook && git add *.json
+          git -c user.name='wwxw-bot' -c user.email='actions@users.noreply.github.com' commit -qm "outlook and cyclone pages $(TZ=Australia/Perth date '+%-d %b %H:%M')"
           git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pages-outlook

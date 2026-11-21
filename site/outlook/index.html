@@ -166,11 +166,12 @@
       fetch('https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/pages-outlook/outlook.json?t=' + Math.floor(Date.now() / 60000))
         .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
         .then(function (f) {
-          if (done || !f || f.v !== 1 || Date.now() - f.t > 3 * 3600000) return Promise.reject('old');
+          if (done || !f || !(f.v === 1 || (f.v === 2 && typeof DecompressionStream === 'function')) || Date.now() - f.t > 3 * 3600000) return Promise.reject('old');
           return key(f.kid).then(function (k) {
             if (k.kid !== f.kid) return Promise.reject('key');
             return crypto.subtle.importKey('raw', b64(k.k), { name: 'AES-CTR' }, false, ['decrypt'])
-              .then(function (ck) { return crypto.subtle.decrypt({ name: 'AES-CTR', counter: b64(f.iv), length: 64 }, ck, b64(f.ct)); });
+              .then(function (ck) { return crypto.subtle.decrypt({ name: 'AES-CTR', counter: b64(f.iv), length: 64 }, ck, b64(f.ct)); })
+              .then(function (buf) { return f.gz ? new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer() : buf; });
           });
         })
         .then(function (buf) {

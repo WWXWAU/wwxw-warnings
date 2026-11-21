@@ -147,7 +147,42 @@
     var box = document.getElementById('wwxwPin'), input = document.getElementById('wwxwPinIn'), msg = document.getElementById('wwxwPinMsg');
     var get = function () { try { return localStorage.getItem(KEY); } catch (e) { return null; } };
     var put = function (v) { try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch (e) {} };
-    var open = function (pass) { frame.src = src + (src.indexOf('?') < 0 ? '?' : '&') + 'pass=' + encodeURIComponent(pass || ''); };
+    var live = function (pass) { frame.src = src + (src.indexOf('?') < 0 ? '?' : '&') + 'pass=' + encodeURIComponent(pass || ''); };
+    // Fast: the finished page, saved to GitHub every 30 minutes LOCKED (encrypted). Today's key comes from the outlook
+    // script for a valid pass and is kept in this browser for the day. Anything missing, wrong or old: load it from Google as before.
+    var KK = 'wwxw-okey', kget = function () { try { return JSON.parse(localStorage.getItem(KK) || 'null'); } catch (e) { return null; } };
+    var b64 = function (s) { var b = atob(s), u = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) u[i] = b.charCodeAt(i); return u; };
+    var open = function (pass) {
+      if (!pass || /[?&]k=/.test(location.search) || !(window.crypto && crypto.subtle) || typeof Proxy !== 'function') return live(pass);
+      var done = false, slow = function () { if (done) return; done = true; live(pass); }, tm = setTimeout(slow, 8000);
+      var key = function (kid) {
+        var k = kget(); if (k && k.kid === kid) return Promise.resolve(k);
+        return fetch(exec + '?page=snapkey&pass=' + encodeURIComponent(pass)).then(function (r) { return r.json(); }).then(function (d) {
+          if (!d.ok) { if (d.locked) { put(null); clearTimeout(tm); done = true; ask(); return Promise.reject('locked'); } return Promise.reject('key'); }
+          try { localStorage.setItem(KK, JSON.stringify({ kid: d.kid, k: d.k })); } catch (e) {}
+          return { kid: d.kid, k: d.k };
+        });
+      };
+      fetch('https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/pages-outlook/' + (/[?&]world=1/.test(location.search) ? 'cyclones-world' : 'cyclones') + '.json?t=' + Math.floor(Date.now() / 60000))
+        .then(function (r) { return r.ok ? r.json() : Promise.reject(r.status); })
+        .then(function (f) {
+          if (done || !f || !(f.v === 1 || (f.v === 2 && typeof DecompressionStream === 'function')) || Date.now() - f.t > 3 * 3600000) return Promise.reject('old');
+          return key(f.kid).then(function (k) {
+            if (k.kid !== f.kid) return Promise.reject('key');
+            return crypto.subtle.importKey('raw', b64(k.k), { name: 'AES-CTR' }, false, ['decrypt'])
+              .then(function (ck) { return crypto.subtle.decrypt({ name: 'AES-CTR', counter: b64(f.iv), length: 64 }, ck, b64(f.ct)); })
+              .then(function (buf) { return f.gz ? new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer() : buf; });
+          });
+        })
+        .then(function (buf) {
+          var h = new TextDecoder().decode(buf);
+          if (done || !/^\s*<!DOCTYPE html>/i.test(h) || !/<\/html>\s*$/.test(h)) return slow();
+          clearTimeout(tm); done = true;
+          h = h.replace(/<head>/i, '<head><script>window.WWXWP=' + JSON.stringify({ pass: pass }).replace(/</g, '\\u003c') + ';<\/script>');
+          frame.src = URL.createObjectURL(new Blob([h], { type: 'text/html' }));   // a real address, so the map's workers run
+        })
+        .catch(function (x) { if (x !== 'locked') slow(); });
+    };
     var ask = function () { box.style.display = 'flex'; setTimeout(function () { input.focus(); }, 50); };
     // the page says the pass is missing, expired or cancelled: ask for the PIN
     window.addEventListener('message', function (ev) { if (ev.data && ev.data.wwxw === 'locked') { put(null); ask(); } });
