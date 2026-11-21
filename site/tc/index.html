@@ -327,8 +327,8 @@
     var DATA = null;
     function load() {
       var t = Math.floor(Date.now() / 60000);
-      Promise.all([fetch(RAW + 'cyclone-bom.json?t=' + t).then(function (r) { return r.json(); }).catch(function () { return {}; }),
-                   fetch(RAW + 'cyclone-jtwc.json?t=' + t).then(function (r) { return r.json(); }).catch(function () { return {}; })])
+      Promise.all([fetch(RAW + 'cyclone-bom.json?t=' + t, { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return {}; }),
+                   fetch(RAW + 'cyclone-jtwc.json?t=' + t, { cache: 'no-store' }).then(function (r) { return r.json(); }).catch(function () { return {}; })])
         .then(function (d) {
           DATA = d; SYS = build(d[0], d[1]);
           var other = (d[1].storms || []).filter(function (s) { return !REGION(s.pts[0].lat, s.pts[0].lng); });
