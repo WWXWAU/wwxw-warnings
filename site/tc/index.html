@@ -47,7 +47,7 @@
     .wrap { max-width: 1100px; margin: 0 auto; padding: 0 8px 20px; }
     .mapwrap { position: relative; height: min(62svh, 640px); min-height: 360px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--water); }
     #map { position: absolute; inset: 0; }
-    .key { display: flex; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 12px; align-items: center; padding: 6px 4px 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+    .key { display: flex; flex-wrap: wrap; row-gap: 4px; gap: 12px; align-items: center; padding: 6px 4px 2px; font-size: 11px; color: var(--muted); white-space: nowrap; }
     .key::-webkit-scrollbar { display: none; }
     .key span { display: inline-flex; align-items: center; gap: 5px; }
     .key i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--bom); }
@@ -131,6 +131,8 @@
     function compass(d) { return ['north', 'north-northeast', 'northeast', 'east-northeast', 'east', 'east-southeast', 'southeast', 'south-southeast', 'south', 'south-southwest', 'southwest', 'west-southwest', 'west', 'west-northwest', 'northwest', 'north-northwest'][Math.round(d / 22.5) % 16]; }
     function sentenceCase(t) { return String(t || '').toLowerCase().replace(/(^|[.!?]\s+)([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); })
       .replace(/\b(jtwc|llcc|vws|sst|ssts|ascat|eir|mb|kts?|nm|utc|bom)\b/gi, function (w) { return w.toUpperCase(); })
+      .replace(/\b(\d+\.\d)([ns]) (\d+\.\d)([ew])\b/g, function (m, a, b, c, d) { return a + b.toUpperCase() + ' ' + c + d.toUpperCase(); })
+      .replace(/\b(\d{6})z\b/g, '$1Z').replace(/\((\d+)-(\d+)c\)/g, '($1–$2 °C)').replace(/\b(metop-[a-z])\b/gi, function (w) { return w.toUpperCase(); })
       .replace(/\b(cocos|keeling|diego garcia|christmas|indian ocean|australia|indonesia|java|timor|darwin|broome|madagascar|mauritius|reunion|pago pago)\b/gi, function (w) { return w.replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }); }
 
     // ---- data -> systems (a Bureau system and JTWC's storm or invest for it on one card)
@@ -325,7 +327,8 @@
           DATA = d; SYS = build(d[0], d[1]);
           var other = (d[1].storms || []).filter(function (s) { return !REGION(s.pts[0].lat, s.pts[0].lng); });
           $('note').textContent = other.length ? 'Elsewhere: ' + other.map(function (s) { return s.kind + ' ' + s.id + (s.name ? ' (' + s.name + ')' : ''); }).join(', ') + ' — outside the Australian region.' : '';
-          $('stamp').textContent = (SYS.length ? SYS.length + ' system' + (SYS.length > 1 ? 's' : '') + ' · ' : '') + 'checked ' + when(d[0].updated && d[0].updated.replace('Z', ':00Z'), true);
+          var ups = [d[0].updated, d[1].updated].filter(function (u) { return u; }).map(function (u) { return Date.parse(u.replace(/(T\d\d:\d\d)Z$/, '$1:00Z')); }).filter(function (x) { return !isNaN(x); });
+          $('stamp').textContent = (SYS.length ? SYS.length + ' system' + (SYS.length > 1 ? 's' : '') + ' · ' : '') + (ups.length ? 'updated ' + when(new Date(Math.max.apply(null, ups)).toISOString(), true) : '');
           drawCards();
           if (!map) startMap(); else if (map.getSource('tc')) map.getSource('tc').setData(fc());
         });
