@@ -304,8 +304,11 @@ def tc_tracks(files):
             k = 'plus%d' % h
             if 'latitude_' + k not in el: continue
             la, lo = el['latitude_' + k], el['longitude_' + k]
-            lat = -float(la[:-1]) if la.endswith('S') else float(la[:-1])
-            lng = float(lo[:-1]) if lo.endswith('E') else 360 - float(lo[:-1])
+            try:   # a point the Bureau hasn't given a position for (e.g. 'XX' once the system is expected to weaken)
+                lat = -float(la[:-1]) if la.endswith('S') else float(la[:-1])
+                lng = float(lo[:-1]) if lo.endswith('E') else 360 - float(lo[:-1])
+            except ValueError:
+                continue
             pts.append({'h': h, 't': el.get('date_' + k), 'lat': lat, 'lng': lng, 'cat': el.get('category_name_' + k, ''), 'acc': el.get('position_acc_km_' + k)})
         if not pts: continue
         dist = el.get('disturbance_id', '')
@@ -314,7 +317,8 @@ def tc_tracks(files):
         for t in root.iter('text'):
             if t.get('type') == 'warning_area_polygons' and t.text and 'EMPTY' not in t.text:
                 for ring in re.findall(r'\(\(([^()]+)\)', t.text):
-                    cone.append([[round(float(a), 3), round(float(b), 3)] for a, b in (xy.split() for xy in ring.split(','))][::3])
+                    try: cone.append([[round(float(a), 3), round(float(b), 3)] for a, b in (xy.split() for xy in ring.split(','))][::3])
+                    except ValueError: pass
         extra = {k: el.get(k, '') for k in ('warning_zones', 'watch_zones', 'cancelled_zones', 'location', 'movement')}
         extra.update({'analysis': el.get('analysis_time', ''), 'nearby': el.get('nearby_town_1', ''), 'cone': cone})
         out.append({'product': n.split('.')[0], 'id': dist.split('_')[-1] if dist else '', 'name': el.get('disturbance_full_name', ''),
