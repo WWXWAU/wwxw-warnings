@@ -103,8 +103,8 @@ body{display:flex;flex-direction:column;padding:0;overflow:hidden;}
 .screen.on{display:block;}
 #sAlerts{overflow-y:auto;-webkit-overflow-scrolling:touch;}
 #sWeb iframe{border:0;width:100%;height:100%;display:block;background:var(--bg);}
-.tabs{flex:none;display:grid;grid-template-columns:repeat(6,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0);}
-.tabs button{border:0;border-radius:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 10px;font-size:11.5px;color:var(--muted);min-height:58px;}
+.tabs{flex:none;display:grid;grid-template-columns:repeat(7,1fr);background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0);}
+.tabs button{border:0;border-radius:0;background:transparent;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 10px;font-size:10.5px;color:var(--muted);min-height:58px;}
 .tabs button[aria-selected=true]{color:var(--accent);font-weight:600;}
 .tabs svg{width:22px;height:22px;}
 .actions{bottom:0;}
@@ -430,6 +430,7 @@ var TABS = [['home', 'Home', '/', '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14
   ['obs', 'Live Obs', '/obs/', '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'],
   ['rivers', 'Rivers', '/rivers/', '<path d="M2 8c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/><path d="M2 15c2.5-3 4.5-3 7 0s4.5 3 7 0 4.5-3 6 0"/>'],
   ['ripper', 'Ripper', '/ripper/', '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'],
+  ['tc', 'Cyclones', '/tc/', '<circle cx="12" cy="12" r="2.5"/><path d="M12 4.5a7.5 7.5 0 0 1 7.2 5.4"/><path d="M12 19.5a7.5 7.5 0 0 1-7.2-5.4"/><path d="M4.6 8.6C6.4 5.9 9 4.5 12 4.5"/><path d="M19.4 15.4c-1.8 2.7-4.4 4.1-7.4 4.1"/>'],
   ['alerts', 'Alerts', '', '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>']];
 var webPath = null, APP_T = Date.now().toString(36);   // each start of the app loads the pages fresh (not an old saved copy)
 function showTab(id, path) {

@@ -178,7 +178,7 @@
       var c = 'var(--' + CATS[o.cat] + ')', h = '<div class="card' + (sel === o.key ? ' sel' : '') + '" id="card-' + o.key + '" style="--c:' + c + '">';
       h += '<h2 data-k="' + o.key + '">' + esc(o.name) + ' <small>' + esc(o.ids.join(' · ') + (o.alias ? ' · JTWC: ' + o.alias : '')) + '</small></h2>';
       var pills = [];
-      pills.push('<span class="pill" style="--pc:' + c + ';color:' + (o.cat >= 1 && o.cat <= 3 ? '#222' : '#fff') + '">' + CATN[o.cat] + '</span>');
+      pills.push('<span class="pill" style="--pc:' + c + ';color:' + (o.cat >= 1 && o.cat <= 3 ? '#222' : '#fff') + '">' + (o.bom || o.jtwc ? CATN[o.cat] : 'Disturbance') + '</span>');
       if (o.bom && chanceTxt(o.bom)) { var ch = chanceTxt(o.bom); pills.push('<span class="pill" style="--pc:' + (/^high/i.test(ch) ? '#E53935' : /^moderate/i.test(ch) ? '#FB8C00' : '#607D8B') + '">' + esc(ch) + '</span>'); }
       if (o.inv && o.inv.chance) pills.push('<span class="pill" style="--pc:' + ({ high: '#E53935', medium: '#FB8C00', low: '#607D8B' }[o.inv.chance]) + '">JTWC: ' + o.inv.chance + ' chance in 24 hours</span>');
       h += '<div>' + pills.join('') + '</div>';
@@ -199,8 +199,8 @@
       if (o.inv) {
         var v = o.inv;
         if (!o.bom) h += '<p class="lead">An area JTWC is watching for development' + (v.chance ? ' (' + v.chance + ' chance of a significant tropical cyclone within 24 hours)' : '') + '.</p>';
-        if (v.kt) dl.push(['Winds', 'About ' + Math.round(v.kt[0] * KMH / 5) * 5 + '–' + Math.round(v.kt[1] * KMH / 5) * 5 + ' km/h' + (v.hpa ? ', ' + v.hpa + ' hPa' : '')]);
-        invTxt(v).slice(0, 1).forEach(function (x) { dl.push(['Where', x]); });
+        if (v.kt) dl.push([o.bom ? 'JTWC' : 'Winds', (o.bom ? 'Estimates about ' : 'About ') + Math.round(v.kt[0] * KMH / 5) * 5 + '–' + Math.round(v.kt[1] * KMH / 5) * 5 + ' km/h' + (v.hpa ? ', ' + v.hpa + ' hPa' : '')]);
+        if (!o.bom) invTxt(v).slice(0, 1).forEach(function (x) { dl.push(['Where', x]); });
       }
       if (dl.length) h += '<dl>' + dl.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('') + '</dl>';
       // more: the outlook, the forecast positions, JTWC's reasoning
@@ -262,7 +262,7 @@
           F.push({ type: 'Feature', properties: { k: o.key, kind: 'jline' }, geometry: { type: 'LineString', coordinates: o.jtwc.pts.map(function (p) { return [lng(p.lng), p.lat]; }) } });
           o.jtwc.pts.forEach(function (p, i) { F.push({ type: 'Feature', properties: { k: o.key, kind: 'jpt', c: css('--' + CATS[catKt(p.kt)]), r: i ? 4 : 7, lab: o.bom ? '' : (i === 0 ? '' : when(p.t)), tip: '<b>JTWC</b> · ' + when(p.t, true) + '<br>' + (p.kt ? Math.round(p.kt * KMH / 5) * 5 + ' km/h (1-min), gusts ' + Math.round(p.gust * KMH / 5) * 5 + ' km/h' : '') }, geometry: { type: 'Point', coordinates: [lng(p.lng), p.lat] } }); });
         }
-        if (o.inv && !o.jtwc) F.push({ type: 'Feature', properties: { k: o.key, kind: 'inv', lab: 'Invest ' + o.inv.id, c: { high: '#E53935', medium: '#FB8C00', low: '#90A4AE' }[o.inv.chance] || '#90A4AE', tip: '<b>JTWC Invest ' + o.inv.id + '</b><br>' + (o.inv.chance ? cap(o.inv.chance) + ' chance in 24 hours' : '') }, geometry: { type: 'Point', coordinates: [lng(o.inv.lng), o.inv.lat] } });
+        if (o.inv && !o.jtwc && !o.bom) F.push({ type: 'Feature', properties: { k: o.key, kind: 'inv', lab: 'Invest ' + o.inv.id, c: { high: '#E53935', medium: '#FB8C00', low: '#90A4AE' }[o.inv.chance] || '#90A4AE', tip: '<b>JTWC Invest ' + o.inv.id + '</b><br>' + (o.inv.chance ? cap(o.inv.chance) + ' chance in 24 hours' : '') }, geometry: { type: 'Point', coordinates: [lng(o.inv.lng), o.inv.lat] } });
         F.push({ type: 'Feature', properties: { k: o.key, kind: 'name', lab: o.name.replace(/^Tropical Cyclone /, 'TC ') }, geometry: { type: 'Point', coordinates: [lng(o.at.lng), o.at.lat] } });
       });
       return { type: 'FeatureCollection', features: F };
@@ -297,7 +297,7 @@
     function fitAll() {
       var b = new maplibregl.LngLatBounds(); SYS.forEach(function (o) { pointsOf(o).forEach(function (p) { b.extend([lng(p.lng), p.lat]); }); });
       b.extend([113, -35]); b.extend([129, -12]);   // WA always in view, so it's clear where they are
-      map.fitBounds(b, { padding: 36, maxZoom: 5, duration: 0 });
+      map.fitBounds(b, { padding: 24, maxZoom: 5, duration: 0 });
     }
     // land: everything that isn't water (the tiles' water layer is drawn over a land-coloured background)
     function startMap() {
@@ -308,7 +308,8 @@
       map.touchZoomRotate.disableRotation();
       map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
       map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Tracks: Bureau of Meteorology, JTWC' }), 'bottom-right');
-      map.on('load', function () { addLayers(); fitAll(); });
+      map.on('load', function () { addLayers(); fitAll();
+        var a = document.querySelector('.maplibregl-ctrl-attrib'); if (a) a.classList.remove('maplibregl-compact-show'); });
     }
 
     // ---- load
