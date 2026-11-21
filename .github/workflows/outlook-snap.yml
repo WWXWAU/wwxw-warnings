@@ -1,0 +1,27 @@
+name: Outlook fast copy
+# Every 30 minutes: fetch the outlook page's LOCKED (encrypted) copy from the outlook script (?page=snapjson) and save it
+# to the 'pages-outlook' branch, where the website's outlook page reads it. Only a valid PIN pass can unlock it.
+on:
+  schedule: [{ cron: '7,37 * * * *' }]
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency: { group: outlook-snap, cancel-in-progress: false }
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch the locked copy
+        run: |
+          curl -sSL --max-time 280 "https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec?page=snapjson" -o outlook.json
+          python3 -c "
+          import json,sys
+          d=json.load(open('outlook.json'))
+          if d.get('v')!=1 or len(d.get('ct',''))<10000: print('not saved:', str(d)[:300]); sys.exit(1)
+          print('locked copy OK,', round(len(open('outlook.json').read())/1024), 'KB, key', d['kid'])"
+      - name: Save it to the pages-outlook branch (one commit, no history)
+        run: |
+          mkdir out && mv outlook.json out/ && cd out
+          git init -q -b pages-outlook && git add outlook.json
+          git -c user.name='wwxw-bot' -c user.email='actions@users.noreply.github.com' commit -qm "outlook page $(TZ=Australia/Perth date '+%-d %b %H:%M')"
+          git push -q --force "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pages-outlook
