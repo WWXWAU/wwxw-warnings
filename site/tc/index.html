@@ -23,10 +23,10 @@
   </script>
   <style>
     :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
-            --land: #F3F6F4; --water: #C9E2EA; --border: #9AAFB5; --bom: #0E2A33; --jtwc: #C2185B; --cone: rgba(14, 42, 51, 0.10);
+            --land: #F3F6F4; --water: #C9E2EA; --border: #9AAFB5; --bom: #0E2A33; --jtwc: #C2185B; --cone: rgba(14, 42, 51, 0.10); --past: #6B7F87; --model: #C77700;
             --low: #64B5F6; --c1: #FDD835; --c2: #FFB300; --c3: #FB8C00; --c4: #E53935; --c5: #8E24AA; color-scheme: light; }
     [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
-            --land: #1B323B; --water: #0E2229; --border: #4E6E78; --bom: #FFFFFF; --jtwc: #FF6FA8; --cone: rgba(255, 255, 255, 0.10); color-scheme: dark; }
+            --land: #1B323B; --water: #0E2229; --border: #4E6E78; --bom: #FFFFFF; --jtwc: #FF6FA8; --cone: rgba(255, 255, 255, 0.10); --past: #9DB6BD; --model: #FFB74D; color-scheme: dark; }
     * { box-sizing: border-box; }
     html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
     a { color: var(--accent); }
@@ -53,6 +53,8 @@
     .key i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid var(--bom); }
     .key b { display: inline-block; width: 20px; height: 0; border-top: 3px solid var(--bom); }
     .key b.j { border-top: 3px dashed var(--jtwc); }
+    .key b.p { border-top: 3px dotted var(--past); }
+    .key b.m { border-top: 3px dashed var(--model); }
     .key u { display: inline-block; width: 16px; height: 10px; background: var(--cone); border: 1px solid var(--border); border-radius: 3px; }
     .msg { padding: 14px; color: var(--muted); font-size: 14px; }
     .cards { display: grid; gap: 10px; margin-top: 10px; }
@@ -94,7 +96,7 @@
   <div class="wrap">
     <div class="mapwrap"><div id="map"></div></div>
     <div class="key" id="key">
-      <span><b></b>Bureau</span><span><b class="j"></b>JTWC</span><span><u></u>Likely area</span>
+      <span><b></b>Bureau</span><span><b class="j"></b>JTWC</span><span><u></u>Likely area</span><span><b class="p"></b>Past track</span><span><b class="m"></b>Models (invests)</span>
       <span><i style="background:var(--low)"></i>Low</span><span style="gap:2px">Cat <i style="background:var(--c1)"></i>1 <i style="background:var(--c2)"></i>2 <i style="background:var(--c3)"></i>3 <i style="background:var(--c4)"></i>4 <i style="background:var(--c5)"></i>5</span>
     </div>
     <div class="cards" id="cards"><div class="msg">Loading…</div></div>
@@ -205,6 +207,10 @@
         if (!o.bom) h += '<p class="lead">An area JTWC is watching for development' + (v.chance ? ' (' + v.chance + ' chance of a significant tropical cyclone within 24 hours)' : '') + '.</p>';
         if (v.kt) dl.push([o.bom ? 'JTWC' : 'Winds', (o.bom ? 'Estimates about ' : 'About ') + Math.round(v.kt[0] * KMH / 5) * 5 + '–' + Math.round(v.kt[1] * KMH / 5) * 5 + ' km/h' + (v.hpa ? ', ' + v.hpa + ' hPa' : '')]);
         if (!o.bom) invTxt(v).slice(0, 1).forEach(function (x) { dl.push(['Where', x]); });
+        var ms = (v.models || []).filter(function (p) { return p.h > 0; });
+        if (!o.jtwc && !o.bom && ms.length) { var e = ms[ms.length - 1], dkm = Math.round(km(v, e) / 50) * 50;
+          var brg = Math.atan2((lng(e.lng) - lng(v.lng)) * Math.cos(v.lat * Math.PI / 180), e.lat - v.lat) * 180 / Math.PI;
+          dl.push(['Models', 'Most take it ' + compass((brg + 360) % 360) + ', about ' + dkm + ' km by ' + when(e.t) + ' (middle of ' + e.n + ' model tracks; guidance only)']); }
       }
       if (dl.length) h += '<dl>' + dl.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('') + '</dl>';
       // more: the outlook, the forecast positions, JTWC's reasoning
@@ -238,7 +244,8 @@
         map.fitBounds(b, { padding: 50, maxZoom: 6, duration: 700 }); }
       if (scroll) { var el = $('card-' + k); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
     }
-    function pointsOf(o) { var p = []; if (o.bom) p = p.concat(o.bom.pts); if (o.jtwc) p = p.concat(o.jtwc.pts); if (o.inv) p.push(o.inv); return p; }
+    function pointsOf(o) { var p = []; if (o.bom) p = p.concat(o.bom.pts); if (o.jtwc) p = p.concat(o.jtwc.pts); if (o.inv) p.push(o.inv);
+      var src = o.jtwc || o.inv; if (src) { p = p.concat(src.past || []); if (!o.jtwc && !o.bom) p = p.concat(src.models || []); } return p; }
 
     // ---- the map
     function style() {
@@ -266,6 +273,16 @@
           F.push({ type: 'Feature', properties: { k: o.key, kind: 'jline' }, geometry: { type: 'LineString', coordinates: o.jtwc.pts.map(function (p) { return [lng(p.lng), p.lat]; }) } });
           o.jtwc.pts.forEach(function (p, i) { F.push({ type: 'Feature', properties: { k: o.key, kind: 'jpt', c: css('--' + CATS[catKt(p.kt)]), r: i ? 4 : 7, lab: o.bom ? '' : (i === 0 ? '' : when(p.t)), tip: '<b>JTWC</b> · ' + when(p.t, true) + '<br>' + (p.kt ? Math.round(p.kt * KMH / 5) * 5 + ' km/h (1-min), gusts ' + Math.round(p.gust * KMH / 5) * 5 + ' km/h' : '') }, geometry: { type: 'Point', coordinates: [lng(p.lng), p.lat] } }); });
         }
+        var src = o.jtwc || o.inv;   // JTWC's best track (where it's been) and the models' median track (invests only)
+        if (src && src.past && src.past.length > 1) {
+          F.push({ type: 'Feature', properties: { k: o.key, kind: 'past' }, geometry: { type: 'LineString', coordinates: src.past.map(function (p) { return [lng(p.lng), p.lat]; }) } });
+          src.past.forEach(function (p) { F.push({ type: 'Feature', properties: { k: o.key, kind: 'pastpt', tip: '<b>Past position</b> · ' + when(p.t, true) + (p.kt ? '<br>About ' + Math.round(p.kt * KMH / 5) * 5 + ' km/h (JTWC)' : '') }, geometry: { type: 'Point', coordinates: [lng(p.lng), p.lat] } }); });
+        }
+        if (src && !o.jtwc && !o.bom && src.models && src.models.length > 1) {
+          var mp = [{ lng: src.lng, lat: src.lat }].concat(src.models.filter(function (p) { return p.h > 0; }));
+          F.push({ type: 'Feature', properties: { k: o.key, kind: 'mline' }, geometry: { type: 'LineString', coordinates: mp.map(function (p) { return [lng(p.lng), p.lat]; }) } });
+          src.models.forEach(function (p) { if (p.h > 0) F.push({ type: 'Feature', properties: { k: o.key, kind: 'mpt', lab: p.h % 24 === 0 ? when(p.t) : '', tip: '<b>Models</b> · ' + when(p.t, true) + '<br>Middle of ' + p.n + ' model tracks (guidance, not a forecast)' }, geometry: { type: 'Point', coordinates: [lng(p.lng), p.lat] } }); });
+        }
         if (o.inv && !o.jtwc && !o.bom) F.push({ type: 'Feature', properties: { k: o.key, kind: 'inv', lab: 'Invest ' + o.inv.id, c: { high: '#E53935', medium: '#FB8C00', low: '#90A4AE' }[o.inv.chance] || '#90A4AE', tip: '<b>JTWC Invest ' + o.inv.id + '</b><br>' + (o.inv.chance ? cap(o.inv.chance) + ' chance in 24 hours' : '') }, geometry: { type: 'Point', coordinates: [lng(o.inv.lng), o.inv.lat] } });
         F.push({ type: 'Feature', properties: { k: o.key, kind: 'name', lab: o.name.replace(/^Tropical Cyclone /, 'TC ') }, geometry: { type: 'Point', coordinates: [lng(o.at.lng), o.at.lat] } });
       });
@@ -279,6 +296,10 @@
       map.addSource('tc', { type: 'geojson', data: fc() });
       map.addLayer({ id: 'cone', type: 'fill', source: 'tc', filter: ['==', ['get', 'kind'], 'cone'], paint: { 'fill-color': css('--cone'), 'fill-outline-color': css('--border') } });
       map.addLayer({ id: 'cone-edge', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'cone'], paint: { 'line-color': css('--border'), 'line-width': 1 } });
+      map.addLayer({ id: 'past', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'past'], paint: { 'line-color': css('--past'), 'line-width': 2.5, 'line-dasharray': [0.6, 1.6] }, layout: { 'line-cap': 'round' } });
+      map.addLayer({ id: 'pastpt', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'pastpt'], paint: { 'circle-radius': 3, 'circle-color': css('--past') } });
+      map.addLayer({ id: 'mline', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'mline'], paint: { 'line-color': css('--model'), 'line-width': 2.5, 'line-dasharray': [3, 2] } });
+      map.addLayer({ id: 'mpt', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'mpt'], paint: { 'circle-radius': 4, 'circle-color': halo, 'circle-stroke-color': css('--model'), 'circle-stroke-width': 2 } });
       map.addLayer({ id: 'jline', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'jline'], paint: { 'line-color': jt, 'line-width': 2.5, 'line-dasharray': [2, 1.5] } });
       map.addLayer({ id: 'bomline', type: 'line', source: 'tc', filter: ['==', ['get', 'kind'], 'bomline'], paint: { 'line-color': bom, 'line-width': 3 } });
       map.addLayer({ id: 'jpt', type: 'circle', source: 'tc', filter: ['==', ['get', 'kind'], 'jpt'], paint: { 'circle-color': ['get', 'c'], 'circle-radius': ['get', 'r'], 'circle-stroke-color': jt, 'circle-stroke-width': 2 } });
@@ -288,13 +309,13 @@
       map.addLayer({ id: 'reflab', type: 'symbol', source: 'tc', filter: ['==', ['get', 'kind'], 'ref'],
         layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-offset': [0, 0.9], 'text-anchor': 'top', 'text-optional': true },
         paint: { 'text-color': css('--muted'), 'text-halo-color': halo, 'text-halo-width': 1.5 } });
-      map.addLayer({ id: 'labs', type: 'symbol', source: 'tc', filter: ['all', ['match', ['get', 'kind'], ['bompt', 'jpt'], true, false], ['!=', ['get', 'lab'], '']],
+      map.addLayer({ id: 'labs', type: 'symbol', source: 'tc', filter: ['all', ['match', ['get', 'kind'], ['bompt', 'jpt', 'mpt'], true, false], ['!=', ['get', 'lab'], '']],
         layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-offset': [0.9, 0], 'text-anchor': 'left', 'text-optional': true },
         paint: { 'text-color': css('--text'), 'text-halo-color': halo, 'text-halo-width': 1.5 } });
       map.addLayer({ id: 'names', type: 'symbol', source: 'tc', filter: ['match', ['get', 'kind'], ['name', 'inv'], true, false],
         layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'text-offset': [0, -1.6], 'text-anchor': 'bottom', 'text-allow-overlap': false },
         paint: { 'text-color': css('--text'), 'text-halo-color': halo, 'text-halo-width': 2 } });
-      ['bompt', 'jpt', 'inv', 'bomline', 'jline', 'cone'].forEach(function (L) {
+      ['bompt', 'jpt', 'mpt', 'pastpt', 'inv', 'bomline', 'jline', 'mline', 'past', 'cone'].forEach(function (L) {
         map.on('click', L, function (e) {
           var f = e.features[0]; if (!f) return;
           if (popup) popup.remove();
