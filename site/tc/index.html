@@ -24,7 +24,7 @@
   <style>
     :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
             --land: #F3F6F4; --water: #C9E2EA; --border: #9AAFB5; --bom: #0E2A33; --jtwc: #C2185B; --cone: rgba(14, 42, 51, 0.10); --past: #6B7F87; --model: #C77700;
-            --low: #64B5F6; --c1: #FDD835; --c2: #FFB300; --c3: #FB8C00; --c4: #E53935; --c5: #8E24AA; color-scheme: light; }
+            --low: #2A9DA8; --c1: #E9B10C; --c2: #F2701F; --c3: #E0442B; --c4: #B8235A; --c5: #6E2390; color-scheme: light; }
     [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
             --land: #1B323B; --water: #0E2229; --border: #4E6E78; --bom: #FFFFFF; --jtwc: #FF6FA8; --cone: rgba(255, 255, 255, 0.10); --past: #9DB6BD; --model: #FFB74D; color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -290,13 +290,41 @@
         }
         if (o.inv && !o.jtwc && !o.bom) F.push({ type: 'Feature', properties: { k: o.key, kind: 'inv', lab: 'Invest ' + o.inv.id, c: { high: '#E53935', medium: '#FB8C00', low: '#90A4AE' }[o.inv.chance] || '#90A4AE', tip: '<b>JTWC Invest ' + o.inv.id + '</b><br>' + (o.inv.chance ? cap(o.inv.chance) + ' chance in 24 hours' : '') }, geometry: { type: 'Point', coordinates: [lng(o.inv.lng), o.inv.lat] } });
         F.push({ type: 'Feature', properties: { k: o.key, kind: 'name', lab: o.name.replace(/^Tropical Cyclone /, 'TC ') }, geometry: { type: 'Point', coordinates: [lng(o.at.lng), o.at.lat] } });
+        if (o.bom || o.jtwc) F.push({ type: 'Feature', properties: { k: o.key, kind: 'now', icon: 'tc-' + o.cat + (o.at.lat < 0 ? 's' : 'n'), tip: '<b>' + esc(o.name) + '</b><br>Now: ' + CATN[o.cat] }, geometry: { type: 'Point', coordinates: [lng(o.at.lng), o.at.lat] } });
       });
       [['Cocos (Keeling) Is', -12.19, 96.83], ['Christmas Island', -10.49, 105.63], ['Diego Garcia', -7.32, 72.42], ['Perth', -31.95, 115.86], ['Exmouth', -21.93, 114.13],
        ['Port Hedland', -20.31, 118.6], ['Broome', -17.96, 122.24], ['Darwin', -12.46, 130.84], ['Mauritius', -20.2, 57.5]].forEach(function (p) {
         F.push({ type: 'Feature', properties: { kind: 'ref', lab: p[0] }, geometry: { type: 'Point', coordinates: [p[2], p[1]] } }); });
       return { type: 'FeatureCollection', features: F };
     }
+    // the symbol at each system's current position: the cyclone symbol (arms the way it spins: clockwise in the
+    // southern hemisphere) once it's a cyclone, a circle with an L while it's a low
+    function icon(cat, south) {
+      var S = 64, c = document.createElement('canvas'); c.width = c.height = S; var g = c.getContext('2d'), col = css('--' + CATS[cat]), dk = '#0E2A33';
+      g.translate(S / 2, S / 2); g.lineJoin = 'round';
+      if (cat >= 1) {
+        if (!south) g.scale(-1, 1);
+        var arms = function () { g.beginPath();   // two hooked arms off the centre
+          for (var k = 0; k < 2; k++) { var r = k * Math.PI, cx = 9 * Math.cos(r), cy = 9 * Math.sin(r);
+            g.moveTo(cx + 18 * Math.cos(r + Math.PI), cy + 18 * Math.sin(r + Math.PI)); g.arc(cx, cy, 18, r + Math.PI, r + Math.PI * 1.55); }
+        };
+        g.lineCap = 'round'; arms(); g.strokeStyle = dk; g.lineWidth = 11; g.stroke(); arms(); g.strokeStyle = col; g.lineWidth = 6; g.stroke();
+        g.strokeStyle = dk; g.lineWidth = 3;
+        g.beginPath(); g.arc(0, 0, 13, 0, 2 * Math.PI); g.fillStyle = col; g.fill(); g.stroke();
+        g.beginPath(); g.arc(0, 0, 5, 0, 2 * Math.PI); g.fillStyle = '#fff'; g.fill(); g.lineWidth = 2; g.stroke();
+      } else {
+        g.beginPath(); g.arc(0, 0, 17, 0, 2 * Math.PI); g.fillStyle = col; g.fill(); g.strokeStyle = dk; g.lineWidth = 3; g.stroke();
+        g.fillStyle = '#fff'; g.font = '800 22px Lexend, system-ui, sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('L', 0, 1.5);
+      }
+      return g.getImageData(0, 0, S, S);
+    }
+    function addIcons() {
+      for (var c = 0; c <= 5; c++) [true, false].forEach(function (south) {
+        var n = 'tc-' + c + (south ? 's' : 'n'); if (!map.hasImage(n)) map.addImage(n, icon(c, south), { pixelRatio: 2 });
+      });
+    }
     function addLayers() {
+      addIcons();
       var bom = css('--bom'), jt = css('--jtwc'), halo = css('--water');
       map.addSource('tc', { type: 'geojson', data: fc() });
       map.addLayer({ id: 'cone', type: 'fill', source: 'tc', filter: ['==', ['get', 'kind'], 'cone'], paint: { 'fill-color': css('--cone'), 'fill-outline-color': css('--border') } });
@@ -314,13 +342,15 @@
       map.addLayer({ id: 'reflab', type: 'symbol', source: 'tc', filter: ['==', ['get', 'kind'], 'ref'],
         layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-offset': [0, 0.9], 'text-anchor': 'top', 'text-optional': true },
         paint: { 'text-color': css('--muted'), 'text-halo-color': halo, 'text-halo-width': 1.5 } });
+      map.addLayer({ id: 'now', type: 'symbol', source: 'tc', filter: ['==', ['get', 'kind'], 'now'],
+        layout: { 'icon-image': ['get', 'icon'], 'icon-size': 1, 'icon-allow-overlap': true, 'icon-ignore-placement': true } });
       map.addLayer({ id: 'labs', type: 'symbol', source: 'tc', filter: ['all', ['match', ['get', 'kind'], ['bompt', 'jpt', 'mpt'], true, false], ['!=', ['get', 'lab'], '']],
         layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Regular'], 'text-size': 10.5, 'text-offset': [0.9, 0], 'text-anchor': 'left', 'text-optional': true },
         paint: { 'text-color': css('--text'), 'text-halo-color': halo, 'text-halo-width': 1.5 } });
       map.addLayer({ id: 'names', type: 'symbol', source: 'tc', filter: ['match', ['get', 'kind'], ['name', 'inv'], true, false],
         layout: { 'text-field': ['get', 'lab'], 'text-font': ['Noto Sans Bold'], 'text-size': 13, 'text-offset': [0, -1.6], 'text-anchor': 'bottom', 'text-allow-overlap': false },
         paint: { 'text-color': css('--text'), 'text-halo-color': halo, 'text-halo-width': 2 } });
-      ['bompt', 'jpt', 'mpt', 'pastpt', 'inv', 'bomline', 'jline', 'mline', 'past', 'cone'].forEach(function (L) {
+      ['now', 'bompt', 'jpt', 'mpt', 'pastpt', 'inv', 'bomline', 'jline', 'mline', 'past', 'cone'].forEach(function (L) {
         map.on('click', L, function (e) {
           var f = e.features[0]; if (!f) return;
           if (popup) popup.remove();
