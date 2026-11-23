@@ -21,6 +21,7 @@ jobs:
           cache: 'pip'
       - run: pip install shapely==2.0.6
       - run: python relay.py
+      - run: python bomfc.py   # BoM town forecasts for the "Near you" card (only writes when a new forecast is out)
       - name: Save changes (only if the warnings changed)
         run: |
           git config user.name "wwxw-relay"
