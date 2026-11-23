@@ -190,6 +190,30 @@
     .wbanner ul { margin: 4px 0 2px 22px; padding: 0; font-weight: 500; }
     .wbanner li { margin: 2px 0; }
     @media (max-width: 600px) { .wbanner { font-size: 11px; padding: 4px 8px; } }
+
+    /* Near you: conditions, warnings and the BoM forecast at the viewer's location (or a town they pick) */
+    .near { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin: 0 0 12px; }
+    .near .nh { display: flex; align-items: center; gap: 8px; }
+    .near .nh b { font-size: 15px; } .near .nh .pl { color: var(--muted); font-size: 13px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .near .nb { margin-left: auto; flex: none; border: 1px solid var(--line); background: transparent; color: var(--accent); border-radius: 999px; font-weight: 600; font-size: 12px; font-family: inherit; padding: 4px 11px; cursor: pointer; }
+    .near .ask { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; font-size: 13.5px; color: var(--muted); }
+    .near .go { border: 0; background: var(--accent); color: var(--onAccent); border-radius: 999px; font-weight: 600; font-size: 13px; font-family: inherit; padding: 7px 14px; cursor: pointer; }
+    .near select { font-size: 13px; font-family: inherit; color: var(--text); background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; max-width: 100%; }
+    .near .now { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; align-items: center; margin-top: 8px; text-decoration: none; color: inherit; }
+    .near .tmp { grid-row: span 3; font-size: 44px; font-weight: 600; line-height: 1; letter-spacing: -1px; }
+    .near .tmp small { font-size: 20px; font-weight: 500; vertical-align: top; }
+    .near .l1 { font-size: 14px; } .near .l2 { font-size: 13px; color: var(--muted); } .near .l3 { font-size: 11.5px; color: var(--muted); }
+    .near .warn { display: block; margin-top: 10px; padding: 7px 10px; border-radius: 10px; background: #5a1414; color: #ffe3e3; font-size: 13px; font-weight: 600; text-decoration: none; }
+    .near .warn.cyc { background: #3d1b5e; }
+    .near .fc { margin-top: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+    .near .ft { font-size: 13.5px; } .near .ft .ic { font-size: 18px; margin-right: 4px; vertical-align: -2px; }
+    .near .days { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-top: 8px; padding-bottom: 2px; }
+    .near .days::-webkit-scrollbar { display: none; }
+    .near .dy { flex: 1 0 64px; text-align: center; background: var(--panel2); border-radius: 10px; padding: 6px 4px; font-size: 12px; line-height: 1.35; }
+    .near .dy .ic { font-size: 20px; display: block; } .near .dy .hl { font-weight: 600; } .near .dy .lo { color: var(--muted); } .near .dy .pp { color: var(--accent); font-size: 11px; }
+    .near .src { margin-top: 6px; font-size: 11px; color: var(--muted); }
+    .near .msg { margin-top: 6px; font-size: 13px; color: var(--muted); }
+    @media (max-width: 600px) { .near { padding: 10px 12px; } .near .tmp { font-size: 38px; } }
   </style>
 </head>
 <body>
@@ -238,6 +262,10 @@
   </section>
 
   <main>
+    <section class="near" id="near" aria-live="polite">
+      <div class="nh"><b>Near you</b><span class="pl" id="nearPl"></span><button class="nb" id="nearChg" type="button" hidden>Change</button></div>
+      <div id="nearBody"><div class="ask"><button class="go" type="button" id="nearGo">Use my location</button><span>for the latest conditions, warnings and the Bureau's forecast where you are.</span></div></div>
+    </section>
     <nav class="tiles" aria-label="Maps and data">
       <a class="tile t-rain" href="/rainfall/">
         <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/></svg>Rainfall</span>
@@ -274,6 +302,124 @@
     <div class="socials" id="socials"></div>
   </main>
 
+
+  <script>
+  (function () {   // Near you: latest readings at the nearest station, warnings covering the spot, the BoM forecast for the nearest town
+    var RAW = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/', KEY = 'wwxwNear';
+    var $ = function (id) { return document.getElementById(id); }, body = $('nearBody');
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    var get = function () { try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { return null; } };
+    var put = function (v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} };
+    var km = function (a, b, c, d) { var y = (c - a) * 111.2, x = (d - b) * 111.2 * Math.cos((a + c) / 2 * Math.PI / 180); return Math.sqrt(x * x + y * y); };
+    var bust = function () { return '?t=' + Math.floor(Date.now() / 120000); };
+    var json = function (u) { return fetch(u + bust(), { cache: 'no-store' }).then(function (r) { if (!r.ok) throw 0; return r.json(); }); };
+    var FC = null, OBS = null, WARN = null, here = null, timer = null;
+    var ICON = { 1: '☀️', 2: '🌙', 3: '⛅', 4: '☁️', 6: '🌫️', 8: '🌦️', 9: '💨', 10: '🌫️', 11: '🌦️', 12: '🌧️', 13: '💨', 14: '❄️', 15: '🌨️', 16: '⛈️', 17: '🌦️', 18: '🌧️', 19: '🌀' };
+    var CMP = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+    var has = function (v) { return v !== null && v !== undefined && !isNaN(v); };
+    var r1 = function (v) { return (Math.round(v * 10) / 10).toFixed(1); };
+    var hm = function (ms) { return new Date(ms).toLocaleTimeString('en-AU', { timeZone: 'Australia/Perth', hour: 'numeric', minute: '2-digit' }).replace(' ', '').toLowerCase(); };
+    var dayName = function (d, i) { if (i === 0) return 'Today'; var x = new Date(d + 'T12:00:00+08:00'); return x.toLocaleDateString('en-AU', { timeZone: 'Australia/Perth', weekday: 'short' }); };
+    function nearest(list, lat, lng, ok, maxKm) {
+      var best = null, bd = maxKm || 1e9;
+      list.forEach(function (p) { if (!ok(p)) return; var d = km(lat, lng, p.lat, p.lng); if (d < bd) { bd = d; best = p; } });
+      return best ? { p: best, km: bd } : null;
+    }
+    function inPoly(lat, lng, g) {   // GeoJSON Polygon / MultiPolygon
+      var polys = g.type === 'Polygon' ? [g.coordinates] : g.type === 'MultiPolygon' ? g.coordinates : [];
+      return polys.some(function (poly) {
+        var inside = false;
+        poly.forEach(function (ring, ri) {
+          for (var i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            var xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+            if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+          }
+        });
+        return inside;
+      });
+    }
+    function townList(sel) {
+      return '<select id="nearTown" aria-label="Pick a town"><option value="">Pick a town…</option>' + (FC ? FC.places.slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; }).map(function (p) {
+        return '<option value="' + esc(p.a) + '"' + (sel === p.a ? ' selected' : '') + '>' + esc(p.n) + '</option>'; }).join('') : '') + '</select>';
+    }
+    function askView(msg) {
+      $('nearPl').textContent = ''; $('nearChg').hidden = true;
+      body.innerHTML = '<div class="ask"><button class="go" type="button" id="nearGo">Use my location</button>' + (FC ? '<span>or</span>' + townList('') : '') + '</div>'
+        + '<div class="msg">' + esc(msg || 'See the latest conditions, warnings and the Bureau\'s forecast where you are. Your location stays on your device.') + '</div>';
+      $('nearGo').onclick = locate;
+      var t = $('nearTown'); if (t) t.onchange = function () { if (t.value) { put({ m: 'town', a: t.value }); fromTown(t.value); } };
+    }
+    function locate() {
+      if (!navigator.geolocation) { askView('Location isn\'t available here: pick a town instead.'); return; }
+      body.innerHTML = '<div class="msg">Finding you…</div>';
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        put({ m: 'gps' }); here = { lat: pos.coords.latitude, lng: pos.coords.longitude, gps: true }; draw();
+      }, function (e) {
+        put(null);
+        askView(e && e.code === 1 ? 'Location is turned off for this site or app. Allow it in your settings, or pick a town.' : 'Couldn\'t get your location just now. Try again, or pick a town.');
+      }, { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+    }
+    function fromTown(a) {
+      var p = FC && FC.places.filter(function (x) { return x.a === a; })[0];
+      if (!p) { askView(); return; }
+      here = { lat: p.lat, lng: p.lng, town: p.n }; draw();
+    }
+    function draw() {
+      if (!here) return;
+      $('nearChg').hidden = false;
+      var h = '', lat = here.lat, lng = here.lng;
+      var f = FC ? nearest(FC.places, lat, lng, function () { return true; }, 150) : null;
+      $('nearPl').textContent = '· ' + (here.town || (f ? (f.km < 15 ? f.p.n : 'near ' + f.p.n) : 'your location'));
+      // warnings covering this spot
+      ((WARN && WARN.warnings) || []).filter(function (w) {
+        if (w.status !== 'current' || !w.area) return false;
+        try { return inPoly(lat, lng, typeof w.area === 'string' ? JSON.parse(w.area) : w.area); } catch (e) { return false; }
+      }).forEach(function (w) {
+        h += '<a class="warn' + (/cyclone/i.test(w.type) ? ' cyc' : '') + '" href="' + esc(w.bomUrl) + '" target="_blank" rel="noopener">&#9888; ' + esc(w.type) + ' for your area</a>';
+      });
+      // the nearest station with a temperature (within 75 km), and the nearest rain reading (within 25 km)
+      var pts = (OBS && OBS.points) || [], fresh = function (p) { return p.t && Date.now() - p.t < 3 * 3600000; };
+      var st = nearest(pts, lat, lng, function (p) { return fresh(p) && has(p.temp); }, 75);
+      var rn = nearest(pts, lat, lng, function (p) { return fresh(p) && has(p.rain); }, 25);
+      if (st) {
+        var p = st.p, wind = has(p.ws) ? (p.ws < 1 ? 'Calm' : (has(p.wd) ? CMP[Math.round(p.wd / 22.5) % 16] + ' ' : '') + Math.round(p.ws) + ' km/h' + (has(p.wg) && p.wg > p.ws ? ', gusts ' + Math.round(p.wg) : '')) : '';
+        var l2 = [has(p.app) ? 'Feels like ' + r1(p.app) + '°' : '', has(p.rh) ? 'Humidity ' + Math.round(p.rh) + '%' : ''].filter(Boolean).join(' · ');
+        var rain = rn ? 'Rain since 9am ' + r1(rn.p.rain) + ' mm' + (rn.p !== p ? ' (' + esc(rn.p.name) + ')' : '') : '';
+        h += '<a class="now" href="/obs/?stn=' + encodeURIComponent(p.name) + '&src=' + encodeURIComponent(p.source) + '" title="Open on the Live Obs map">'
+          + '<span class="tmp">' + Math.round(p.temp) + '<small>°C</small></span>'
+          + '<span class="l1">' + (esc(wind) || '&nbsp;') + '</span><span class="l2">' + esc([l2, rain].filter(Boolean).join(' · ')) + '</span>'
+          + '<span class="l3">' + esc(p.name) + ' (' + esc(p.source === 'BOM' ? 'BoM' : p.source === 'WU' ? 'personal station' : p.source) + ') · ' + (st.km < 1 ? 'under 1' : Math.round(st.km)) + ' km away · ' + hm(p.t) + '</span></a>';
+      } else if (OBS) h += '<div class="msg">No weather station reporting within 75 km.</div>';
+      else h += '<div class="msg">Loading the latest readings…</div>';
+      // BoM forecast for the nearest forecast town
+      if (f) {
+        var D = f.p.days, t = D[0] || {};
+        h += '<div class="fc"><div class="ft"><span class="ic" aria-hidden="true">' + (ICON[t.i] || '') + '</span><b>' + esc(dayName(t.d, 0)) + ':</b> ' + esc(t.t || '')
+          + (has(t.hi) ? ' Max ' + t.hi + '°.' : '') + (t.p ? ' Chance of rain ' + esc(t.p) + (t.r ? ' (' + esc(t.r) + ')' : '') + '.' : '') + '</div>'
+          + '<div class="days">' + D.slice(1, 7).map(function (d, i) {
+            return '<div class="dy" title="' + esc(d.t || '') + '"><span>' + esc(dayName(d.d, i + 1)) + '</span><span class="ic" aria-hidden="true">' + (ICON[d.i] || '') + '</span>'
+              + '<span class="hl">' + (has(d.hi) ? d.hi + '°' : '') + '</span> <span class="lo">' + (has(d.lo) ? d.lo + '°' : '') + '</span>'
+              + (d.p ? '<br><span class="pp">' + esc(d.p) + '</span>' : '') + '</div>'; }).join('') + '</div>'
+          + '<div class="src">Forecast for ' + esc(f.p.n) + ' from the <a href="https://www.bom.gov.au/wa/forecasts/" target="_blank" rel="noopener">Bureau of Meteorology</a>.</div></div>';
+      }
+      body.innerHTML = h;
+    }
+    $('nearChg').onclick = function () { put(null); here = null; askView(); };
+    function load() {
+      return Promise.all([
+        json(RAW + 'main/data/bom-forecast.json').then(function (d) { FC = d; }).catch(function () {}),
+        json(RAW + 'pages/obs-live.json').then(function (d) { OBS = d; }).catch(function () {}),
+        json(RAW + 'main/data/warnings.json').then(function (d) { WARN = d; }).catch(function () {})
+      ]).then(function () { if (here) draw(); });
+    }
+    var saved = get();
+    if (saved && saved.m === 'town') { load().then(function () { fromTown(saved.a); }); }
+    else if (saved && saved.m === 'gps') { locate(); load(); }
+    else { $('nearGo').onclick = locate; load().then(function () { if (!here) askView(); }); }
+    setInterval(function () { if (here && !document.hidden) load(); }, 300000);
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && here) load(); });
+  })();
+  </script>
   <footer>
     <span class="copy"><img src="brand/wwxw-copyright-white.png" width="375" height="85" alt="© WWXW"><span>2007–<span id="yr">2026</span> · West WX Watchers · westweatherwatchers.com</span></span>
     <span>Maps and data are automated guidance, <b>not for the protection of life or property</b>. For official warnings, see the <a href="https://www.bom.gov.au/wa/warnings/">Bureau of Meteorology</a>.</span>
