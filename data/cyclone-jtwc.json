@@ -1,38 +1,7 @@
 {
- "updated": "2026-11-23T09:28Z",
+ "updated": "2026-11-23T12:32Z",
  "source": "Joint Typhoon Warning Center (metoc.navy.mil/jtwc)",
- "storms": [
-  {
-   "id": "04P",
-   "name": "Xavier",
-   "kind": "Tropical Cyclone",
-   "warning": 23,
-   "issued": "2026-11-23T00:00:00Z",
-   "move": [
-    255,
-    4
-   ],
-   "pts": [
-    {
-     "h": 0,
-     "t": "2026-11-23T00:00:00Z",
-     "lat": -11.8,
-     "lng": 191.2,
-     "kt": 30,
-     "gust": 40
-    },
-    {
-     "h": 12,
-     "t": "2026-11-23T12:00:00Z",
-     "lat": -11.9,
-     "lng": 190.4,
-     "kt": 30,
-     "gust": 40
-    }
-   ],
-   "src": "https://www.metoc.navy.mil/jtwc/products/sh0427web.txt"
-  }
- ],
+ "storms": [],
  "invests": [
   {
    "id": "98S",
