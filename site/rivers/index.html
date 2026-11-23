@@ -88,6 +88,14 @@
     .msg[hidden] { display: none; }
 
     .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    /* Dashboard: the side panel stays the map's height (scrolls inside); the lists sit side by side under the map */
+    @media (min-width: 1001px) {
+      .panel { max-height: clamp(520px, calc(100vh - 250px), 820px); overflow-y: auto; scrollbar-width: thin; }
+      .main:not(:has(.panel > section:not([hidden]))) { grid-template-columns: minmax(0, 1fr); }
+    }
+    .dash { display: grid; grid-template-columns: repeat(auto-fit, minmax(330px, 1fr)); gap: 16px; padding: 0 20px 16px; align-items: start; }
+    .dash .card { max-height: 560px; overflow-y: auto; scrollbar-width: thin; }
+    .dash .card .ch, .dash .card > h2 { position: sticky; top: -14px; z-index: 2; background: var(--surface); padding-top: 14px; margin-top: -14px; }
     .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 0 8px; }
     .card h2 { font-size: 16px; margin: 0; padding: 0 16px 6px; }
     .card .ch { display: flex; align-items: flex-start; gap: 8px; padding-right: 12px; }
@@ -186,6 +194,7 @@
 
     @media (max-width: 1000px) {
       .main { grid-template-columns: 1fr; padding: 0 12px 14px; }
+      .dash { padding: 0 12px 14px; gap: 12px; }
       .mapwrap { height: 60vh; max-height: 560px; min-height: 360px; }
       .top { padding: 12px 12px 8px; } .state { margin: 0 12px 10px; } .tools { margin: 0 12px 10px; } .finder { margin-left: 0; width: 100%; } .finder input { flex: 1; width: auto; min-width: 0; } .finder select { flex: 0 1 auto; min-width: 0; } .all { margin: 0 12px 14px; } .foot { padding: 0 12px 20px; }
       h1 { font-size: 20px; }
@@ -206,6 +215,7 @@
       .finder { gap: 6px; }
       .finder select, .finder input { padding: 4px 10px; font-size: 12.5px; }
       .main { padding: 0 6px 12px; gap: 10px; }
+      .dash { padding: 0 6px 12px; gap: 10px; grid-template-columns: 1fr; } .dash .card { max-height: 460px; }
       .mapwrap { height: calc(100svh - 140px); max-height: none; min-height: 440px; border-radius: 12px; }
       /* the key: one slim strip along the bottom (swipe it if it doesn't all fit) */
       .key { left: 6px; right: 6px; bottom: 6px; max-width: none; flex-wrap: nowrap; justify-content: space-between; overflow-x: auto; scrollbar-width: none;
@@ -276,10 +286,13 @@
       <section class="card" id="wavesCard" hidden style="border-left:6px solid var(--accent)"><h2>Flood waves on the way</h2><div id="wavesList"></div><p class="cnote" style="margin-top:6px">Timing from past floods at these gauges (Water Data Online records since 2006): a guide, not a forecast. Follow the Bureau's flood warnings.</p></section>
       <section class="card" id="roadsCard" hidden style="border-left:6px solid var(--major)"><h2>Main Roads: roads affected by flooding</h2><p class="cnote">State roads, from Main Roads WA's closures and warnings.</p><div id="roads"></div></section>
       <section class="card" id="nowCard" hidden style="border-left:6px solid var(--rise)"><h2>Rising now</h2><div id="risingNow"></div></section>
+    </div>
+  </div>
+
+  <div class="dash" aria-label="Rises, highest rivers and shire road reports">
       <section class="card" id="risingCard"><div class="ch"><h2 id="risingH">Biggest rises</h2><button class="save" type="button" id="saveRise">Save image</button></div><div id="rising"></div></section>
       <section class="card"><div class="ch"><h2 id="highestH">Highest</h2><button class="save" type="button" id="saveHigh">Save image</button></div><p class="cnote">The biggest rivers flowing: ranked by peak flow, as levels can't be compared between rivers.</p><div id="highest"></div></section>
       <section class="card" id="shireCard" hidden style="border-left:6px solid var(--rise)"><h2>Shire road reports</h2><p class="cnote">Closed roads and roads open with caution, from each shire's own road report (shown as the shire last updated it). Closures may be for flood damage, not current flooding.</p><div id="shireRoads"></div></section>
-    </div>
   </div>
 
   <section class="all" aria-label="Every gauge">
@@ -572,7 +585,7 @@
       })();
       document.querySelectorAll('.road').forEach(function (b) { b.addEventListener('click', function () {
         var f = ROADS.features[+b.getAttribute('data-i')], c = firstPt(f.geometry); if (c && map) map.easeTo({ center: c, zoom: 9, duration: 600 }); }); });
-      document.querySelectorAll('.panel .g').forEach(function (b) { b.addEventListener('click', function () { pick(b.getAttribute('data-id'), true); }); });
+      document.querySelectorAll('.panel .g, .dash .g').forEach(function (b) { b.addEventListener('click', function () { pick(b.getAttribute('data-id'), true); }); });
     }
 
     // ---- every gauge
