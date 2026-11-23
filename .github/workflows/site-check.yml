@@ -1,0 +1,11 @@
+name: Website check
+# Run by hand: shows the status code and server headers of the main website pages (for a 502 or similar).
+on: { workflow_dispatch: {} }
+permissions: { contents: read }
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          for p in / /obs/ /rainfall/ /rivers/ /tc/ /brand/wwxw-icon-64.png /obs/index.html; do
+            echo "== $p"; curl -sS -o /tmp/b -D - --max-time 30 "https://westweatherwatchers.com$p" | grep -iE '^(HTTP|server|content-type|content-length|x-)' ; head -c 200 /tmp/b | tr '\n' ' '; echo; done
