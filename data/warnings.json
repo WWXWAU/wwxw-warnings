@@ -1,6 +1,168 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm, severe weather, flood and frost areas are approximate, drawn around the locations named in each warning.",
- "warnings": [],
- "updated": "2026-11-21T15:21:03+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for Kimberley forecast district",
+   "sent": "2026-11-24T14:16:03+00:00",
+   "expires": "2026-11-24T17:15:57+00:00",
+   "hazards": [
+    "damaging winds",
+    "heavy rainfall",
+    "large hail"
+   ],
+   "districts": [
+    "Kimberley"
+   ],
+   "towns": [
+    "Kununurra"
+   ],
+   "townsPlaced": [
+    "Kununurra"
+   ],
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Kununurra.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       128.018,
+       -16.092
+      ],
+      [
+       127.998,
+       -16.059
+      ],
+      [
+       127.998,
+       -15.939
+      ],
+      [
+       128.026,
+       -15.883
+      ],
+      [
+       128.034,
+       -15.804
+      ],
+      [
+       128.089,
+       -15.701
+      ],
+      [
+       128.102,
+       -15.641
+      ],
+      [
+       128.17,
+       -15.511
+      ],
+      [
+       128.284,
+       -15.402
+      ],
+      [
+       128.3,
+       -15.435
+      ],
+      [
+       128.307,
+       -15.414
+      ],
+      [
+       128.294,
+       -15.39
+      ],
+      [
+       128.365,
+       -15.321
+      ],
+      [
+       128.413,
+       -15.29
+      ],
+      [
+       128.683,
+       -15.29
+      ],
+      [
+       128.849,
+       -15.366
+      ],
+      [
+       128.86,
+       -15.439
+      ],
+      [
+       128.819,
+       -15.494
+      ],
+      [
+       128.807,
+       -15.544
+      ],
+      [
+       128.816,
+       -15.588
+      ],
+      [
+       128.861,
+       -15.665
+      ],
+      [
+       128.861,
+       -16.227
+      ],
+      [
+       128.836,
+       -16.27
+      ],
+      [
+       128.712,
+       -16.281
+      ],
+      [
+       128.628,
+       -16.25
+      ],
+      [
+       128.371,
+       -16.248
+      ],
+      [
+       128.316,
+       -16.222
+      ],
+      [
+       128.238,
+       -16.216
+      ],
+      [
+       128.134,
+       -16.182
+      ],
+      [
+       128.018,
+       -16.092
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png",
+   "people": 5188,
+   "peopleTowns": [
+    "Kununurra",
+    "Lake Argyle"
+   ],
+   "post": "img/IDW21033-202611241416-post.png",
+   "story": "img/IDW21033-202611241416-story.png"
+  }
+ ],
+ "updated": "2026-11-24T14:17:02+00:00"
 }
