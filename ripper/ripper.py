@@ -197,7 +197,7 @@ def region_of(lat, lng):
     return 'the south-west' if lng < 117.5 else 'the Wheatbelt'
 
 
-def setup_words(syn, pick, d_i):
+def setup_words(syn, pick, d_i, lead_names=None):
     """Our own plain-English take on the weather pattern (never quoting the source), tied to where the pick town is."""
     low = syn.lower()
     sent = [x.strip() for x in re.split(r'(?<=\.)\s+', low) if x.strip()]
@@ -210,7 +210,7 @@ def setup_words(syn, pick, d_i):
     north_low = has('low pressure', 'pilbara') or has('low pressure', 'north') or has('low', 'kimberley')
     lead, rest = None, []
     if high: lead = 'high pressure over the south-west is keeping things settled and dry, with mostly light winds'
-    if front: rest.append('a cold front brings a few showers to the far south' + ('' if d_i == 0 else ' at some stage'))
+    if front: rest.append('a cold front brings a few showers to the far south')
     if trough: rest.append('an inland trough keeps the interior hotter and more unsettled')
     if wct: rest.append('a west coast trough brings hotter days and easterly winds near the coast')
     if north_low: rest.append('low pressure keeps the north hot, humid and stormy')
@@ -221,7 +221,7 @@ def setup_words(syn, pick, d_i):
     else: txt = ', '.join(rest[:-1]) + ' and ' + rest[-1]
     out = 'The set-up: ' + txt + '.'
     under_high = high and lat < -26 and lng < 121 and not (front and lat < -34)
-    if under_high: out += ' %s sits under the high, which is why %s comes out on top.' % (region_of(lat, lng)[0].upper() + region_of(lat, lng)[1:], pick['n'])
+    if under_high: out += ' %s sits under the high, which is why %s %s out on top.' % (region_of(lat, lng)[0].upper() + region_of(lat, lng)[1:], lead_names or pick['n'], 'come' if lead_names and ' and ' in lead_names else 'comes')
     elif north_low and lat < -22: out += ' %s is well clear of the stormy north.' % pick['n']
     return [out]
 
@@ -245,13 +245,13 @@ def brief(towns, d_i, d, synoptic):
     out = []
     if abs(ra['tmax'] - rb['tmax']) <= 2 and ra['s'] - rb['s'] <= 5:
         out.append('%s and %s lead the way %s: %s, around %d° with %s.' % (a['n'], b['n'], day_name(d, d_i), sky, ra['tmax'], wind_words(ra['wind'])))
-        rest = R[2:5]
+        rest = R[2:5]; lead = '%s and %s' % (a['n'], b['n'])
     else:
         out.append('%s is the pick of WA %s: %s, %d° with %s.' % (a['n'], day_name(d, d_i), sky, ra['tmax'], wind_words(ra['wind'])))
-        rest = R[1:4]
+        rest = R[1:4]; lead = a['n']
     behind = '%s, %s and %s are not far behind.' % tuple(t['n'] for t in rest)
     if synoptic and d_i <= 1:   # the Bureau's situation is about now: only for today and tomorrow
-        out += setup_words(' '.join(synoptic), a, d_i)
+        out += setup_words(' '.join(synoptic), a, d_i, lead)
     out.append(behind)
     doc = [t for t in R[:8] if t['days'][d_i]['doctor']]
     if doc:
