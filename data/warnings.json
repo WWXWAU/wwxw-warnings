@@ -1,56 +1,6 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm, severe weather, flood and frost areas are approximate, drawn around the locations named in each warning.",
- "warnings": [
-  {
-   "id": "IDW21033",
-   "product": "IDW21033",
-   "type": "Severe Thunderstorm Warning",
-   "status": "cancelled",
-   "headline": "Cancellation of Severe Thunderstorm Warning for South Interior forecast district",
-   "sent": "2026-11-25T07:59:18+00:00",
-   "expires": "2026-11-25T10:59:13+00:00",
-   "hazards": [],
-   "districts": [
-    "South Interior"
-   ],
-   "towns": [],
-   "townsPlaced": [],
-   "description": "This warning is now cancelled.\n           \n          \n          51.2 MM WAS RECORDED AT GILES IN THE 15 MINUTES TO 12:44 PM.",
-   "areaSource": "districts",
-   "area": {
-    "type": "Polygon",
-    "coordinates": [
-     [
-      [
-       126.11,
-       -30.151
-      ],
-      [
-       120.016,
-       -26.0
-      ],
-      [
-       121.279,
-       -23.441
-      ],
-      [
-       129.001,
-       -23.432
-      ],
-      [
-       129.001,
-       -30.312
-      ],
-      [
-       126.11,
-       -30.151
-      ]
-     ]
-    ]
-   },
-   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml"
-  }
- ],
- "updated": "2026-11-25T08:00:12+00:00"
+ "warnings": [],
+ "updated": "2026-11-25T12:22:04+00:00"
 }
