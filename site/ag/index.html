@@ -152,7 +152,7 @@
         <p><b>Frost</b> uses the forecast overnight low (6 pm to 9 am) and a rough grass temperature: on clear, calm nights the ground runs 2–4 °C colder than the air in a weather screen. Possible: grass 2 °C or below. Likely: 0 °C or below. Severe: −2 °C or below. Low-lying paddocks can be colder still.</p>
         <p><b>Fog</b> is flagged when the models have the air close to saturation (temperature within about 1 °C of the dew point) with light winds overnight or early morning, or forecast visibility under 1 km.</p>
         <p><b>Evapotranspiration</b> is reference ET (FAO-56, short crop): the water a well-watered pasture loses to the air in a day. Yesterday's measured ET at DPIRD's stations is on <a href="/obs/">Live Obs</a>.</p>
-        <p>The forecast comes from computer models on a 0.5° grid (about 50 km), updated four times a day. Always check the conditions on the paddock before and while spraying, and follow the label.</p>
+        <p>The forecast comes from computer models on a 0.25° grid (about 25 km) across the farming areas and a 0.5° grid (about 50 km) elsewhere, updated four times a day. Always check the conditions on the paddock before and while spraying, and follow the label.</p>
       </details>
     </div>
   </div>
@@ -189,19 +189,25 @@
     Object.keys(SCALES).forEach(function (k) { SCALES[k].rgb = SCALES[k].c.map(hex); });
     function scaleIdx(S, v) { var i = 0; while (i < S.b.length - 1 && v >= S.b[i + 1]) i++; return i; }
 
-    var ready = false, A = null, GEO = null, map = null, layer = 'spray', dayI = 0, hourI = 4, here = null, pin = null;
+    var ready = false, A2 = null, A = null, GEO = null, map = null, layer = 'spray', dayI = 0, hourI = 4, here = null, pin = null;
     var cache = {};
 
     // ---- unpack a field onto the grid (NaN outside WA), then spread a few cells past the coast
+    // Two grids: the farming areas at 0.25° (A2, when loaded) over the whole of WA at 0.5° (A).
+    // field() gives both; sample() reads the fine one where it has a value and the coarse one elsewhere.
     function field(kind, d, h) {
       var key = kind + d + '|' + h; if (cache[key]) return cache[key];
-      var g = A.grid, N = g.nx * g.ny, f = new Float32Array(N), k = 0, src = A.days[d];
-      if (kind !== 'et' && !src[kind]) { f.fill(NaN); return (cache[key] = f); }   // an older forecast file without it
+      var fine = A2 && A2.days[d] && A2.days[d].date === A.days[d].date ? grid1(kind, d, h, A2) : null;
+      return (cache[key] = { c: grid1(kind, d, h, A), f: fine });
+    }
+    function grid1(kind, d, h, D) {
+      var g = D.grid, N = g.nx * g.ny, f = new Float32Array(N), k = 0, src = D.days[d];
+      if (kind !== 'et' && !src[kind]) { f.fill(NaN); return f; }   // an older forecast file without it
       var str = kind === 'et' ? null : typeof src[kind] === 'string' ? src[kind] : src[kind][h];
       for (var i = 0; i < N; i++) {
-        if (A.mask.charAt(i) !== '1') { f[i] = NaN; continue; }
+        if (D.mask.charAt(i) !== '1') { f[i] = NaN; continue; }
         if (kind === 'et') { var e = src.et[k]; f[i] = e < 0 || e > 200 ? NaN : e / 10; }
-        else { var c = A.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : kind === 'tn' || kind === 'gt' ? c - 20 : c); }
+        else { var c = D.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : kind === 'tn' || kind === 'gt' ? c - 20 : c); }
         k++;
       }
       for (var pass = 0; pass < 3; pass++) {
@@ -217,10 +223,14 @@
         }
         f = t;
       }
-      return (cache[key] = f);
+      return f;
     }
-    function sample(f, lng, lat) {   // bilinear, NaN-aware
-      var g = A.grid, fx = (lng - g.lng0) / g.d, fy = (lat - g.lat0) / g.d;
+    function sample(P, lng, lat) {
+      if (P.f) { var v = sample1(P.f, A2.grid, lng, lat); if (!isNaN(v)) return v; }
+      return sample1(P.c, A.grid, lng, lat);
+    }
+    function sample1(f, g, lng, lat) {   // bilinear, NaN-aware
+      var fx = (lng - g.lng0) / g.d, fy = (lat - g.lat0) / g.d;
       if (fx < 0 || fy < 0 || fx > g.nx - 1 || fy > g.ny - 1) return NaN;
       var i0 = Math.min(g.nx - 2, Math.floor(fx)), j0 = Math.min(g.ny - 2, Math.floor(fy)), ax = fx - i0, ay = fy - j0, s = 0, w = 0;
       [[i0, j0, (1 - ax) * (1 - ay)], [i0 + 1, j0, ax * (1 - ay)], [i0, j0 + 1, (1 - ax) * ay], [i0 + 1, j0 + 1, ax * ay]].forEach(function (p) {
@@ -458,9 +468,10 @@
 
     // ---- start
     var bust = '?t=' + Math.floor(Date.now() / 600000);
-    Promise.all([fetch(DATA + 'ag.json' + bust).then(function (r) { return r.json(); }), fetch(DATA + 'ripper-geo.json' + bust).then(function (r) { return r.json(); })])
+    Promise.all([fetch(DATA + 'ag.json' + bust).then(function (r) { return r.json(); }), fetch(DATA + 'ripper-geo.json' + bust).then(function (r) { return r.json(); }),
+                 fetch(DATA + 'ag-fine.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })])
       .then(function (res) {
-        A = res[0]; GEO = res[1];
+        A = res[0]; GEO = res[1]; A2 = res[2];
         var nowH = +new Date().toLocaleString('en-AU', { hour: 'numeric', hour12: false, timeZone: 'Australia/Perth' });
         var hi = A.hours.indexOf(nowH + 1); hourI = hi >= 0 ? hi : A.hours.indexOf(9);
         buttons(); initMap();

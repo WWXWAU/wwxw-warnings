@@ -95,13 +95,13 @@ def bearing(la1, lo1, la2, lo2):
 
 
 # ---------------------------------------------------------------- forecast
-def fetch(points):
+def fetch(points, hourly=None):
     """Open-Meteo hourly forecast for [(lat, lng)], in batches. Returns a list (same order) of hourly dicts."""
     out = []
     for i in range(0, len(points), 50):
         chunk = points[i:i + 50]
         q = {'latitude': ','.join('%.2f' % p[0] for p in chunk), 'longitude': ','.join('%.2f' % p[1] for p in chunk),
-             'hourly': ','.join(HOURLY), 'timezone': 'Australia/Perth', 'forecast_days': 7, 'wind_speed_unit': 'kmh'}
+             'hourly': ','.join(hourly or HOURLY), 'timezone': 'Australia/Perth', 'forecast_days': 7, 'wind_speed_unit': 'kmh'}
         url = 'https://api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(q)
         # Open-Meteo's free limit is 600 location-calls a minute: ~1,000 points sent in quick batches ran into
         # "429 Too Many Requests" from 14 Nov 2026, so batches are spaced out and a 429 waits out the minute
@@ -475,6 +475,8 @@ def record_day(path, date, towns):
 
 
 # ---------------------------------------------------------------- farm forecast (site/ag): ET and spraying weather
+AG_FINE = {'lat0': -35.5, 'lat1': -27.0, 'lng0': 114.0, 'lng1': 124.0, 'd': 0.25}   # the farming areas at ~25 km
+AG_VARS = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'cloud_cover', 'et0_fao_evapotranspiration', 'visibility']
 AG_HOURS = list(range(5, 21))   # 5 am to 8 pm
 AG_ABC = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'   # one character per value; '_' = no data
 
@@ -525,7 +527,7 @@ def night(gh, times, d):
     return ''.join(tn), ''.join(gt), ''.join(fr), ''.join(fg)
 
 
-def write_ag(path, nx, ny, inwa, gh, times, dates):
+def write_ag(path, nx, ny, inwa, gh, times, dates, box=None):
     """ag.json: for every WA grid point, each day's reference ET (FAO-56, short crop, mm) and, hour by hour from 5 am
     to 8 pm, Delta T and 10 m wind. Hourly values are packed one character per point (AG_ABC): Delta T in half
     degrees, wind in km/h."""
@@ -545,7 +547,7 @@ def write_ag(path, nx, ny, inwa, gh, times, dates):
         tn, gt, fr, fg = night(gh, times, d)
         days.append({'date': d, 'et': et, 'dt': dts, 'ws': wss, 'tn': tn, 'gt': gt, 'fr': fr, 'fg': fg})
     out = {'made': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Open-Meteo (best-match models)',
-           'grid': {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}, 'mask': ''.join('1' if w else '0' for w in inwa),
+           'grid': box or {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}, 'mask': ''.join('1' if w else '0' for w in inwa),
            'hours': AG_HOURS, 'abc': AG_ABC, 'days': days}
     with open(path, 'w') as fh:
         json.dump(out, fh, separators=(',', ':'))
@@ -621,6 +623,16 @@ def main():
     write_geo(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-geo.json'))
     try:
         write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag.json'), nx, ny, inwa, gh, ph[0]['time'], dates)
+        # the farming areas again on a 0.25 deg grid (about 25 km), fetched with just the variables the farm page uses
+        fb = AG_FINE; fnx = int(round((fb['lng1'] - fb['lng0']) / fb['d'])) + 1; fny = int(round((fb['lat1'] - fb['lat0']) / fb['d'])) + 1
+        fgrid = [(fb['lat0'] + j * fb['d'], fb['lng0'] + i * fb['d']) for j in range(fny) for i in range(fnx)]
+        fin = [any(inside(lo, la, r) for r in rings) for la, lo in fgrid]
+        fpts = [p for p, w in zip(fgrid, fin) if w]
+        t1 = time.time()
+        fh = fetch(fpts, AG_VARS)
+        log('Farm forecast, fine grid: %d points fetched in %.0f s' % (len(fpts), time.time() - t1))
+        write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag-fine.json'), fnx, fny, fin, fh, fh[0]['time'], dates,
+                 {'lat0': fb['lat0'], 'lng0': fb['lng0'], 'd': fb['d'], 'nx': fnx, 'ny': fny})
     except Exception as e:  # noqa: BLE001  (the farm forecast never stops Ripper Weather)
         log('Farm forecast not written: %s' % e)
     record_day(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-history.json'), dates[0], towns)
