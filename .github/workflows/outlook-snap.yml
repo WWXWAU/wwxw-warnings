@@ -36,6 +36,8 @@ jobs:
               open('out/days/' + k + '.json', 'w').write(v)
           print('days:', ', '.join(sorted(d.get('days') or {})) or 'none', str(d)[:200] if not d.get('days') else '')
           PY
+          curl -sSL --max-time 280 "https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec?page=snapjson&kind=week" -o wk.json || true
+          python3 -c "import json;d=json.load(open('wk.json'));assert d.get('days') is not None" && cp wk.json out/week.json || true
           # per-model hits and misses + the weighted-vote test (counts only, no forecast data)
           curl -sSL --max-time 280 "https://script.google.com/macros/s/AKfycbxjvWtvkVhXZ7WifFCvoHFZ-LMRcTUjTEJ09AHTL4Ic89OznJwVNIHzkPXh2lOXNv2j/exec?page=snapjson&kind=modelreport" -o mr.json || true
           python3 -c "import json;d=json.load(open('mr.json'));assert d.get('t') or d.get('err');print('model report:',str(d)[:200])" && cp mr.json out/model-report.json || true
