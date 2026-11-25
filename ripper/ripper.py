@@ -58,7 +58,7 @@ BOM_ICON = {1: 'sun', 2: 'sun', 14: 'sun', 3: 'partly', 6: 'partly', 9: 'partly'
             8: 'rain', 11: 'rain', 12: 'rain', 15: 'rain', 17: 'rain', 18: 'rain', 16: 'storm', 19: 'storm'}
 BOM_CLOUD = {'sun': 10, 'partly': 40, 'cloud': 85, 'rain': 80, 'storm': 70}
 HOURLY = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m',
-          'cloud_cover', 'precipitation', 'weather_code', 'et0_fao_evapotranspiration', 'visibility']   # 10 variables: still one call per place
+          'cloud_cover', 'precipitation', 'weather_code', 'et0_fao_evapotranspiration']   # 9 variables: still one call per place (fog on the 0.5 deg grid goes by dew point)
 DAY_H = range(9, 18)          # 9 am - 5 pm
 BANDS = [(85, 'Bloody ripper'), (70, 'Beaut'), (50, 'Decent'), (30, 'Not bad'), (0, 'Bit ordinary')]
 
@@ -95,27 +95,39 @@ def bearing(la1, lo1, la2, lo2):
 
 
 # ---------------------------------------------------------------- forecast
-def fetch(points, hourly=None):
-    """Open-Meteo hourly forecast for [(lat, lng)], in batches. Returns a list (same order) of hourly dicts."""
+def fetch(points, hourly=None, soft=False):
+    """Open-Meteo hourly forecast for [(lat, lng)], in batches. Returns a list (same order) of hourly dicts.
+    A batch that keeps failing is split in two and tried again; with soft=True, places that still fail come back
+    with no data (None) instead of stopping the run."""
     out = []
     for i in range(0, len(points), 50):
-        chunk = points[i:i + 50]
-        q = {'latitude': ','.join('%.2f' % p[0] for p in chunk), 'longitude': ','.join('%.2f' % p[1] for p in chunk),
-             'hourly': ','.join(hourly or HOURLY), 'timezone': 'Australia/Perth', 'forecast_days': 7, 'wind_speed_unit': 'kmh'}
-        url = 'https://api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(q)
-        # Open-Meteo's free limit is 600 location-calls a minute: ~1,000 points sent in quick batches ran into
-        # "429 Too Many Requests" from 14 Nov 2026, so batches are spaced out and a 429 waits out the minute
-        for attempt in range(6):
-            try:
-                d = json.loads(urllib.request.urlopen(url, timeout=90).read())
-                break
-            except Exception as e:  # noqa: BLE001
-                if attempt == 5: raise
-                wait = 65 if '429' in str(e) else 5 * (attempt + 1)
-                log('  retry batch %d in %d s: %s' % (i // 50, wait, e)); time.sleep(wait)
-        out += [x['hourly'] for x in (d if isinstance(d, list) else [d])]
+        out += fetch_batch(points[i:i + 50], hourly or HOURLY, soft, i // 50)
         time.sleep(7)
     return out
+
+
+def fetch_batch(chunk, hourly, soft, label, tries=6):
+    q = {'latitude': ','.join('%.2f' % p[0] for p in chunk), 'longitude': ','.join('%.2f' % p[1] for p in chunk),
+         'hourly': ','.join(hourly), 'timezone': 'Australia/Perth', 'forecast_days': 7, 'wind_speed_unit': 'kmh'}
+    url = 'https://api.open-meteo.com/v1/forecast?' + urllib.parse.urlencode(q)
+    # Open-Meteo's free limit is 600 location-calls a minute: ~1,000 points sent in quick batches ran into
+    # "429 Too Many Requests" from 14 Nov 2026, so batches are spaced out and a 429 waits out the minute
+    for attempt in range(tries):
+        try:
+            d = json.loads(urllib.request.urlopen(url, timeout=90).read())
+            return [x['hourly'] for x in (d if isinstance(d, list) else [d])]
+        except Exception as e:  # noqa: BLE001
+            if attempt == tries - 1:
+                if len(chunk) > 1:       # e.g. 500s or cut-off replies for one batch (25 Nov 2026): try it in halves
+                    log('  batch %s failing: trying it in halves' % label)
+                    h = len(chunk) // 2
+                    return fetch_batch(chunk[:h], hourly, soft, '%sa' % label, 3) + fetch_batch(chunk[h:], hourly, soft, '%sb' % label, 3)
+                if soft:
+                    log('  no forecast for %.2f, %.2f' % chunk[0])
+                    return [{'time': None, **{v: [None] * 168 for v in hourly}}]
+                raise
+            wait = 65 if '429' in str(e) else 5 * (attempt + 1)
+            log('  retry batch %s in %d s: %s' % (label, wait, e)); time.sleep(wait)
 
 
 # ---------------------------------------------------------------- BoM town forecasts
@@ -629,9 +641,9 @@ def main():
         fin = [any(inside(lo, la, r) for r in rings) for la, lo in fgrid]
         fpts = [p for p, w in zip(fgrid, fin) if w]
         t1 = time.time()
-        fh = fetch(fpts, AG_VARS)
+        fh = fetch(fpts, AG_VARS, soft=True)
         log('Farm forecast, fine grid: %d points fetched in %.0f s' % (len(fpts), time.time() - t1))
-        write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag-fine.json'), fnx, fny, fin, fh, fh[0]['time'], dates,
+        write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag-fine.json'), fnx, fny, fin, fh, next(x['time'] for x in fh if x.get('time')), dates,
                  {'lat0': fb['lat0'], 'lng0': fb['lng0'], 'd': fb['d'], 'nx': fnx, 'ny': fny})
     except Exception as e:  # noqa: BLE001  (the farm forecast never stops Ripper Weather)
         log('Farm forecast not written: %s' % e)
