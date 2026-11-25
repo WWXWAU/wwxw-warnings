@@ -6,124 +6,51 @@
    "id": "IDW21033",
    "product": "IDW21033",
    "type": "Severe Thunderstorm Warning",
-   "status": "current",
-   "headline": "Severe Thunderstorm Warning for South Interior forecast district",
-   "sent": "2026-11-25T06:53:36+00:00",
-   "expires": "2026-11-25T09:53:31+00:00",
-   "hazards": [
-    "damaging winds",
-    "heavy rainfall",
-    "large hail"
-   ],
+   "status": "cancelled",
+   "headline": "Cancellation of Severe Thunderstorm Warning for South Interior forecast district",
+   "sent": "2026-11-25T07:59:18+00:00",
+   "expires": "2026-11-25T10:59:13+00:00",
+   "hazards": [],
    "districts": [
     "South Interior"
    ],
    "towns": [],
    "townsPlaced": [],
-   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. \n          \n          \n          51.2 MM WAS RECORDED AT GILES IN THE 15 MINUTES TO 12:44 PM.",
-   "areaSource": "image",
+   "description": "This warning is now cancelled.\n           \n          \n          51.2 MM WAS RECORDED AT GILES IN THE 15 MINUTES TO 12:44 PM.",
+   "areaSource": "districts",
    "area": {
     "type": "Polygon",
     "coordinates": [
      [
       [
-       127.828,
-       -25.969
+       126.11,
+       -30.151
       ],
       [
-       127.804,
-       -25.941
+       120.016,
+       -26.0
       ],
       [
-       127.803,
-       -25.867
+       121.279,
+       -23.441
       ],
       [
-       127.901,
-       -25.665
+       129.001,
+       -23.432
       ],
       [
-       128.067,
-       -25.491
+       129.001,
+       -30.312
       ],
       [
-       128.264,
-       -25.249
-      ],
-      [
-       128.402,
-       -25.132
-      ],
-      [
-       128.451,
-       -25.018
-      ],
-      [
-       128.694,
-       -24.664
-      ],
-      [
-       128.749,
-       -24.617
-      ],
-      [
-       128.791,
-       -24.62
-      ],
-      [
-       128.812,
-       -24.658
-      ],
-      [
-       128.811,
-       -25.026
-      ],
-      [
-       128.79,
-       -25.099
-      ],
-      [
-       128.812,
-       -25.179
-      ],
-      [
-       128.803,
-       -26.22
-      ],
-      [
-       128.764,
-       -26.246
-      ],
-      [
-       128.618,
-       -26.29
-      ],
-      [
-       128.503,
-       -26.291
-      ],
-      [
-       128.421,
-       -26.263
-      ],
-      [
-       128.143,
-       -26.064
-      ],
-      [
-       127.828,
-       -25.969
+       126.11,
+       -30.151
       ]
      ]
     ]
    },
-   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
-   "image": "img/IDW21041.png",
-   "people": 0,
-   "peopleTowns": [],
-   "post": "img/IDW21033-202611250653-post.png",
-   "story": "img/IDW21033-202611250653-story.png"
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml"
   }
  ],
- "updated": "2026-11-25T06:55:03+00:00"
+ "updated": "2026-11-25T08:00:12+00:00"
 }
