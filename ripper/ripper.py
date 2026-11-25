@@ -58,7 +58,7 @@ BOM_ICON = {1: 'sun', 2: 'sun', 14: 'sun', 3: 'partly', 6: 'partly', 9: 'partly'
             8: 'rain', 11: 'rain', 12: 'rain', 15: 'rain', 17: 'rain', 18: 'rain', 16: 'storm', 19: 'storm'}
 BOM_CLOUD = {'sun': 10, 'partly': 40, 'cloud': 85, 'rain': 80, 'storm': 70}
 HOURLY = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m',
-          'cloud_cover', 'precipitation', 'weather_code']
+          'cloud_cover', 'precipitation', 'weather_code', 'et0_fao_evapotranspiration']   # 9 variables: still one call per place
 DAY_H = range(9, 18)          # 9 am - 5 pm
 BANDS = [(85, 'Bloody ripper'), (70, 'Beaut'), (50, 'Decent'), (30, 'Not bad'), (0, 'Bit ordinary')]
 
@@ -474,6 +474,50 @@ def record_day(path, date, towns):
         json.dump(h, fh, separators=(',', ':'), sort_keys=True)
 
 
+# ---------------------------------------------------------------- farm forecast (site/ag): ET and spraying weather
+AG_HOURS = list(range(5, 21))   # 5 am to 8 pm
+AG_ABC = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'   # one character per value; '_' = no data
+
+
+def delta_t(t, td):
+    """Delta T (dry bulb minus wet bulb, deg C) from temperature and dew point (wet bulb: Stull 2011)."""
+    if t is None or td is None: return None
+    rh = 100 * math.exp(17.625 * td / (243.04 + td)) / math.exp(17.625 * t / (243.04 + t))
+    rh = max(1.0, min(100.0, rh))
+    tw = (t * math.atan(0.151977 * math.sqrt(rh + 8.313659)) + math.atan(t + rh) - math.atan(rh - 1.676331)
+          + 0.00391838 * rh ** 1.5 * math.atan(0.023101 * rh) - 4.686035)
+    return max(0.0, t - tw)
+
+
+def ag_code(v):
+    return '_' if v is None else AG_ABC[max(0, min(62, int(round(v))))]
+
+
+def write_ag(path, nx, ny, inwa, gh, times, dates):
+    """ag.json: for every WA grid point, each day's reference ET (FAO-56, short crop, mm) and, hour by hour from 5 am
+    to 8 pm, Delta T and 10 m wind. Hourly values are packed one character per point (AG_ABC): Delta T in half
+    degrees, wind in km/h."""
+    days = []
+    for d in dates:
+        idx = {int(x[11:13]): i for i, x in enumerate(times) if x.startswith(d)}
+        et, dts, wss = [], [], []
+        for h in gh:
+            e = [h['et0_fao_evapotranspiration'][i] for i in idx.values() if h['et0_fao_evapotranspiration'][i] is not None]
+            et.append(int(round(sum(e) * 10)) if len(e) >= 20 else -1)
+        for hr in AG_HOURS:
+            i = idx.get(hr)
+            dts.append(''.join(ag_code(None if i is None else (lambda v: None if v is None else v * 2)(delta_t(h['temperature_2m'][i], h['dew_point_2m'][i]))) for h in gh))
+            wss.append(''.join(ag_code(None if i is None else h['wind_speed_10m'][i]) for h in gh))
+        days.append({'date': d, 'et': et, 'dt': dts, 'ws': wss})
+    out = {'made': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Open-Meteo (best-match models)',
+           'grid': {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}, 'mask': ''.join('1' if w else '0' for w in inwa),
+           'hours': AG_HOURS, 'abc': AG_ABC, 'days': days}
+    with open(path, 'w') as fh:
+        json.dump(out, fh, separators=(',', ':'))
+    log('Wrote %s (%.0f KB): ET day 1 range %.1f-%.1f mm' % (path, os.path.getsize(path) / 1024,
+        min(v for v in days[0]['et'] if v >= 0) / 10, max(days[0]['et']) / 10))
+
+
 def main():
     out_path = sys.argv[1] if len(sys.argv) > 1 else 'ripper.json'
     os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
@@ -540,6 +584,10 @@ def main():
     with open(out_path, 'w') as fh:
         json.dump(out, fh, separators=(',', ':'))
     write_geo(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-geo.json'))
+    try:
+        write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag.json'), nx, ny, inwa, gh, ph[0]['time'], dates)
+    except Exception as e:  # noqa: BLE001  (the farm forecast never stops Ripper Weather)
+        log('Farm forecast not written: %s' % e)
     record_day(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-history.json'), dates[0], towns)
     log('Wrote %s (%.0f KB) and the map outlines' % (out_path, os.path.getsize(out_path) / 1024))
 

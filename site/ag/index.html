@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="preconnect" href="https://raw.githubusercontent.com">
+  <link rel="preconnect" href="https://unpkg.com">
+  <meta charset="UTF-8">
+<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');}}catch(e){}</script>
+<style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>Farm forecast — West WX Watchers</title>
+  <meta name="description" content="Spraying conditions, Delta T, wind and evapotranspiration forecasts for WA, hour by hour for the week ahead.">
+  <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <script>
+  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <style>
+    :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF;
+            --ocean: #D6E6EA; --coast: #7E9AA3; color-scheme: light; }
+    [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D;
+            --ocean: #0D1D23; --coast: #5D818C; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
+    a { color: var(--accent); }
+    button, select, input { font: inherit; color: inherit; }
+    :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .tabs { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs .brand { display: flex; align-items: center; margin-right: 6px; flex-shrink: 0; }
+    .tabs .brand img { width: 26px; height: 26px; border-radius: 6px; }
+    .tabs a:not(.brand) { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 5px 13px; border-radius: 999px; flex-shrink: 0; }
+    .tabs a:not(.brand):hover { color: var(--text); background: var(--bg); }
+    [data-theme=dark] .tabs .brand img { background: #f8faf9; padding: 2px; }
+
+    .top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding: 14px 20px 8px; }
+    h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.15; }
+    .pills { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; }
+    .pills::-webkit-scrollbar { display: none; }
+    .pills button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500; cursor: pointer; }
+    .pills button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--onAccent); }
+    .layers { margin-left: auto; }
+    .themebtn { flex: none; width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .themebtn svg { width: 16px; height: 16px; }
+    .bar2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 0 20px 10px; }
+    .hour { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 260px; }
+    .hour[hidden] { display: none; }
+    .hour input { flex: 1; accent-color: var(--accent); }
+    .hour output { font-weight: 700; min-width: 64px; }
+
+    .main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 0 20px 20px; }
+    .mapcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+    .mapwrap { position: relative; background: var(--ocean); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; height: clamp(520px, calc(100vh - 230px), 860px); }
+    #map { position: absolute; inset: 0; }
+    .stamp { position: absolute; left: 12px; top: 10px; font-size: 11px; color: var(--muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; z-index: 2; }
+    .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; align-items: center; }
+    .legend i { display: inline-block; width: 14px; height: 14px; border-radius: 4px; vertical-align: -2px; margin-right: 5px; }
+    .legend .lt { font-weight: 700; margin-right: 4px; }
+
+    .panel { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; }
+    .card h2 { font-size: 16px; margin: 0 0 2px; }
+    .card .sub { font-size: 12.5px; color: var(--muted); margin-bottom: 8px; }
+    table.hrs { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.hrs th { text-align: left; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 2px 4px; }
+    table.hrs td { padding: 3px 4px; border-top: 1px solid var(--line); }
+    table.hrs td.n { text-align: right; font-variant-numeric: tabular-nums; }
+    table.hrs tr.now td { font-weight: 700; }
+    .chip { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; color: #0E2A33; white-space: nowrap; }
+    .win { font-size: 14px; margin: 0 0 8px; }
+    .etbars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 110px; margin-top: 6px; }
+    .etbars div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 11px; color: var(--muted); }
+    .etbars b { display: block; width: 70%; border-radius: 4px 4px 0 0; background: #C97C2A; }
+    .etbars span.v { font-weight: 700; color: var(--text); font-size: 11.5px; }
+    .etbars div.sel span { color: var(--accent); font-weight: 700; }
+    details.how { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 16px; font-size: 13px; color: var(--muted); }
+    details.how summary { cursor: pointer; color: var(--text); font-weight: 600; }
+    details.how p { margin: 8px 0 0; }
+    .foot { padding: 0 20px 24px; font-size: 12px; color: var(--muted); }
+    .maplibregl-popup-content { background: var(--surface); color: var(--text); border-radius: 12px; padding: 9px 12px; font: 13px/1.4 Lexend, system-ui, sans-serif; box-shadow: 0 4px 16px rgba(0,0,0,0.25); }
+    .maplibregl-popup-tip { border-top-color: var(--surface) !important; border-bottom-color: var(--surface) !important; }
+    .pin { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid var(--surface); box-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+    @media (max-width: 900px) {
+      .main { grid-template-columns: 1fr; padding: 0 12px 16px; }
+      .mapwrap { height: 60vh; max-height: 600px; min-height: 360px; }
+      .top, .bar2 { padding-left: 12px; padding-right: 12px; }
+      h1 { font-size: 20px; }
+      .layers { margin-left: 0; width: 100%; }
+      .foot { padding: 0 12px 20px; }
+    }
+    @media (max-width: 600px) {
+      .tabs { height: 30px; padding: 0 5px; gap: 2px; }
+      .tabs .brand img { width: 18px; height: 18px; padding: 1px; border-radius: 4px; }
+      .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; }
+      .pills button { padding: 4px 11px; font-size: 12.5px; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="tabs" aria-label="West WX Watchers">
+    <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
+    <a href="/">Home</a>
+    <a href="/rainfall/">Rainfall</a>
+    <a href="/obs/">Live Obs</a>
+    <a href="/rivers/">River Levels</a>
+    <a href="/ripper/">Ripper Weather</a>
+    <a href="/tc/">Cyclones</a>
+  </nav>
+
+  <div class="top">
+    <h1>Farm forecast</h1>
+    <div class="pills layers" id="layers" role="group" aria-label="What to show">
+      <button type="button" data-l="spray" aria-pressed="true">Spraying</button>
+      <button type="button" data-l="dt" aria-pressed="false">Delta T</button>
+      <button type="button" data-l="ws" aria-pressed="false">Wind</button>
+      <button type="button" data-l="et" aria-pressed="false">Evapotranspiration</button>
+    </div>
+    <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
+  </div>
+  <div class="bar2">
+    <div class="pills" id="days" role="group" aria-label="Choose a day"></div>
+    <label class="hour" id="hourBox"><input type="range" id="hour" min="0" max="15" value="4" aria-label="Hour of the day"><output id="hourOut">9 am</output></label>
+  </div>
+
+  <div class="main">
+    <div class="mapcol">
+      <div class="mapwrap">
+        <div id="map" aria-label="Map of WA coloured by the forecast"></div>
+        <div class="stamp" id="stamp">Loading the forecast…</div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </div>
+    <div class="panel">
+      <section class="card" id="here" aria-live="polite"><h2>Tap the map</h2><div class="sub">for the spraying hours and ET at that spot</div></section>
+      <section class="card" id="etcard" hidden><h2>Evapotranspiration, next 7 days</h2><div class="sub" id="etsub"></div><div class="etbars" id="etbars"></div></section>
+      <details class="how">
+        <summary>About this forecast</summary>
+        <p><b>Spraying</b> combines Delta T and wind. Good: Delta T 2–8 °C and wind 3–15 km/h. Marginal: Delta T 8–10 °C or wind 15–20 km/h. Stop: Delta T over 10 °C or wind over 20 km/h. Inversion risk: Delta T under 2 °C or wind under 3 km/h, when spray drift can travel a long way; surface inversions are common from late afternoon until after sunrise.</p>
+        <p><b>Delta T</b> is the air temperature minus the wet-bulb temperature: the higher it is, the faster droplets evaporate.</p>
+        <p><b>Wind</b> is the forecast at 10 m. Near the ground it is usually a little lighter.</p>
+        <p><b>Evapotranspiration</b> is reference ET (FAO-56, short crop): the water a well-watered pasture loses to the air in a day. Yesterday's measured ET at DPIRD's stations is on <a href="/obs/">Live Obs</a>.</p>
+        <p>The forecast comes from computer models on a 0.5° grid (about 50 km), updated four times a day. Always check the conditions on the paddock before and while spraying, and follow the label.</p>
+      </details>
+    </div>
+  </div>
+  <div class="foot" id="foot">Forecast data from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0).</div>
+  <div class="foot legal">Not for the protection of life or property. © West WX Watchers — content and data may not be copied, reposted or redistributed without written consent. <a href="/terms/">Terms of use</a></div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script>
+  (function () {
+    var DATA = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/site-data/';
+    var css = function (v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); };
+    var hex = function (h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; };
+    var esc = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+
+    // ---- what each layer shows
+    var SPRAY = [['good', 'Good', '#3BA55C'], ['marg', 'Marginal', '#F2B33D'], ['stop', 'Stop', '#D9483B'], ['inv', 'Inversion risk', '#6F8FD0']];
+    var SPRAYC = {}; SPRAY.forEach(function (s) { SPRAYC[s[0]] = s; });
+    function sprayOf(dt, ws) {
+      if (dt > 10 || ws > 20) return 'stop';
+      if (dt < 2 || ws < 3) return 'inv';
+      if (dt > 8 || ws > 15) return 'marg';
+      return 'good';
+    }
+    var SCALES = {
+      dt: { n: 'Delta T', u: ' °C', b: [0, 2, 4, 6, 8, 10, 12, 15], c: ['#2c7fb8', '#41b6c4', '#7fcdbb', '#c7e9b4', '#f6e27f', '#f6a54a', '#e8582c', '#b2182b'] },
+      ws: { n: 'Wind (10 m)', u: ' km/h', b: [0, 3, 10, 15, 20, 30, 40], c: ['#a7b8d8', '#a5d6a7', '#66bb6a', '#d4e157', '#ffca28', '#ef5350', '#9c27b0'] },
+      et: { n: 'ET for the day', u: ' mm', b: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10], c: ['#f7f4e8', '#efe3b8', '#e6cf86', '#ddb65a', '#d49a3a', '#c97c2a', '#b85e22', '#9c431e', '#7c2d1a', '#5a1c14'] }
+    };
+    SPRAY.forEach(function (s) { s.rgb = hex(s[2]); });
+    Object.keys(SCALES).forEach(function (k) { SCALES[k].rgb = SCALES[k].c.map(hex); });
+    function scaleIdx(S, v) { var i = 0; while (i < S.b.length - 1 && v >= S.b[i + 1]) i++; return i; }
+
+    var ready = false, A = null, GEO = null, map = null, layer = 'spray', dayI = 0, hourI = 4, here = null, pin = null;
+    var cache = {};
+
+    // ---- unpack a field onto the grid (NaN outside WA), then spread a few cells past the coast
+    function field(kind, d, h) {
+      var key = kind + d + '|' + h; if (cache[key]) return cache[key];
+      var g = A.grid, N = g.nx * g.ny, f = new Float32Array(N), k = 0, src = A.days[d];
+      var str = kind === 'et' ? null : src[kind][h];
+      for (var i = 0; i < N; i++) {
+        if (A.mask.charAt(i) !== '1') { f[i] = NaN; continue; }
+        if (kind === 'et') { var e = src.et[k]; f[i] = e < 0 ? NaN : e / 10; }
+        else { var c = A.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : c); }
+        k++;
+      }
+      for (var pass = 0; pass < 3; pass++) {
+        var t = f.slice();
+        for (var j = 0; j < g.ny; j++) for (var x = 0; x < g.nx; x++) {
+          var q = j * g.nx + x; if (!isNaN(f[q])) continue;
+          var s = 0, n = 0;
+          for (var dj = -1; dj <= 1; dj++) for (var di = -1; di <= 1; di++) {
+            var jj = j + dj, ii = x + di; if (jj < 0 || ii < 0 || jj >= g.ny || ii >= g.nx) continue;
+            var v = f[jj * g.nx + ii]; if (!isNaN(v)) { s += v; n++; }
+          }
+          if (n) t[q] = s / n;
+        }
+        f = t;
+      }
+      return (cache[key] = f);
+    }
+    function sample(f, lng, lat) {   // bilinear, NaN-aware
+      var g = A.grid, fx = (lng - g.lng0) / g.d, fy = (lat - g.lat0) / g.d;
+      if (fx < 0 || fy < 0 || fx > g.nx - 1 || fy > g.ny - 1) return NaN;
+      var i0 = Math.min(g.nx - 2, Math.floor(fx)), j0 = Math.min(g.ny - 2, Math.floor(fy)), ax = fx - i0, ay = fy - j0, s = 0, w = 0;
+      [[i0, j0, (1 - ax) * (1 - ay)], [i0 + 1, j0, ax * (1 - ay)], [i0, j0 + 1, (1 - ax) * ay], [i0 + 1, j0 + 1, ax * ay]].forEach(function (p) {
+        var v = f[p[1] * g.nx + p[0]]; if (!isNaN(v) && p[2] > 0) { s += v * p[2]; w += p[2]; } });
+      return w > 0.05 ? s / w : NaN;
+    }
+
+    // ---- the picture: a canvas in Web Mercator rows, laid over the map
+    var BOX = null, CW = 620, CH = 0;
+    function merc(lat) { return Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
+    function imerc(y) { return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI; }
+    function render() {
+      var g = A.grid, w = g.lng0, e = g.lng0 + (g.nx - 1) * g.d, s = g.lat0, n = g.lat0 + (g.ny - 1) * g.d;
+      var yN = merc(n), yS = merc(s);
+      if (!CH) CH = Math.round(CW * (yN - yS) / ((e - w) * Math.PI / 180));
+      BOX = [[w, n], [e, n], [e, s], [w, s]];
+      var cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+      var cx = cv.getContext('2d'), img = cx.createImageData(CW, CH), px = img.data;
+      var fa = null, fb = null;
+      if (layer === 'et') fa = field('et', dayI);
+      else if (layer === 'dt') fa = field('dt', dayI, hourI);
+      else if (layer === 'ws') fa = field('ws', dayI, hourI);
+      else { fa = field('dt', dayI, hourI); fb = field('ws', dayI, hourI); }
+      var S = SCALES[layer];
+      for (var y = 0; y < CH; y++) {
+        var lat = imerc(yN - (y + 0.5) / CH * (yN - yS));
+        for (var x = 0; x < CW; x++) {
+          var lng = w + (x + 0.5) / CW * (e - w), a = sample(fa, lng, lat), o = (y * CW + x) * 4, rgb;
+          if (isNaN(a)) { px[o + 3] = 0; continue; }
+          if (fb) { var b = sample(fb, lng, lat); if (isNaN(b)) { px[o + 3] = 0; continue; } rgb = SPRAYC[sprayOf(a, b)].rgb; }
+          else rgb = S.rgb[scaleIdx(S, a)];
+          px[o] = rgb[0]; px[o + 1] = rgb[1]; px[o + 2] = rgb[2]; px[o + 3] = 255;
+        }
+      }
+      cx.putImageData(img, 0, 0);
+      return cv.toDataURL();
+    }
+    function draw() {
+      if (!A || !map || !ready) return;
+      var url = render(), src = map.getSource('fld');
+      if (src) src.updateImage({ url: url, coordinates: BOX });
+      else {
+        map.addSource('fld', { type: 'image', url: url, coordinates: BOX });
+        map.addLayer({ id: 'fld', type: 'raster', source: 'fld', paint: { 'raster-opacity': 0.9, 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }, 'mask');
+      }
+      legend(); stamp(); panel();
+    }
+
+    // ---- controls
+    var hourLabel = function (h) { return (h % 12 || 12) + (h < 12 ? ' am' : ' pm'); };
+    var dayLabel = function (iso, i) {
+      var d = new Date(iso + 'T12:00:00+08:00');
+      return i === 0 ? 'Today' : i === 1 ? 'Tomorrow' : d.toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', timeZone: 'Australia/Perth' });
+    };
+    var dayLong = function (iso) { return new Date(iso + 'T12:00:00+08:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Australia/Perth' }); };
+    function legend() {
+      var h;
+      if (layer === 'spray') h = '<span class="lt">Spraying</span>' + SPRAY.map(function (s) { return '<span><i style="background:' + s[2] + '"></i>' + s[1] + '</span>'; }).join('');
+      else { var S = SCALES[layer]; h = '<span class="lt">' + S.n + '</span>' + S.b.map(function (v, i) {
+        return '<span><i style="background:' + S.c[i] + '"></i>' + (i < S.b.length - 1 ? v + '–' + S.b[i + 1] : v + '+') + S.u + '</span>'; }).join(''); }
+      document.getElementById('legend').innerHTML = h;
+    }
+    function stamp() {
+      var d = A.days[dayI].date;
+      document.getElementById('stamp').textContent = dayLong(d) + (layer === 'et' ? ', whole day' : ', ' + hourLabel(A.hours[hourI]));
+    }
+    function buttons() {
+      var el = document.getElementById('days');
+      el.innerHTML = A.days.map(function (d, i) { return '<button type="button" data-i="' + i + '" aria-pressed="' + (i === dayI) + '">' + dayLabel(d.date, i) + '</button>'; }).join('');
+      el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
+        dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); }); });
+      document.querySelectorAll('#layers button').forEach(function (b) { b.addEventListener('click', function () {
+        layer = b.getAttribute('data-l'); document.querySelectorAll('#layers button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+        document.getElementById('hourBox').hidden = layer === 'et'; draw(); }); });
+      var hr = document.getElementById('hour'); hr.max = A.hours.length - 1; hr.value = hourI;
+      document.getElementById('hourOut').textContent = hourLabel(A.hours[hourI]);
+      hr.addEventListener('input', function () { hourI = +hr.value; document.getElementById('hourOut').textContent = hourLabel(A.hours[hourI]); draw(); });
+    }
+
+    // ---- the chosen spot: the day's hours and the week's ET
+    function panel() {
+      if (!here) return;
+      var d = A.days[dayI], rows = '', good = [], i;
+      for (i = 0; i < A.hours.length; i++) {
+        var dt = sample(field('dt', dayI, i), here.lng, here.lat), ws = sample(field('ws', dayI, i), here.lng, here.lat);
+        if (isNaN(dt) || isNaN(ws)) continue;
+        var c = SPRAYC[sprayOf(dt, ws)];
+        if (c[0] === 'good') good.push(i);
+        rows += '<tr' + (i === hourI && layer !== 'et' ? ' class="now"' : '') + '><td>' + hourLabel(A.hours[i]) + '</td><td class="n">' + dt.toFixed(1) + '°</td><td class="n">' + Math.round(ws)
+          + '</td><td><span class="chip" style="background:' + c[2] + '">' + c[1] + '</span></td></tr>';
+      }
+      var spans = [], st = null;
+      good.forEach(function (g, k) { if (st === null) st = g; if (good[k + 1] !== g + 1) { spans.push([st, g]); st = null; } });
+      var win = spans.length ? 'Good for spraying: ' + spans.map(function (s) { return hourLabel(A.hours[s[0]]) + '–' + hourLabel(A.hours[s[1]] + 1); }).join(', ')
+        : 'No good spraying hours forecast between ' + hourLabel(A.hours[0]) + ' and ' + hourLabel(A.hours[A.hours.length - 1] + 1) + '.';
+      document.getElementById('here').innerHTML = '<h2>' + esc(here.name) + '</h2><div class="sub">' + dayLong(d.date) + ' · tap the map to move</div>'
+        + '<p class="win">' + win + '</p><table class="hrs"><tr><th>Time</th><th style="text-align:right">Delta T</th><th style="text-align:right">Wind</th><th>Spraying</th></tr>' + rows + '</table>';
+      var ets = A.days.map(function (x, k) { return sample(field('et', k), here.lng, here.lat); }), mx = Math.max.apply(null, ets.filter(function (v) { return !isNaN(v); }).concat([6]));
+      var tot = 0; ets.forEach(function (v) { if (!isNaN(v)) tot += v; });
+      document.getElementById('etsub').textContent = 'Reference ET (short crop) · ' + tot.toFixed(0) + ' mm over the week';
+      document.getElementById('etbars').innerHTML = ets.map(function (v, k) {
+        return '<div class="' + (k === dayI ? 'sel' : '') + '"><span class="v">' + (isNaN(v) ? '–' : v.toFixed(1)) + '</span><b style="height:' + (isNaN(v) ? 0 : Math.round(v / mx * 78)) + 'px"></b><span>' + dayLabel(A.days[k].date, k).replace('Tomorrow', 'Tmrw') + '</span></div>'; }).join('');
+      document.getElementById('etcard').hidden = false;
+    }
+    function nearestTown(lng, lat) {
+      var best = null, bd = 1e9;
+      (map.queryRenderedFeatures({ layers: ['place-town', 'place-city', 'place-village'] }) || []).forEach(function (f) {
+        var c = f.geometry.coordinates, dd = Math.hypot((c[0] - lng) * Math.cos(lat * Math.PI / 180), c[1] - lat);
+        if (dd < bd) { bd = dd; best = f.properties['name:en'] || f.properties.name; } });
+      return best && bd < 0.35 ? 'Near ' + best : lat.toFixed(2) + '°, ' + lng.toFixed(2) + '°';
+    }
+    function choose(lng, lat, name) {
+      here = { lng: lng, lat: lat, name: name || nearestTown(lng, lat) };
+      if (pin) pin.remove();
+      var el = document.createElement('div'); el.className = 'pin';
+      pin = new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+      panel();
+    }
+
+    // ---- map
+    function ringsFC(names) {
+      return { type: 'FeatureCollection', features: names.map(function (n) {
+        return { type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: (GEO[n] || []).map(function (r) { return [r]; }) } }; }) };
+    }
+    function initMap() {
+      map = new maplibregl.Map({ container: 'map', attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
+        style: { version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf', sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': css('--ocean') } }] },
+        bounds: [[113.5, -35.3], [124.5, -26.5]], fitBoundsOptions: { padding: 20 }, minZoom: 3, maxZoom: 9 });
+      map.touchZoomRotate.disableRotation();
+      map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
+      map.on('load', function () {
+        var wa = (GEO['Western Australia'] || []), WAG = { type: 'MultiPolygon', coordinates: wa.map(function (r) { return [r]; }) };
+        var mask = { type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [[[90, -50], [150, -50], [150, 0], [90, 0], [90, -50]]].concat(wa.map(function (r) { return r.slice().reverse(); })) } };
+        map.addSource('wa', { type: 'geojson', data: ringsFC(['Western Australia']) });
+        map.addSource('mask', { type: 'geojson', data: mask });
+        var dists = (GEO.districts || []);
+        map.addSource('dist', { type: 'geojson', data: { type: 'FeatureCollection', features: dists.map(function (d) {
+          return { type: 'Feature', properties: { n: d.n }, geometry: { type: 'MultiLineString', coordinates: d.r } }; }) } });
+        map.addSource('omt', { type: 'vector', url: 'https://tiles.openfreemap.org/planet' });
+        map.addLayer({ id: 'mask', type: 'fill', source: 'mask', paint: { 'fill-color': css('--ocean') } });
+        map.addLayer({ id: 'roads', type: 'line', source: 'omt', 'source-layer': 'transportation', minzoom: 5,
+          filter: ['all', ['match', ['get', 'class'], ['motorway', 'trunk', 'primary'], true, false], ['within', WAG]],
+          paint: { 'line-color': '#0E2A33', 'line-opacity': 0.2, 'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 10, 1.6] } });
+        map.addLayer({ id: 'dist-line', type: 'line', source: 'dist', paint: { 'line-color': '#0E2A33', 'line-opacity': 0.35, 'line-width': 0.9, 'line-dasharray': [3, 2] } });
+        map.addLayer({ id: 'wa-line', type: 'line', source: 'wa', paint: { 'line-color': css('--coast'), 'line-width': 1.2 } });
+        [['place-city', 'city', 3, 'Noto Sans Bold', 11], ['place-town', 'town', 4.6, 'Noto Sans Regular', 10], ['place-village', 'village', 7, 'Noto Sans Regular', 9.5]].forEach(function (L) {
+          map.addLayer({ id: L[0], type: 'symbol', source: 'omt', 'source-layer': 'place', minzoom: L[2],
+            filter: ['all', ['==', ['get', 'class'], L[1]], ['within', WAG]],
+            layout: { 'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']], 'text-font': [L[3]], 'text-size': ['interpolate', ['linear'], ['zoom'], L[2], L[4], 10, L[4] + 3], 'text-padding': 3, 'text-max-width': 8 },
+            paint: { 'text-color': '#0E2A33', 'text-halo-color': 'rgba(255,255,255,0.85)', 'text-halo-width': 1.2 } });
+        });
+        map.on('click', function (e) {
+          if (isNaN(sample(field('dt', dayI, 0), e.lngLat.lng, e.lngLat.lat)) || !inWA(e.lngLat.lng, e.lngLat.lat)) return;
+          choose(e.lngLat.lng, e.lngLat.lat);
+        });
+        ready = true; draw();
+        choose(116.67, -31.65, 'Northam');
+      });
+    }
+    function inWA(x, y) {
+      return (GEO['Western Australia'] || []).some(function (r) {
+        var c = false; for (var i = 0, j = r.length - 1; i < r.length; j = i++) {
+          if ((r[i][1] > y) !== (r[j][1] > y) && x < (r[j][0] - r[i][0]) * (y - r[i][1]) / (r[j][1] - r[i][1]) + r[i][0]) c = !c; }
+        return c; });
+    }
+
+    // ---- theme
+    var SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>';
+    var MOON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>';
+    var tb = document.getElementById('themeBtn');
+    function themeIcon() { tb.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON; }
+    themeIcon();
+    tb.addEventListener('click', function () {
+      var t = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('wwxw-theme', t); } catch (e) {}
+      themeIcon(); if (map && map.getLayer('mask')) { map.setPaintProperty('mask', 'fill-color', css('--ocean')); map.setPaintProperty('bg', 'background-color', css('--ocean')); }
+    });
+
+    // ---- start
+    var bust = '?t=' + Math.floor(Date.now() / 600000);
+    Promise.all([fetch(DATA + 'ag.json' + bust).then(function (r) { return r.json(); }), fetch(DATA + 'ripper-geo.json' + bust).then(function (r) { return r.json(); })])
+      .then(function (res) {
+        A = res[0]; GEO = res[1];
+        var nowH = +new Date().toLocaleString('en-AU', { hour: 'numeric', hour12: false, timeZone: 'Australia/Perth' });
+        var hi = A.hours.indexOf(nowH + 1); hourI = hi >= 0 ? hi : A.hours.indexOf(9);
+        buttons(); initMap();
+        var made = new Date(A.made.replace('Z', ':00Z'));
+        document.getElementById('foot').innerHTML = 'Forecast data from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), updated '
+          + made.toLocaleString('en-AU', { weekday: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Australia/Perth' }) + '.';
+      })
+      .catch(function () { document.getElementById('stamp').textContent = 'The forecast could not be loaded. Try again shortly.'; });
+  })();
+  </script>
+</body>
+</html>
