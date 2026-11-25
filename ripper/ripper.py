@@ -253,7 +253,8 @@ def brief(towns, d_i, d, synoptic):
     if synoptic and d_i <= 1:   # the Bureau's situation is about now: only for today and tomorrow
         out += setup_words(' '.join(synoptic), a, d_i, lead)
     out.append(behind)
-    doc = [t for t in R[:8] if t['days'][d_i]['doctor']]
+    named = set(t['n'] for t in R[:2] + rest)
+    doc = [t for t in R[:8] if t['days'][d_i]['doctor'] and t['n'] in named]   # only a town already mentioned
     if doc:
         h = doc[0]['days'][d_i]['doctor']
         out.append('On the coast the sea breeze should reach %s by about %s, taking the edge off the afternoon.'
