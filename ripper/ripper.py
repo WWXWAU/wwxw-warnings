@@ -503,7 +503,9 @@ def write_ag(path, nx, ny, inwa, gh, times, dates):
         et, dts, wss = [], [], []
         for h in gh:
             e = [h['et0_fao_evapotranspiration'][i] for i in idx.values() if h['et0_fao_evapotranspiration'][i] is not None]
-            et.append(int(round(sum(e) * 10)) if len(e) >= 20 else -1)
+            e = [v for v in e if 0 <= v <= 1.6]          # a model glitch (one hour of 100+ mm seen) drops out
+            tot = sum(e) * 24 / len(e) if len(e) >= 20 else None
+            et.append(int(round(tot * 10)) if tot is not None and tot <= 20 else -1)
         for hr in AG_HOURS:
             i = idx.get(hr)
             dts.append(''.join(ag_code(None if i is None else (lambda v: None if v is None else v * 2)(delta_t(h['temperature_2m'][i], h['dew_point_2m'][i]))) for h in gh))

@@ -188,7 +188,7 @@
       var str = kind === 'et' ? null : src[kind][h];
       for (var i = 0; i < N; i++) {
         if (A.mask.charAt(i) !== '1') { f[i] = NaN; continue; }
-        if (kind === 'et') { var e = src.et[k]; f[i] = e < 0 ? NaN : e / 10; }
+        if (kind === 'et') { var e = src.et[k]; f[i] = e < 0 || e > 200 ? NaN : e / 10; }
         else { var c = A.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : c); }
         k++;
       }
@@ -254,7 +254,7 @@
         map.addSource('fld', { type: 'image', url: url, coordinates: BOX });
         map.addLayer({ id: 'fld', type: 'raster', source: 'fld', paint: { 'raster-opacity': 0.9, 'raster-fade-duration': 0, 'raster-resampling': 'linear' } }, 'mask');
       }
-      legend(); stamp(); panel();
+      legend(); stamp(); panel(); if (pop && pop.isOpen() && here) popAt(here.lng, here.lat);
     }
 
     // ---- controls
@@ -313,6 +313,21 @@
         return '<div class="' + (k === dayI ? 'sel' : '') + '"><span class="v">' + (isNaN(v) ? '–' : v.toFixed(1)) + '</span><b style="height:' + (isNaN(v) ? 0 : Math.round(v / mx * 78)) + 'px"></b><span>' + dayLabel(A.days[k].date, k).replace('Tomorrow', 'Tmrw') + '</span></div>'; }).join('');
       document.getElementById('etcard').hidden = false;
     }
+    var pop = null;
+    function popAt(lng, lat) {   // a small box on the map with the numbers at that spot
+      if (pop) pop.remove();
+      var h = '<b>' + esc(here.name) + '</b><br><span style="color:var(--muted)">' + dayLabel(A.days[dayI].date, dayI)
+        + (layer === 'et' ? '' : ', ' + hourLabel(A.hours[hourI])) + '</span><br>';
+      if (layer === 'et') { var v = sample(field('et', dayI), lng, lat); h += 'ET <b>' + (isNaN(v) ? '–' : v.toFixed(1) + ' mm') + '</b> for the day'; }
+      else {
+        var dt = sample(field('dt', dayI, hourI), lng, lat), ws = sample(field('ws', dayI, hourI), lng, lat);
+        if (isNaN(dt) || isNaN(ws)) return;
+        var c = SPRAYC[sprayOf(dt, ws)];
+        h += 'Delta T <b>' + dt.toFixed(1) + '°</b> · wind <b>' + Math.round(ws) + ' km/h</b><br><span class="chip" style="background:' + c[2] + '">' + c[1] + '</span>';
+      }
+      if (window.innerWidth <= 900) h += '<br><a href="#here" style="font-size:12px">All hours below ↓</a>';
+      pop = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '240px', offset: 12 }).setLngLat([lng, lat]).setHTML(h).addTo(map);
+    }
     function nearestTown(lng, lat) {
       var best = null, bd = 1e9;
       (map.queryRenderedFeatures({ layers: ['place-town', 'place-city', 'place-village'] }) || []).forEach(function (f) {
@@ -334,7 +349,7 @@
         return { type: 'Feature', properties: {}, geometry: { type: 'MultiPolygon', coordinates: (GEO[n] || []).map(function (r) { return [r]; }) } }; }) };
     }
     function initMap() {
-      map = new maplibregl.Map({ container: 'map', attributionControl: false, dragRotate: false, pitchWithRotate: false, touchPitch: false,
+      map = new maplibregl.Map({ container: 'map', attributionControl: false, cooperativeGestures: true, dragRotate: false, pitchWithRotate: false, touchPitch: false,
         style: { version: 8, glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf', sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': css('--ocean') } }] },
         bounds: [[113.5, -35.3], [124.5, -26.5]], fitBoundsOptions: { padding: 20 }, minZoom: 3, maxZoom: 9 });
       map.touchZoomRotate.disableRotation();
@@ -363,6 +378,7 @@
         map.on('click', function (e) {
           if (isNaN(sample(field('dt', dayI, 0), e.lngLat.lng, e.lngLat.lat)) || !inWA(e.lngLat.lng, e.lngLat.lat)) return;
           choose(e.lngLat.lng, e.lngLat.lat);
+          popAt(e.lngLat.lng, e.lngLat.lat);
         });
         ready = true; draw();
         choose(116.67, -31.65, 'Northam');
