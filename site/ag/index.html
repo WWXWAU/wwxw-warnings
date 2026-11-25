@@ -52,6 +52,7 @@
     .hour[hidden] { display: none; }
     .hour input { flex: 1; accent-color: var(--accent); }
     .hour output { font-weight: 700; min-width: 64px; }
+    .townsel { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 12px; font-size: 13px; font-weight: 500; max-width: 200px; }
 
     .main { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 16px; padding: 0 20px 20px; }
     .mapcol { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -125,6 +126,7 @@
   </div>
   <div class="bar2">
     <div class="pills" id="days" role="group" aria-label="Choose a day"></div>
+    <select class="townsel" id="townSel" aria-label="Choose a town"><option value="">Choose a town…</option></select>
     <label class="hour" id="hourBox"><input type="range" id="hour" min="0" max="15" value="4" aria-label="Hour of the day"><output id="hourOut">9 am</output></label>
   </div>
 
@@ -313,6 +315,9 @@
         return '<div class="' + (k === dayI ? 'sel' : '') + '"><span class="v">' + (isNaN(v) ? '–' : v.toFixed(1)) + '</span><b style="height:' + (isNaN(v) ? 0 : Math.round(v / mx * 78)) + 'px"></b><span>' + dayLabel(A.days[k].date, k).replace('Tomorrow', 'Tmrw') + '</span></div>'; }).join('');
       document.getElementById('etcard').hidden = false;
     }
+    // towns we label ourselves (the map's own village names only appear when zoomed right in): [name, lng, lat]
+    var TOWNS = [["Albany",117.88,-34.94],["Augusta",115.16,-34.32],["Babakin",118.02,-32.12],["Badgingarra",115.58,-30.51],["Beacon",117.86,-30.45],["Bencubbin",117.86,-30.81],["Beverley",116.92,-32.11],["Binnu",114.66,-28.04],["Boddington",116.47,-32.8],["Borden",118.26,-34.07],["Boyup Brook",116.39,-33.83],["Bremer Bay",119.38,-34.39],["Bridgetown",116.14,-33.96],["Brookton",117.01,-32.37],["Broomehill",117.64,-33.85],["Bruce Rock",118.15,-31.88],["Bunbury",115.64,-33.33],["Busselton",115.35,-33.65],["Calingiri",116.45,-31.09],["Carnamah",115.89,-29.69],["Collie",116.16,-33.36],["Condingup",122.53,-33.75],["Coolgardie",121.16,-30.95],["Coorow",116.02,-29.88],["Corrigin",117.87,-32.33],["Cranbrook",117.55,-34.3],["Cunderdin",117.23,-31.65],["Dalwallinu",116.66,-30.28],["Dandaragan",115.7,-30.67],["Darkan",116.74,-33.34],["Denmark",117.35,-34.96],["Dongara",114.93,-29.24],["Dowerin",117.04,-31.19],["Dumbleyung",117.74,-33.31],["Eneabba",115.27,-29.82],["Esperance",121.89,-33.86],["Frankland River",116.96,-34.36],["Geraldton",114.61,-28.78],["Gingin",115.9,-31.35],["Gnowangerup",118.01,-33.94],["Goomalling",116.83,-31.3],["Grass Patch",121.72,-33.23],["Harvey",115.92,-33.08],["Hopetoun",120.13,-33.95],["Hyden",118.88,-32.45],["Jerramungup",118.92,-33.94],["Jurien Bay",115.04,-30.31],["Kalannie",117.12,-30.36],["Kalbarri",114.17,-27.71],["Kalgoorlie",121.47,-30.75],["Kambalda",121.67,-31.2],["Katanning",117.56,-33.69],["Kellerberrin",117.72,-31.63],["Kojonup",117.15,-33.83],["Kondinin",118.27,-32.5],["Koorda",117.49,-30.83],["Kukerin",118.08,-33.19],["Kulin",118.16,-32.67],["Lake Grace",118.47,-33.1],["Lake King",119.69,-33.09],["Lancelin",115.34,-31.02],["Latham",116.44,-29.76],["Laverton",122.4,-28.62],["Leinster",120.7,-27.92],["Leonora",121.33,-28.89],["Mandurah",115.72,-32.53],["Manjimup",116.15,-34.24],["Margaret River",115.07,-33.95],["Meekatharra",118.49,-26.59],["Merredin",118.28,-31.48],["Miling",116.36,-30.49],["Mingenew",115.44,-29.19],["Moora",116.0,-30.64],["Morawa",116.01,-29.21],["Mount Barker",117.67,-34.63],["Mount Magnet",117.85,-28.07],["Mukinbudin",118.21,-30.91],["Mullewa",115.51,-28.54],["Munglinup",120.86,-33.71],["Murchison",115.96,-26.89],["Nabawa",114.79,-28.5],["Narembeen",118.39,-32.06],["Narrogin",117.18,-32.93],["Newdegate",119.03,-33.09],["Norseman",121.78,-32.2],["Northam",116.67,-31.65],["Northampton",114.64,-28.35],["Nungarin",118.1,-31.19],["Ongerup",118.49,-33.96],["Paynes Find",117.69,-29.26],["Pemberton",116.04,-34.44],["Perenjori",116.29,-29.44],["Perth",115.86,-31.95],["Pingelly",117.08,-32.53],["Pinjarra",115.87,-32.63],["Quairading",117.4,-32.01],["Ravensthorpe",120.05,-33.58],["Salmon Gums",121.63,-32.98],["Scaddan",121.72,-33.44],["Southern Cross",119.32,-31.23],["Tambellup",117.64,-34.04],["Tammin",117.49,-31.64],["Three Springs",115.76,-29.53],["Toodyay",116.47,-31.55],["Trayning",117.79,-31.11],["Varley",119.43,-32.73],["Wagin",117.34,-33.31],["Walpole",116.73,-34.98],["Wandering",116.67,-32.68],["Westonia",118.7,-31.3],["Wickepin",117.5,-32.78],["Williams",116.88,-33.03],["Wiluna",120.22,-26.59],["Wongan Hills",116.72,-30.89],["Wubin",116.63,-30.1],["Wyalkatchem",117.38,-31.18],["Yalgoo",116.68,-28.34],["Yallingup",115.03,-33.65],["Yealering",117.63,-32.59],["York",116.77,-31.89]];
+    var TOWNN = ['literal', TOWNS.map(function (t) { return t[0]; })];
     var pop = null;
     function popAt(lng, lat) {   // a small box on the map with the numbers at that spot
       if (pop) pop.remove();
@@ -330,6 +335,7 @@
     }
     function nearestTown(lng, lat) {
       var best = null, bd = 1e9;
+      TOWNS.forEach(function (t) { var dd = Math.hypot((t[1] - lng) * Math.cos(lat * Math.PI / 180), t[2] - lat); if (dd < bd) { bd = dd; best = t[0]; } });
       (map.queryRenderedFeatures({ layers: ['place-town', 'place-city', 'place-village'] }) || []).forEach(function (f) {
         var c = f.geometry.coordinates, dd = Math.hypot((c[0] - lng) * Math.cos(lat * Math.PI / 180), c[1] - lat);
         if (dd < bd) { bd = dd; best = f.properties['name:en'] || f.properties.name; } });
@@ -371,10 +377,18 @@
         map.addLayer({ id: 'wa-line', type: 'line', source: 'wa', paint: { 'line-color': css('--coast'), 'line-width': 1.2 } });
         [['place-city', 'city', 3, 'Noto Sans Bold', 11], ['place-town', 'town', 4.6, 'Noto Sans Regular', 10], ['place-village', 'village', 7, 'Noto Sans Regular', 9.5]].forEach(function (L) {
           map.addLayer({ id: L[0], type: 'symbol', source: 'omt', 'source-layer': 'place', minzoom: L[2],
-            filter: ['all', ['==', ['get', 'class'], L[1]], ['within', WAG]],
+            filter: ['all', ['==', ['get', 'class'], L[1]], ['within', WAG], ['!', ['in', ['coalesce', ['get', 'name:en'], ['get', 'name']], TOWNN]]],
             layout: { 'text-field': ['coalesce', ['get', 'name:en'], ['get', 'name']], 'text-font': [L[3]], 'text-size': ['interpolate', ['linear'], ['zoom'], L[2], L[4], 10, L[4] + 3], 'text-padding': 3, 'text-max-width': 8 },
             paint: { 'text-color': '#0E2A33', 'text-halo-color': 'rgba(255,255,255,0.85)', 'text-halo-width': 1.2 } });
         });
+        map.addSource('towns', { type: 'geojson', data: { type: 'FeatureCollection', features: TOWNS.map(function (t) {
+          return { type: 'Feature', properties: { n: t[0] }, geometry: { type: 'Point', coordinates: [t[1], t[2]] } }; }) } });
+        map.addLayer({ id: 'town-dot', type: 'circle', source: 'towns', minzoom: 4.8,
+          paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 1.8, 9, 3.5], 'circle-color': '#0E2A33', 'circle-stroke-color': '#FFFFFF', 'circle-stroke-width': 1 } });
+        map.addLayer({ id: 'town-lab', type: 'symbol', source: 'towns', minzoom: 4.8,
+          layout: { 'text-field': ['get', 'n'], 'text-font': ['Noto Sans Regular'], 'text-size': ['interpolate', ['linear'], ['zoom'], 5, 10, 9, 13],
+                    'text-variable-anchor': ['top', 'bottom', 'left', 'right'], 'text-radial-offset': 0.55, 'text-padding': 2 },
+          paint: { 'text-color': '#0E2A33', 'text-halo-color': 'rgba(255,255,255,0.85)', 'text-halo-width': 1.2 } });
         map.on('click', function (e) {
           if (isNaN(sample(field('dt', dayI, 0), e.lngLat.lng, e.lngLat.lat)) || !inWA(e.lngLat.lng, e.lngLat.lat)) return;
           choose(e.lngLat.lng, e.lngLat.lat);
@@ -382,6 +396,13 @@
         });
         ready = true; draw();
         choose(116.67, -31.65, 'Northam');
+        var sel = document.getElementById('townSel');
+        sel.innerHTML += TOWNS.map(function (t, i) { return '<option value="' + i + '">' + esc(t[0]) + '</option>'; }).join('');
+        sel.addEventListener('change', function () {
+          if (sel.value === '') return;
+          var t = TOWNS[+sel.value]; choose(t[1], t[2], t[0]); popAt(t[1], t[2]);
+          map.easeTo({ center: [t[1], t[2]], zoom: Math.max(map.getZoom(), 6.5) });
+        });
       });
     }
     function inWA(x, y) {
