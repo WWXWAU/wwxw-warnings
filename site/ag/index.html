@@ -121,6 +121,8 @@
       <button type="button" data-l="dt" aria-pressed="false">Delta T</button>
       <button type="button" data-l="ws" aria-pressed="false">Wind</button>
       <button type="button" data-l="et" aria-pressed="false">Evapotranspiration</button>
+      <button type="button" data-l="frost" aria-pressed="false">Frost</button>
+      <button type="button" data-l="fog" aria-pressed="false">Fog</button>
     </div>
     <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
   </div>
@@ -140,12 +142,15 @@
     </div>
     <div class="panel">
       <section class="card" id="here" aria-live="polite"><h2>Tap the map</h2><div class="sub">for the spraying hours and ET at that spot</div></section>
+      <section class="card" id="nightcard" hidden><h2>Frost and fog, next 7 nights</h2><div class="sub">Lowest temperature from 6 pm to 9 am, and a rough grass (ground) temperature</div><table class="hrs" id="nights"></table></section>
       <section class="card" id="etcard" hidden><h2>Evapotranspiration, next 7 days</h2><div class="sub" id="etsub"></div><div class="etbars" id="etbars"></div></section>
       <details class="how">
         <summary>About this forecast</summary>
         <p><b>Spraying</b> combines Delta T and wind. Good: Delta T 2–8 °C and wind 3–15 km/h. Marginal: Delta T 8–10 °C or wind 15–20 km/h. Stop: Delta T over 10 °C or wind over 20 km/h. Inversion risk: Delta T under 2 °C or wind under 3 km/h, when spray drift can travel a long way; surface inversions are common from late afternoon until after sunrise.</p>
         <p><b>Delta T</b> is the air temperature minus the wet-bulb temperature: the higher it is, the faster droplets evaporate.</p>
         <p><b>Wind</b> is the forecast at 10 m. Near the ground it is usually a little lighter.</p>
+        <p><b>Frost</b> uses the forecast overnight low (6 pm to 9 am) and a rough grass temperature: on clear, calm nights the ground runs 2–4 °C colder than the air in a weather screen. Possible: grass 2 °C or below. Likely: 0 °C or below. Severe: −2 °C or below. Low-lying paddocks can be colder still.</p>
+        <p><b>Fog</b> is flagged when the models have the air close to saturation (temperature within about 1 °C of the dew point) with light winds overnight or early morning, or forecast visibility under 1 km.</p>
         <p><b>Evapotranspiration</b> is reference ET (FAO-56, short crop): the water a well-watered pasture loses to the air in a day. Yesterday's measured ET at DPIRD's stations is on <a href="/obs/">Live Obs</a>.</p>
         <p>The forecast comes from computer models on a 0.5° grid (about 50 km), updated four times a day. Always check the conditions on the paddock before and while spraying, and follow the label.</p>
       </details>
@@ -176,6 +181,10 @@
       ws: { n: 'Wind (10 m)', u: ' km/h', b: [0, 3, 10, 15, 20, 30, 40], c: ['#a7b8d8', '#a5d6a7', '#66bb6a', '#d4e157', '#ffca28', '#ef5350', '#9c27b0'] },
       et: { n: 'ET for the day', u: ' mm', b: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10], c: ['#f7f4e8', '#efe3b8', '#e6cf86', '#ddb65a', '#d49a3a', '#c97c2a', '#b85e22', '#9c431e', '#7c2d1a', '#5a1c14'] }
     };
+    var FROST = [['No frost', '#E6EDEF'], ['Frost possible', '#A9CDEB'], ['Frost likely', '#4F8FD1'], ['Severe frost', '#5B3A9E']];
+    var FOG = [['No fog', '#E6EDEF'], ['Fog possible', '#B5BEC4'], ['Fog likely', '#6F7C85']];
+    var DAILY = { et: 1, frost: 1, fog: 1 };
+    FROST.concat(FOG).forEach(function (s) { s.rgb = hex(s[1]); });
     SPRAY.forEach(function (s) { s.rgb = hex(s[2]); });
     Object.keys(SCALES).forEach(function (k) { SCALES[k].rgb = SCALES[k].c.map(hex); });
     function scaleIdx(S, v) { var i = 0; while (i < S.b.length - 1 && v >= S.b[i + 1]) i++; return i; }
@@ -187,11 +196,12 @@
     function field(kind, d, h) {
       var key = kind + d + '|' + h; if (cache[key]) return cache[key];
       var g = A.grid, N = g.nx * g.ny, f = new Float32Array(N), k = 0, src = A.days[d];
-      var str = kind === 'et' ? null : src[kind][h];
+      if (kind !== 'et' && !src[kind]) { f.fill(NaN); return (cache[key] = f); }   // an older forecast file without it
+      var str = kind === 'et' ? null : typeof src[kind] === 'string' ? src[kind] : src[kind][h];
       for (var i = 0; i < N; i++) {
         if (A.mask.charAt(i) !== '1') { f[i] = NaN; continue; }
         if (kind === 'et') { var e = src.et[k]; f[i] = e < 0 || e > 200 ? NaN : e / 10; }
-        else { var c = A.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : c); }
+        else { var c = A.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : kind === 'tn' || kind === 'gt' ? c - 20 : c); }
         k++;
       }
       for (var pass = 0; pass < 3; pass++) {
@@ -230,7 +240,9 @@
       var cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
       var cx = cv.getContext('2d'), img = cx.createImageData(CW, CH), px = img.data;
       var fa = null, fb = null;
+      var CL = layer === 'frost' ? FROST : layer === 'fog' ? FOG : null;
       if (layer === 'et') fa = field('et', dayI);
+      else if (CL) fa = field(layer === 'frost' ? 'fr' : 'fg', dayI);
       else if (layer === 'dt') fa = field('dt', dayI, hourI);
       else if (layer === 'ws') fa = field('ws', dayI, hourI);
       else { fa = field('dt', dayI, hourI); fb = field('ws', dayI, hourI); }
@@ -241,6 +253,7 @@
           var lng = w + (x + 0.5) / CW * (e - w), a = sample(fa, lng, lat), o = (y * CW + x) * 4, rgb;
           if (isNaN(a)) { px[o + 3] = 0; continue; }
           if (fb) { var b = sample(fb, lng, lat); if (isNaN(b)) { px[o + 3] = 0; continue; } rgb = SPRAYC[sprayOf(a, b)].rgb; }
+          else if (CL) rgb = CL[Math.max(0, Math.min(CL.length - 1, Math.round(a)))].rgb;
           else rgb = S.rgb[scaleIdx(S, a)];
           px[o] = rgb[0]; px[o + 1] = rgb[1]; px[o + 2] = rgb[2]; px[o + 3] = 255;
         }
@@ -269,13 +282,15 @@
     function legend() {
       var h;
       if (layer === 'spray') h = '<span class="lt">Spraying</span>' + SPRAY.map(function (s) { return '<span><i style="background:' + s[2] + '"></i>' + s[1] + '</span>'; }).join('');
+      else if (layer === 'frost' || layer === 'fog') h = '<span class="lt">' + (layer === 'frost' ? 'Frost' : 'Fog') + '</span>' + (layer === 'frost' ? FROST : FOG).map(function (s) { return '<span><i style="background:' + s[1] + '"></i>' + s[0] + '</span>'; }).join('');
       else { var S = SCALES[layer]; h = '<span class="lt">' + S.n + '</span>' + S.b.map(function (v, i) {
         return '<span><i style="background:' + S.c[i] + '"></i>' + (i < S.b.length - 1 ? v + '–' + S.b[i + 1] : v + '+') + S.u + '</span>'; }).join(''); }
       document.getElementById('legend').innerHTML = h;
     }
     function stamp() {
       var d = A.days[dayI].date;
-      document.getElementById('stamp').textContent = dayLong(d) + (layer === 'et' ? ', whole day' : ', ' + hourLabel(A.hours[hourI]));
+      document.getElementById('stamp').textContent = layer === 'frost' || layer === 'fog' ? 'Overnight to ' + dayLong(d) + ' morning'
+        : dayLong(d) + (layer === 'et' ? ', whole day' : ', ' + hourLabel(A.hours[hourI]));
     }
     function buttons() {
       var el = document.getElementById('days');
@@ -284,7 +299,7 @@
         dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); }); });
       document.querySelectorAll('#layers button').forEach(function (b) { b.addEventListener('click', function () {
         layer = b.getAttribute('data-l'); document.querySelectorAll('#layers button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
-        document.getElementById('hourBox').hidden = layer === 'et'; draw(); }); });
+        document.getElementById('hourBox').hidden = !!DAILY[layer]; draw(); }); });
       var hr = document.getElementById('hour'); hr.max = A.hours.length - 1; hr.value = hourI;
       document.getElementById('hourOut').textContent = hourLabel(A.hours[hourI]);
       hr.addEventListener('input', function () { hourI = +hr.value; document.getElementById('hourOut').textContent = hourLabel(A.hours[hourI]); draw(); });
@@ -299,7 +314,7 @@
         if (isNaN(dt) || isNaN(ws)) continue;
         var c = SPRAYC[sprayOf(dt, ws)];
         if (c[0] === 'good') good.push(i);
-        rows += '<tr' + (i === hourI && layer !== 'et' ? ' class="now"' : '') + '><td>' + hourLabel(A.hours[i]) + '</td><td class="n">' + dt.toFixed(1) + '°</td><td class="n">' + Math.round(ws)
+        rows += '<tr' + (i === hourI && !DAILY[layer] ? ' class="now"' : '') + '><td>' + hourLabel(A.hours[i]) + '</td><td class="n">' + dt.toFixed(1) + '°</td><td class="n">' + Math.round(ws)
           + '</td><td><span class="chip" style="background:' + c[2] + '">' + c[1] + '</span></td></tr>';
       }
       var spans = [], st = null;
@@ -314,6 +329,18 @@
       document.getElementById('etbars').innerHTML = ets.map(function (v, k) {
         return '<div class="' + (k === dayI ? 'sel' : '') + '"><span class="v">' + (isNaN(v) ? '–' : v.toFixed(1)) + '</span><b style="height:' + (isNaN(v) ? 0 : Math.round(v / mx * 78)) + 'px"></b><span>' + dayLabel(A.days[k].date, k).replace('Tomorrow', 'Tmrw') + '</span></div>'; }).join('');
       document.getElementById('etcard').hidden = false;
+      var nr = '<tr><th>Morning</th><th style="text-align:right">Low</th><th style="text-align:right">Grass</th><th>Frost</th><th>Fog</th></tr>', any = false;
+      A.days.forEach(function (x, k) {
+        var tn = sample(field('tn', k), here.lng, here.lat), gt = sample(field('gt', k), here.lng, here.lat);
+        var fr = sample(field('fr', k), here.lng, here.lat), fg = sample(field('fg', k), here.lng, here.lat);
+        if (isNaN(tn)) return; any = true;
+        var F = FROST[Math.max(0, Math.min(3, Math.round(fr)))], G = FOG[Math.max(0, Math.min(2, Math.round(fg)))];
+        nr += '<tr' + (k === dayI ? ' class="now"' : '') + '><td>' + dayLabel(x.date, k) + '</td><td class="n">' + Math.round(tn) + '°</td><td class="n">' + Math.round(gt) + '°</td>'
+          + '<td>' + (fr >= 0.5 ? '<span class="chip" style="background:' + F[1] + '">' + F[0].replace('Frost ', '') + '</span>' : '–') + '</td>'
+          + '<td>' + (fg >= 0.5 ? '<span class="chip" style="background:' + G[1] + '">' + G[0].replace('Fog ', '') + '</span>' : '–') + '</td></tr>';
+      });
+      document.getElementById('nights').innerHTML = nr;
+      document.getElementById('nightcard').hidden = !any;
     }
     // towns we label ourselves (the map's own village names only appear when zoomed right in): [name, lng, lat]
     var TOWNS = [["Albany",117.88,-34.94],["Augusta",115.16,-34.32],["Babakin",118.02,-32.12],["Badgingarra",115.58,-30.51],["Beacon",117.86,-30.45],["Bencubbin",117.86,-30.81],["Beverley",116.92,-32.11],["Binnu",114.66,-28.04],["Boddington",116.47,-32.8],["Borden",118.26,-34.07],["Boyup Brook",116.39,-33.83],["Bremer Bay",119.38,-34.39],["Bridgetown",116.14,-33.96],["Brookton",117.01,-32.37],["Broomehill",117.64,-33.85],["Bruce Rock",118.15,-31.88],["Bunbury",115.64,-33.33],["Busselton",115.35,-33.65],["Calingiri",116.45,-31.09],["Carnamah",115.89,-29.69],["Collie",116.16,-33.36],["Condingup",122.53,-33.75],["Coolgardie",121.16,-30.95],["Coorow",116.02,-29.88],["Corrigin",117.87,-32.33],["Cranbrook",117.55,-34.3],["Cunderdin",117.23,-31.65],["Dalwallinu",116.66,-30.28],["Dandaragan",115.7,-30.67],["Darkan",116.74,-33.34],["Denmark",117.35,-34.96],["Dongara",114.93,-29.24],["Dowerin",117.04,-31.19],["Dumbleyung",117.74,-33.31],["Eneabba",115.27,-29.82],["Esperance",121.89,-33.86],["Frankland River",116.96,-34.36],["Geraldton",114.61,-28.78],["Gingin",115.9,-31.35],["Gnowangerup",118.01,-33.94],["Goomalling",116.83,-31.3],["Grass Patch",121.72,-33.23],["Harvey",115.92,-33.08],["Hopetoun",120.13,-33.95],["Hyden",118.88,-32.45],["Jerramungup",118.92,-33.94],["Jurien Bay",115.04,-30.31],["Kalannie",117.12,-30.36],["Kalbarri",114.17,-27.71],["Kalgoorlie",121.47,-30.75],["Kambalda",121.67,-31.2],["Katanning",117.56,-33.69],["Kellerberrin",117.72,-31.63],["Kojonup",117.15,-33.83],["Kondinin",118.27,-32.5],["Koorda",117.49,-30.83],["Kukerin",118.08,-33.19],["Kulin",118.16,-32.67],["Lake Grace",118.47,-33.1],["Lake King",119.69,-33.09],["Lancelin",115.34,-31.02],["Latham",116.44,-29.76],["Laverton",122.4,-28.62],["Leinster",120.7,-27.92],["Leonora",121.33,-28.89],["Mandurah",115.72,-32.53],["Manjimup",116.15,-34.24],["Margaret River",115.07,-33.95],["Meekatharra",118.49,-26.59],["Merredin",118.28,-31.48],["Miling",116.36,-30.49],["Mingenew",115.44,-29.19],["Moora",116.0,-30.64],["Morawa",116.01,-29.21],["Mount Barker",117.67,-34.63],["Mount Magnet",117.85,-28.07],["Mukinbudin",118.21,-30.91],["Mullewa",115.51,-28.54],["Munglinup",120.86,-33.71],["Murchison",115.96,-26.89],["Nabawa",114.79,-28.5],["Narembeen",118.39,-32.06],["Narrogin",117.18,-32.93],["Newdegate",119.03,-33.09],["Norseman",121.78,-32.2],["Northam",116.67,-31.65],["Northampton",114.64,-28.35],["Nungarin",118.1,-31.19],["Ongerup",118.49,-33.96],["Paynes Find",117.69,-29.26],["Pemberton",116.04,-34.44],["Perenjori",116.29,-29.44],["Perth",115.86,-31.95],["Pingelly",117.08,-32.53],["Pinjarra",115.87,-32.63],["Quairading",117.4,-32.01],["Ravensthorpe",120.05,-33.58],["Salmon Gums",121.63,-32.98],["Scaddan",121.72,-33.44],["Southern Cross",119.32,-31.23],["Tambellup",117.64,-34.04],["Tammin",117.49,-31.64],["Three Springs",115.76,-29.53],["Toodyay",116.47,-31.55],["Trayning",117.79,-31.11],["Varley",119.43,-32.73],["Wagin",117.34,-33.31],["Walpole",116.73,-34.98],["Wandering",116.67,-32.68],["Westonia",118.7,-31.3],["Wickepin",117.5,-32.78],["Williams",116.88,-33.03],["Wiluna",120.22,-26.59],["Wongan Hills",116.72,-30.89],["Wubin",116.63,-30.1],["Wyalkatchem",117.38,-31.18],["Yalgoo",116.68,-28.34],["Yallingup",115.03,-33.65],["Yealering",117.63,-32.59],["York",116.77,-31.89]];
@@ -322,8 +349,13 @@
     function popAt(lng, lat) {   // a small box on the map with the numbers at that spot
       if (pop) pop.remove();
       var h = '<b>' + esc(here.name) + '</b><br><span style="color:var(--muted)">' + dayLabel(A.days[dayI].date, dayI)
-        + (layer === 'et' ? '' : ', ' + hourLabel(A.hours[hourI])) + '</span><br>';
-      if (layer === 'et') { var v = sample(field('et', dayI), lng, lat); h += 'ET <b>' + (isNaN(v) ? '–' : v.toFixed(1) + ' mm') + '</b> for the day'; }
+        + (layer === 'frost' || layer === 'fog' ? ' morning' : layer === 'et' ? '' : ', ' + hourLabel(A.hours[hourI])) + '</span><br>';
+      if (layer === 'frost' || layer === 'fog') {
+        var tn = sample(field('tn', dayI), lng, lat), gt = sample(field('gt', dayI), lng, lat), cl = sample(field(layer === 'frost' ? 'fr' : 'fg', dayI), lng, lat);
+        if (isNaN(tn)) return;
+        var C = (layer === 'frost' ? FROST : FOG)[Math.max(0, Math.min(layer === 'frost' ? 3 : 2, Math.round(cl)))];
+        h += 'Overnight low <b>' + tn.toFixed(0) + '°</b>' + (layer === 'frost' ? ', grass about <b>' + gt.toFixed(0) + '°</b>' : '') + '<br><span class="chip" style="background:' + C[1] + '">' + C[0] + '</span>';
+      } else if (layer === 'et') { var v = sample(field('et', dayI), lng, lat); h += 'ET <b>' + (isNaN(v) ? '–' : v.toFixed(1) + ' mm') + '</b> for the day'; }
       else {
         var dt = sample(field('dt', dayI, hourI), lng, lat), ws = sample(field('ws', dayI, hourI), lng, lat);
         if (isNaN(dt) || isNaN(ws)) return;

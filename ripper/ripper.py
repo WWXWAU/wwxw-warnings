@@ -58,7 +58,7 @@ BOM_ICON = {1: 'sun', 2: 'sun', 14: 'sun', 3: 'partly', 6: 'partly', 9: 'partly'
             8: 'rain', 11: 'rain', 12: 'rain', 15: 'rain', 17: 'rain', 18: 'rain', 16: 'storm', 19: 'storm'}
 BOM_CLOUD = {'sun': 10, 'partly': 40, 'cloud': 85, 'rain': 80, 'storm': 70}
 HOURLY = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m',
-          'cloud_cover', 'precipitation', 'weather_code', 'et0_fao_evapotranspiration']   # 9 variables: still one call per place
+          'cloud_cover', 'precipitation', 'weather_code', 'et0_fao_evapotranspiration', 'visibility']   # 10 variables: still one call per place
 DAY_H = range(9, 18)          # 9 am - 5 pm
 BANDS = [(85, 'Bloody ripper'), (70, 'Beaut'), (50, 'Decent'), (30, 'Not bad'), (0, 'Bit ordinary')]
 
@@ -493,6 +493,38 @@ def ag_code(v):
     return '_' if v is None else AG_ABC[max(0, min(62, int(round(v))))]
 
 
+def night(gh, times, d):
+    """Frost and fog for the night before day d (6 pm to 9 am). For each point: the lowest air temperature, a rough
+    ground (grass) temperature (clear, calm nights run several degrees colder at the ground than in the screen),
+    a frost class (0 none, 1 possible, 2 likely, 3 severe) and a fog class (0 none, 1 possible, 2 likely)."""
+    i0 = next(i for i, x in enumerate(times) if x.startswith(d))
+    hrs = [i for i in range(i0 - 6, i0 + 10) if 0 <= i < len(times)]
+    fog_hrs = [i for i in range(i0 - 3, i0 + 10) if 0 <= i < len(times)]
+    tn, gt, fr, fg = [], [], [], []
+    for h in gh:
+        T = h['temperature_2m']
+        vals = [(T[i], i) for i in hrs if T[i] is not None]
+        if len(vals) < 8:
+            tn.append('_'); gt.append('_'); fr.append('_'); fg.append('_'); continue
+        t, i = min(vals)
+        c = h['cloud_cover'][i] if h['cloud_cover'][i] is not None else 50
+        w = h['wind_speed_10m'][i] if h['wind_speed_10m'][i] is not None else 10
+        off = 3.5 if c < 25 and w < 8 else 2.5 if c < 50 and w < 12 else 1.0 if c < 80 else 0.3
+        g = t - off
+        tn.append(ag_code(t + 20)); gt.append(ag_code(g + 20))
+        fr.append('3' if g <= -2 else '2' if g <= 0 else '1' if g <= 2 else '0')
+        f = 0
+        for k in fog_hrs:
+            tk, dk, wk = T[k], h['dew_point_2m'][k], h['wind_speed_10m'][k]
+            vis = h.get('visibility', [None] * len(times))[k]
+            if vis is not None and vis < 1000: f = 2
+            elif tk is not None and dk is not None and wk is not None:
+                if tk - dk <= 0.6 and wk <= 6: f = max(f, 2)
+                elif (vis is not None and vis < 4000) or (tk - dk <= 1.5 and wk <= 9): f = max(f, 1)
+        fg.append(str(f))
+    return ''.join(tn), ''.join(gt), ''.join(fr), ''.join(fg)
+
+
 def write_ag(path, nx, ny, inwa, gh, times, dates):
     """ag.json: for every WA grid point, each day's reference ET (FAO-56, short crop, mm) and, hour by hour from 5 am
     to 8 pm, Delta T and 10 m wind. Hourly values are packed one character per point (AG_ABC): Delta T in half
@@ -510,7 +542,8 @@ def write_ag(path, nx, ny, inwa, gh, times, dates):
             i = idx.get(hr)
             dts.append(''.join(ag_code(None if i is None else (lambda v: None if v is None else v * 2)(delta_t(h['temperature_2m'][i], h['dew_point_2m'][i]))) for h in gh))
             wss.append(''.join(ag_code(None if i is None else h['wind_speed_10m'][i]) for h in gh))
-        days.append({'date': d, 'et': et, 'dt': dts, 'ws': wss})
+        tn, gt, fr, fg = night(gh, times, d)
+        days.append({'date': d, 'et': et, 'dt': dts, 'ws': wss, 'tn': tn, 'gt': gt, 'fr': fr, 'fg': fg})
     out = {'made': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Open-Meteo (best-match models)',
            'grid': {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}, 'mask': ''.join('1' if w else '0' for w in inwa),
            'hours': AG_HOURS, 'abc': AG_ABC, 'days': days}
