@@ -85,6 +85,9 @@
     .brief p { margin: 0; font-size: 14px; line-height: 1.55; }
     .brief .copy { margin-top: 10px; font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 9px; border: 1px solid var(--line); background: transparent; color: var(--text); cursor: pointer; }
     .brief .copy:focus-visible { outline: 2px solid var(--b2); outline-offset: 2px; }
+    [data-per] { display: none !important; }   /* the month / year view hides the day's pick, list and write-up */
+    .days .dsep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; flex: none; }
+    .tally.big { order: -1; }
     .tally { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 0 8px; }
     .tally .hd { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 16px 6px; }
     .tally h2 { font-size: 16px; margin: 0; }
@@ -451,9 +454,12 @@
     function buildDays() {
       var el = document.getElementById('days');
       if (WANT_DAY) { var wi = D.days.map(function (d) { return d.date; }).indexOf(WANT_DAY); if (wi >= 0) dayI = wi; WANT_DAY = null; }
-      el.innerHTML = D.days.map(function (d, i) { return '<button type="button" aria-pressed="' + (i === dayI) + '" data-i="' + i + '">' + dayLabel(d.date, i) + '</button>'; }).join('');
+      el.innerHTML = D.days.map(function (d, i) { return '<button type="button" aria-pressed="' + (i === dayI) + '" data-i="' + i + '">' + dayLabel(d.date, i) + '</button>'; }).join('')
+        + '<span class="dsep" aria-hidden="true"></span><button type="button" class="per" aria-pressed="false" data-p="m">This month</button><button type="button" class="per" aria-pressed="false" data-p="y">This year</button>';
       el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
-        dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); fit(true); }); });
+        el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
+        if (b.hasAttribute('data-p')) { setPeriod(b.getAttribute('data-p')); return; }
+        dayI = +b.getAttribute('data-i'); setPeriod(null); draw(); fit(true); }); });
     }
     function buildScale() {
       document.getElementById('scale').innerHTML = BANDS.slice().reverse().map(function (b) { return '<div style="--c:var(' + b[2] + ')">' + b[1] + '</div>'; }).join('');
@@ -589,11 +595,58 @@
     setIcon();
 
     // ---- the tally: which towns have had the best weather this month and this year
-    var H = null, tallyP = 'm';
-    function drawTally() {
-      if (!H || !H.days) return;
+    var H = null, tallyP = 'm', PER = null;
+    // ---- the month / year view (the buttons after the days): the map and panel show the tally instead of a day
+    function setPeriod(p) {
+      PER = p;
+      ['pick', 'list', 'brief'].forEach(function (id) { var e = document.getElementById(id); if (p) e.dataset.per = '1'; else delete e.dataset.per; });
+      document.getElementById('saveBtn').hidden = !!p;
+      document.getElementById('tally').classList.toggle('big', !!p);
+      if (map && map.getLayer('bands')) map.setPaintProperty('bands', 'fill-opacity', p ? 0 : 1);
+      if (!p) { drawTally(); return; }
+      tallyP = p;
+      document.querySelectorAll('#tally .seg button').forEach(function (x) { x.setAttribute('aria-pressed', x.getAttribute('data-p') === p); });
+      if (!H) { fetch(DATA + 'ripper-history.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).then(function (h) { H = h; drawPeriod(); }).catch(function () {}); return; }
+      drawPeriod();
+    }
+    function drawPeriod() {
+      if (!PER || !H || !map) return;
+      drawTally();
+      var T = tallyData(PER), byN = {}; T.L.forEach(function (t, i) { t.rank = i + 1; byN[t.n] = t; });
+      closePop(); if (tip) { tip.remove(); tip = null; }
+      markers.forEach(function (m) { m.remove(); }); markers = [];
+      var pts = D.towns.filter(function (t) { return byN[t.n]; }).sort(function (a, b) { return byN[b.n].rank - byN[a.n].rank; });
+      pts.forEach(function (t) {
+        var x = byN[t.n], b = band(Math.round(x.avg)), el = document.createElement('div');
+        el.className = 'mk' + (x.rank === 1 ? ' top1' : x.rank > 5 ? ' dot' : '');
+        el.style.setProperty('--bandc', 'var(' + b[2] + ')');
+        el.innerHTML = '<b>' + (x.rank <= 5 ? x.rank : '') + '</b>';
+        el.setAttribute('aria-label', t.n + ': ' + b[1] + ' on average');
+        el.addEventListener('click', function (ev) {
+          ev.stopPropagation(); closePop();
+          pop = new maplibregl.Popup({ closeButton: true, closeOnClick: false, maxWidth: '240px', offset: 14 }).setLngLat([t.lng, t.lat])
+            .setHTML('<b>' + esc(t.n) + '</b>: number ' + x.rank + ' ' + (PER === 'm' ? 'this month' : 'this year') + '<br>' + b[1] + ' on average'
+              + (x.top ? '<br>Best in WA on ' + x.top + (x.top === 1 ? ' day' : ' days') : '') + (x.rip ? '<br>' + x.rip + (x.rip === 1 ? ' ripper day' : ' ripper days') : '')).addTo(map);
+          pop.on('close', function () { pop = null; });
+        });
+        markers.push(new maplibregl.Marker({ element: el, anchor: 'center' }).setLngLat([t.lng, t.lat]).addTo(map));
+      });
+      var top = pts.slice().reverse().slice(0, 5);
+      map.getSource('top5').setData({ type: 'FeatureCollection', features: top.map(function (t, i) {
+        return { type: 'Feature', properties: { n: t.n, k: i }, geometry: { type: 'Point', coordinates: [t.lng, t.lat] } }; }) });
+      var now = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' });
+      var mon = new Date(now + 'T12:00:00+08:00').toLocaleDateString('en-AU', { month: 'long', timeZone: 'Australia/Perth' });
+      document.getElementById('title').textContent = PER === 'm' ? 'Ripper Weather: best towns in ' + mon : 'Ripper Weather: best towns in ' + now.slice(0, 4);
+      if (top.length) {
+        var w = 999, e = -999, so = 99, no = -99;
+        pts.slice().reverse().slice(0, 10).forEach(function (t) { w = Math.min(w, t.lng); e = Math.max(e, t.lng); so = Math.min(so, t.lat); no = Math.max(no, t.lat); });
+        map.fitBounds([[w - 1.2, so - 1], [e + 1.2, no + 1]], { padding: 30, duration: 700, maxZoom: 7 });
+      }
+    }
+    // every town's average for the month ('m') or year ('y'): {days, L (best first)}
+    function tallyData(p) {
       var now = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' });   // YYYY-MM-DD
-      var pre = tallyP === 'm' ? now.slice(0, 7) : now.slice(0, 4);
+      var pre = p === 'm' ? now.slice(0, 7) : now.slice(0, 4);
       var days = Object.keys(H.days).filter(function (d) { return d.indexOf(pre) === 0 && d <= now; }).sort();
       var T = {};
       days.forEach(function (d) {
@@ -606,8 +659,14 @@
         if (best) T[best].top++;
       });
       var L = Object.keys(T).map(function (n) { var t = T[n]; t.avg = t.sum / t.k; return t; })
-        .filter(function (t) { return t.k >= days.length * 0.6; })   // only towns with most of the days in (new towns join as they fill in)
-        .sort(function (a, b) { return b.avg - a.avg || b.top - a.top; }).slice(0, 10);
+        .filter(function (t) { return t.k >= days.length * 0.6; })
+        .sort(function (a, b) { return b.avg - a.avg || b.top - a.top; });
+      return { days: days, L: L };
+    }
+    function drawTally() {
+      if (!H || !H.days) return;
+      var now = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Perth' });   // YYYY-MM-DD
+      var TD = tallyData(tallyP), days = TD.days, L = TD.L.slice(0, PER ? 20 : 10);   // only towns with most of the days in (new towns join as they fill in)
       var mon = new Date(now + 'T12:00:00+08:00').toLocaleDateString('en-AU', { month: 'long', timeZone: 'Australia/Perth' });
       document.getElementById('tallyH').textContent = tallyP === 'm' ? 'Best towns in ' + mon : 'Best towns in ' + now.slice(0, 4);
       document.getElementById('tallySub').textContent = days.length ? 'Average rating over ' + days.length + (days.length === 1 ? ' day' : ' days') + ', ' + dayShort(days[0]) + ' to ' + dayShort(days[days.length - 1]) : 'No days yet';
@@ -625,7 +684,8 @@
     document.querySelectorAll('#tally .seg button').forEach(function (b) { b.addEventListener('click', function () {
       tallyP = b.getAttribute('data-p');
       document.querySelectorAll('#tally .seg button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
-      drawTally(); }); });
+      if (PER) { document.querySelectorAll('#days button.per').forEach(function (x) { x.setAttribute('aria-pressed', x.getAttribute('data-p') === tallyP); }); setPeriod(tallyP); }
+      else drawTally(); }); });
 
     // ---- load
     var bust = '?t=' + Math.floor(Date.now() / 600000);   // fresh every 10 minutes
