@@ -205,7 +205,7 @@
         <p>Each day's daytime weather (9 am to 5 pm) is scored from the Bureau of Meteorology's town forecasts, with computer-model forecasts filling in wind, humidity and the sea breeze. The best days top out at 25–29 °C, sunny, dry and with light winds.</p>
         <p>Heat, cold, sticky humidity, wind, showers, storms and thick cloud take points off. On hot days, a coastal town gets credit when the sea breeze (the Doctor) is due by early afternoon and stops the heat climbing.</p>
         <p>Inland, warm and still days carry a rough fly warning and lose a few points.</p>
-        <p>The tally averages each town's rating for the month or year. From today on it uses the morning forecast for each day; days before 9 November 2026 are scored the same way from archived computer-model weather.</p>
+        <p>The tally ranks towns by their ripper days (rated Bloody ripper) in the month or year, with the average rating breaking ties. The badge shows each town's average day. From today on it uses the morning forecast for each day; days before 9 November 2026 are scored the same way from archived computer-model weather.</p>
       </details>
     </div>
   </div>
@@ -650,17 +650,17 @@
       var days = Object.keys(H.days).filter(function (d) { return d.indexOf(pre) === 0 && d <= now; }).sort();
       var T = {};
       days.forEach(function (d) {
-        var day = H.days[d], names = Object.keys(day), best = null;
+        var day = H.days[d], names = Object.keys(day), hi = -1;
         names.forEach(function (n) {
           var t = T[n] = T[n] || { n: n, sum: 0, k: 0, top: 0, rip: 0 };
           t.sum += day[n][0]; t.k++; if (day[n][0] >= 85) t.rip++;
-          if (!best || day[n][0] > day[best][0]) best = n;
+          if (day[n][0] > hi) hi = day[n][0];
         });
-        if (best) T[best].top++;
+        names.forEach(function (n) { if (day[n][0] === hi) T[n].top++; });   // a shared best day counts for every town on top
       });
       var L = Object.keys(T).map(function (n) { var t = T[n]; t.avg = t.sum / t.k; return t; })
         .filter(function (t) { return t.k >= days.length * 0.6; })
-        .sort(function (a, b) { return b.avg - a.avg || b.top - a.top; });
+        .sort(function (a, b) { return b.rip - a.rip || b.avg - a.avg; });   // most ripper days first
       return { days: days, L: L };
     }
     function drawTally() {
@@ -669,11 +669,11 @@
       var TD = tallyData(tallyP), days = TD.days, L = TD.L.slice(0, PER ? 20 : 10);   // only towns with most of the days in (new towns join as they fill in)
       var mon = new Date(now + 'T12:00:00+08:00').toLocaleDateString('en-AU', { month: 'long', timeZone: 'Australia/Perth' });
       document.getElementById('tallyH').textContent = tallyP === 'm' ? 'Best towns in ' + mon : 'Best towns in ' + now.slice(0, 4);
-      document.getElementById('tallySub').textContent = days.length ? 'Average rating over ' + days.length + (days.length === 1 ? ' day' : ' days') + ', ' + dayShort(days[0]) + ' to ' + dayShort(days[days.length - 1]) : 'No days yet';
+      document.getElementById('tallySub').textContent = days.length ? 'Most ripper days over ' + days.length + (days.length === 1 ? ' day' : ' days') + ', ' + dayShort(days[0]) + ' to ' + dayShort(days[days.length - 1]) : 'No days yet';
       document.getElementById('tallyList').innerHTML = L.map(function (t, i) {
         var b = band(Math.round(t.avg)), bits = [];
-        if (t.top) bits.push('best in WA on ' + t.top + (t.top === 1 ? ' day' : ' days'));
         if (t.rip) bits.push(t.rip + (t.rip === 1 ? ' ripper day' : ' ripper days'));
+        if (t.top) bits.push('best in WA on ' + t.top + (t.top === 1 ? ' day' : ' days'));
         if (!bits.length) bits.push('steady all ' + (tallyP === 'm' ? 'month' : 'year'));
         return '<div class="trow" style="--bandc:var(' + b[2] + ')"><span class="rk">' + (i + 1) + '</span><span class="nm">' + esc(t.n)
           + '<small>' + bits.join(' · ') + '</small></span><span class="bd" title="Average score ' + Math.round(t.avg) + '">' + b[1] + '</span></div>';
