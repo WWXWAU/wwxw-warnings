@@ -1,6 +1,180 @@
 {
  "source": "Bureau of Meteorology (ftp.bom.gov.au/anon/gen/fwo)",
  "note": "Unofficial copy for West WX Watchers. Official warnings: www.bom.gov.au. Severe thunderstorm, severe weather, flood and frost areas are approximate, drawn around the locations named in each warning.",
- "warnings": [],
- "updated": "2026-11-24T21:21:00+00:00"
+ "warnings": [
+  {
+   "id": "IDW21033",
+   "product": "IDW21033",
+   "type": "Severe Thunderstorm Warning",
+   "status": "current",
+   "headline": "Severe Thunderstorm Warning for South Interior forecast district",
+   "sent": "2026-11-25T04:12:31+00:00",
+   "expires": "2026-11-25T07:12:26+00:00",
+   "hazards": [
+    "damaging winds",
+    "heavy rainfall",
+    "large hail"
+   ],
+   "districts": [
+    "South Interior"
+   ],
+   "towns": [
+    "Giles",
+    "Warburton"
+   ],
+   "townsPlaced": [
+    "Warburton"
+   ],
+   "description": "Severe thunderstorms are likely to produce damaging winds, large hailstones and heavy rainfall that may lead to flash flooding in the warning area over the next several hours. Locations which may be affected include Giles and Warburton.",
+   "areaSource": "image",
+   "area": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       126.242,
+       -26.571
+      ],
+      [
+       126.241,
+       -26.436
+      ],
+      [
+       126.299,
+       -26.369
+      ],
+      [
+       126.314,
+       -26.278
+      ],
+      [
+       126.333,
+       -26.251
+      ],
+      [
+       126.955,
+       -25.715
+      ],
+      [
+       127.569,
+       -25.269
+      ],
+      [
+       127.785,
+       -25.079
+      ],
+      [
+       127.928,
+       -24.901
+      ],
+      [
+       128.013,
+       -24.825
+      ],
+      [
+       128.192,
+       -24.774
+      ],
+      [
+       128.277,
+       -24.773
+      ],
+      [
+       128.344,
+       -24.752
+      ],
+      [
+       128.418,
+       -24.752
+      ],
+      [
+       128.483,
+       -24.773
+      ],
+      [
+       128.771,
+       -24.774
+      ],
+      [
+       128.804,
+       -24.794
+      ],
+      [
+       128.812,
+       -25.022
+      ],
+      [
+       128.79,
+       -25.102
+      ],
+      [
+       128.812,
+       -25.179
+      ],
+      [
+       128.809,
+       -26.052
+      ],
+      [
+       128.232,
+       -26.936
+      ],
+      [
+       128.133,
+       -27.068
+      ],
+      [
+       127.972,
+       -27.211
+      ],
+      [
+       127.632,
+       -27.341
+      ],
+      [
+       127.312,
+       -27.407
+      ],
+      [
+       127.065,
+       -27.407
+      ],
+      [
+       126.719,
+       -27.34
+      ],
+      [
+       126.668,
+       -27.316
+      ],
+      [
+       126.51,
+       -27.176
+      ],
+      [
+       126.408,
+       -27.019
+      ],
+      [
+       126.288,
+       -26.741
+      ],
+      [
+       126.242,
+       -26.571
+      ]
+     ]
+    ]
+   },
+   "bomUrl": "https://www.bom.gov.au/products/IDW21033.shtml",
+   "image": "img/IDW21041.png",
+   "people": 608,
+   "peopleTowns": [
+    "Warburton"
+   ],
+   "post": "img/IDW21033-202611250412-post.png",
+   "story": "img/IDW21033-202611250412-story.png"
+  }
+ ],
+ "updated": "2026-11-25T04:14:08+00:00"
 }
