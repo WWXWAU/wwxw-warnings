@@ -186,29 +186,54 @@ def day_name(d, i):
     return 'today' if i == 0 else 'tomorrow' if i == 1 else 'on ' + dt.date.fromisoformat(d).strftime('%A')
 
 
-def setup_words(syn, south, d_i):
-    """Our own plain-English take on the weather pattern (never quoting the source)."""
-    low = syn.lower(); said = []
+def region_of(lat, lng):
+    """A rough WA region name for a town, for the write-up."""
+    if lat > -20: return 'the Kimberley'
+    if lat > -26: return 'the Pilbara' if lng < 122 else 'the interior'
+    if lng >= 121: return 'the Goldfields' if lat > -33 else 'the south-east'
+    if lat > -30.5: return 'the Midwest'
+    if lng < 116.3 and lat > -32.8: return 'the Perth area'
+    if lat < -34: return 'the south coast'
+    return 'the south-west' if lng < 117.5 else 'the Wheatbelt'
+
+
+def setup_words(syn, pick, d_i):
+    """Our own plain-English take on the weather pattern (never quoting the source), tied to where the pick town is."""
+    low = syn.lower()
     sent = [x.strip() for x in re.split(r'(?<=\.)\s+', low) if x.strip()]
     def has(*w): return any(all(k in x for k in w) for x in sent)
-    if has('cold front') or has('front'):
-        said.append('a cold front brings cooler, showery weather to the south' + ('' if d_i == 0 else ' at some stage'))
-    if has('ridge') or has('high'):
-        said.append('high pressure is building over the south-west, which means settled, dry air and mostly light winds')
-    if has('trough', 'eastern') or has('trough', 'interior') or has('trough', 'inland'):
-        said.append('an inland trough sits further east, where it is hotter and more unsettled')
-    if has('west coast trough'):
-        said.append('a west coast trough is on the way, which usually means hotter days with easterly winds near the coast')
-    if has('low pressure', 'pilbara') or has('low pressure', 'north') or has('low', 'kimberley'):
-        said.append('low pressure over the north keeps it hot, humid and stormy up there')
-    if not said: return []
-    said = said[:3]
-    txt = 'The set-up: ' + '; '.join(said) + '.'
-    if south and 'high pressure' in txt:
-        txt += ' That is exactly what makes the south the place to be.'
-    elif not south and 'north' in txt:
-        txt += ' The pick spots sit clear of the worst of it.'
-    return [txt]
+    lat, lng = pick.get('lat', -30), pick.get('lng', 117)
+    high = has('ridge') or has('high')
+    front = has('cold front') or has('front')
+    trough = has('trough', 'eastern') or has('trough', 'interior') or has('trough', 'inland')
+    wct = has('west coast trough')
+    north_low = has('low pressure', 'pilbara') or has('low pressure', 'north') or has('low', 'kimberley')
+    lead, rest = None, []
+    if high: lead = 'high pressure over the south-west is keeping things settled and dry, with mostly light winds'
+    if front: rest.append('a cold front brings a few showers to the far south' + ('' if d_i == 0 else ' at some stage'))
+    if trough: rest.append('an inland trough keeps the interior hotter and more unsettled')
+    if wct: rest.append('a west coast trough brings hotter days and easterly winds near the coast')
+    if north_low: rest.append('low pressure keeps the north hot, humid and stormy')
+    if not lead and not rest: return []
+    parts = ([lead] if lead else []) + rest
+    if len(parts) == 1: txt = parts[0]
+    elif lead: txt = lead + ', while ' + ' and '.join(rest[:2])
+    else: txt = ', '.join(rest[:-1]) + ' and ' + rest[-1]
+    out = 'The set-up: ' + txt + '.'
+    under_high = high and lat < -26 and lng < 121 and not (front and lat < -34)
+    if under_high: out += ' %s sits under the high, which is why %s comes out on top.' % (region_of(lat, lng)[0].upper() + region_of(lat, lng)[1:], pick['n'])
+    elif north_low and lat < -22: out += ' %s is well clear of the stormy north.' % pick['n']
+    return [out]
+
+
+def precis_phrase(p):
+    """BoM's short forecast as words in a sentence: 'Shower or two. Possible storm.' -> 'a shower or two, maybe a storm'."""
+    parts = [x.strip().lower() for x in re.split(r'\.\s*', p or '') if x.strip()]
+    fix = {'shower or two': 'a shower or two', 'storm': 'a storm', 'possible storm': 'maybe a storm', 'possible shower': 'maybe a shower',
+           'showers': 'showers', 'rain': 'rain', 'thunderstorm': 'a thunderstorm', 'possible thunderstorm': 'maybe a thunderstorm',
+           'possible storm later': 'maybe a storm later', 'showers easing': 'showers easing'}
+    parts = [fix.get(x, x) for x in parts]
+    return ', '.join(parts)
 
 
 def brief(towns, d_i, d, synoptic):
@@ -225,8 +250,8 @@ def brief(towns, d_i, d, synoptic):
         out.append('%s is the pick of WA %s: %s, %d° with %s.' % (a['n'], day_name(d, d_i), sky, ra['tmax'], wind_words(ra['wind'])))
         rest = R[1:4]
     behind = '%s, %s and %s are not far behind.' % tuple(t['n'] for t in rest)
-    if synoptic and d_i <= 2:
-        out += setup_words(' '.join(synoptic), a.get('lat', -30) < -28, d_i)
+    if synoptic and d_i <= 1:   # the Bureau's situation is about now: only for today and tomorrow
+        out += setup_words(' '.join(synoptic), a, d_i)
     out.append(behind)
     doc = [t for t in R[:8] if t['days'][d_i]['doctor']]
     if doc:
@@ -236,11 +261,11 @@ def brief(towns, d_i, d, synoptic):
     worst = R[-1]; rw = worst['days'][d_i]; why = []
     if rw['tmax'] >= 36: why.append('%d° heat' % rw['tmax'])
     if 'Sticky' in rw['notes']: why.append('sticky air')
-    if rw['icon'] in ('storm', 'rain') and rw.get('precis'): why.append(rw['precis'].rstrip('.').lower())
+    if rw['icon'] in ('storm', 'rain') and rw.get('precis'): why.append(precis_phrase(rw['precis']))
     if 'Windy' in rw['notes']: why.append('strong winds')
     if rw['tmax'] < 18: why.append('a cool %d°' % rw['tmax'])
     if why:
-        out.append('Least appealing: %s, with %s.' % (worst['n'], ' and '.join(why[:2])))
+        out.append('Least appealing: %s, with %s.' % (worst['n'], ' and '.join(why[:2])))   # e.g. "40° heat and a shower or two, maybe a storm"
     return ' '.join(out)
 
 
