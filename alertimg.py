@@ -77,6 +77,12 @@ def rivers(lo, la):
     return out
 
 
+def hm(iso):   # a reading's time (AWST), e.g. 12:40 pm; None if not given
+    if not iso: return None
+    t = dt.datetime.fromisoformat(iso.replace('Z', '+00:00')).astimezone(dt.timezone(dt.timedelta(hours=8)))
+    return t.strftime('%-I:%M %p').replace('AM', 'am').replace('PM', 'pm')
+
+
 def render(a, story_path, post_path, style='light'):
     col, title, todo = KIND.get(a['kind'], KIND['rain'])
     th = W.DARK
@@ -91,7 +97,7 @@ def render(a, story_path, post_path, style='light'):
             '_near': nearby([lo[0] - 1.5, lo[1] + 1.5], [la[0] - 1.5, la[1] + 1.5], pts),
             '_lines': rivers([lo[0] - 2, lo[1] + 2], [la[0] - 2, la[1] + 2]),
             '_marks': [{'lat': i['lat'], 'lng': i['lng'], 'col': col, 'name': i['name'],
-                        'label': val(i['vals'][0]) + (' in ' + i['vals'][0]['label'] if a['kind'] == 'rain' else ' gust'), 'when': at}
+                        'label': val(i['vals'][0]) + (' in ' + i['vals'][0]['label'] if a['kind'] == 'rain' else ' gust'), 'when': hm(i.get('at')) or at}
                        for i in items if i.get('lat') is not None]}
     sub = when(a['time'])
 
