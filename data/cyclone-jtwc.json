@@ -1,19 +1,19 @@
 {
- "updated": "2026-11-26T13:56Z",
+ "updated": "2026-11-26T17:44Z",
  "source": "Joint Typhoon Warning Center (metoc.navy.mil/jtwc)",
  "storms": [],
  "invests": [
   {
    "id": "97S",
-   "lat": -9.3,
-   "lng": 67.4,
+   "lat": -9.2,
+   "lng": 67.3,
    "chance": "medium",
    "kt": [
     23,
     28
    ],
    "hpa": 1007,
-   "text": "PREVIOUSLY LOCATED NEAR 8.7S 68.6E IS NOW LOCATED NEAR 9.3S 67.4E, APPROXIMATELY 324 NM WEST- SOUTHWEST OF DIEGO GARCIA. ANIMATED MULTISPECTRAL SATELLITE IMAGERY DEPICTS A SLOWLY CONSOLIDATING SYSTEM WITH FLARING CONVECTION NEAR THE CENTER. A 260440Z METOP-B ASCAT PASS REVEALED AN ELONGATED CIRCULATION WITH ELEVATED WINDS (20-25 KTS) WRAPPING AROUND THE NORTHEASTERN AND SOUTHERN PERIPHERIES. ENVIRONMENTAL ANALYSIS REVEALS A FAVORABLE ENVIRONMENT WITH WARM SEA SURFACE TEMPERATURES (SST) OF 29-30 C, LOW TO MODERATE VERTICAL WIND SHEAR OF 15-20 KTS AND MODERATE POLEWARD OUTFLOW. GLOBAL MODELS REMAIN CONSERVATIVE, SHOWING MARGINAL DEVELOPMENT OVER THE NEXT 24-48 HOURS AS THE SYSTEM TRACKS GENERALLY SOUTHWESTWARD. MAXIMUM SUSTAINED SURFACE WINDS ARE ESTIMATED AT 23 TO 28 KNOTS. MINIMUM SEA LEVEL PRESSURE IS ESTIMATED TO BE NEAR 1007 MB. THE POTENTIAL FOR THE DEVELOPMENT OF A SIGNIFICANT TROPICAL CYCLONE WITHIN THE NEXT 24 HOURS REMAINS MEDIUM.",
+   "text": "PREVIOUSLY LOCATED NEAR 8.7S 68.6E IS NOW LOCATED NEAR 9.2S 67.3E, APPROXIMATELY 324 NM WEST- SOUTHWEST OF DIEGO GARCIA. ANIMATED ENHANCED INFRARED(EIR) SATELLITE IMAGERY DEPICTS A SLOWLY CONSOLIDATING SYSTEM WITH FLARING CONVECTION NEAR THE CENTER. A 260440Z METOP-B ASCAT PASS REVEALED AN ELONGATED CIRCULATION WITH ELEVATED WINDS (20-25 KTS) WRAPPING AROUND THE NORTHEASTERN AND SOUTHERN PERIPHERIES. ENVIRONMENTAL ANALYSIS REVEALS A FAVORABLE ENVIRONMENT WITH WARM SEA SURFACE TEMPERATURES (SST) OF 29-30 C, LOW TO MODERATE VERTICAL WIND SHEAR OF 15-20 KTS, AND MODERATE POLEWARD OUTFLOW. GLOBAL MODELS REMAIN CONSERVATIVE, SHOWING MARGINAL DEVELOPMENT OVER THE NEXT 24-48 HOURS AS THE SYSTEM TRACKS GENERALLY SOUTHWESTWARD. MAXIMUM SUSTAINED SURFACE WINDS ARE ESTIMATED AT 23 TO 28 KNOTS. MINIMUM SEA LEVEL PRESSURE IS ESTIMATED TO BE NEAR 1007 MB. THE POTENTIAL FOR THE DEVELOPMENT OF A SIGNIFICANT TROPICAL CYCLONE WITHIN THE NEXT 24 HOURS IS MEDIUM.",
    "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt",
    "past": [
     {
@@ -148,186 +148,6 @@
      "lat": -14.4,
      "lng": 62.6,
      "n": 23
-    }
-   ]
-  },
-  {
-   "id": "98S",
-   "lat": -11.0,
-   "lng": 70.0,
-   "chance": "",
-   "kt": null,
-   "hpa": null,
-   "text": "PREVIOUSLY LOCATED NEAR 11.0S 70.0E HAS DISSIPATED AND IS NO LONGER SUSPECT FOR THE DEVELOPMENT OF A SIGNIFICANT TROPICAL CYCLONE IN THE NEXT 24 HOURS.",
-   "src": "https://www.metoc.navy.mil/jtwc/products/abioweb.txt",
-   "past": [
-    {
-     "t": "2026-11-22T06:00:00Z",
-     "lat": -6.7,
-     "lng": 76.1,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-22T12:00:00Z",
-     "lat": -6.9,
-     "lng": 76.7,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-22T18:00:00Z",
-     "lat": -7.3,
-     "lng": 76.4,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-23T00:00:00Z",
-     "lat": -7.6,
-     "lng": 76.8,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-23T06:00:00Z",
-     "lat": -8.1,
-     "lng": 77.6,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-23T12:00:00Z",
-     "lat": -8.3,
-     "lng": 77.7,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-23T18:00:00Z",
-     "lat": -8.9,
-     "lng": 77.8,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-24T00:00:00Z",
-     "lat": -10.0,
-     "lng": 76.8,
-     "kt": 30
-    },
-    {
-     "t": "2026-11-24T06:00:00Z",
-     "lat": -9.1,
-     "lng": 78.3,
-     "kt": 30
-    },
-    {
-     "t": "2026-11-24T12:00:00Z",
-     "lat": -9.8,
-     "lng": 78.7,
-     "kt": 30
-    },
-    {
-     "t": "2026-11-24T18:00:00Z",
-     "lat": -10.3,
-     "lng": 78.7,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-25T00:00:00Z",
-     "lat": -10.9,
-     "lng": 78.2,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-25T06:00:00Z",
-     "lat": -11.0,
-     "lng": 77.8,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-25T12:00:00Z",
-     "lat": -11.3,
-     "lng": 78.0,
-     "kt": 25
-    },
-    {
-     "t": "2026-11-25T18:00:00Z",
-     "lat": -11.2,
-     "lng": 77.9,
-     "kt": 30
-    },
-    {
-     "t": "2026-11-26T00:00:00Z",
-     "lat": -11.6,
-     "lng": 77.4,
-     "kt": 25
-    }
-   ],
-   "models": [
-    {
-     "t": "2026-11-26T06:00:00Z",
-     "h": 0,
-     "lat": -12.5,
-     "lng": 75.7,
-     "n": 31
-    },
-    {
-     "t": "2026-11-26T18:00:00Z",
-     "h": 12,
-     "lat": -13.2,
-     "lng": 74.3,
-     "n": 30
-    },
-    {
-     "t": "2026-11-27T06:00:00Z",
-     "h": 24,
-     "lat": -13.8,
-     "lng": 72.2,
-     "n": 29
-    },
-    {
-     "t": "2026-11-27T18:00:00Z",
-     "h": 36,
-     "lat": -14.6,
-     "lng": 70.1,
-     "n": 22
-    },
-    {
-     "t": "2026-11-28T06:00:00Z",
-     "h": 48,
-     "lat": -14.2,
-     "lng": 66.7,
-     "n": 9
-    },
-    {
-     "t": "2026-11-28T18:00:00Z",
-     "h": 60,
-     "lat": -13.1,
-     "lng": 67.3,
-     "n": 3
-    },
-    {
-     "t": "2026-11-29T06:00:00Z",
-     "h": 72,
-     "lat": -12.9,
-     "lng": 65.9,
-     "n": 3
-    },
-    {
-     "t": "2026-11-29T18:00:00Z",
-     "h": 84,
-     "lat": -13.1,
-     "lng": 64.3,
-     "n": 3
-    },
-    {
-     "t": "2026-11-30T06:00:00Z",
-     "h": 96,
-     "lat": -13.5,
-     "lng": 63.3,
-     "n": 3
-    },
-    {
-     "t": "2026-11-30T18:00:00Z",
-     "h": 108,
-     "lat": -13.6,
-     "lng": 62.4,
-     "n": 3
     }
    ]
   }
