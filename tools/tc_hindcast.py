@@ -10,7 +10,7 @@ Scoring (as Cyclones.gs cyVerifyScore_): great-circle error at 24-120 h; ensembl
 when at least 5 members; JTWC's official forecast as OFF; region from the storm's first best-track position.
 Output: cy-skill-seed.json in the live record's layout { region: { key: { lead: [n, sum km] } } } and tc-hindcast.md.
 Strength (Nov 2026): each forecast's maximum wind (kt, 1-minute, a-deck column 9) against JTWC's best-track wind
-(IBTrACS USA_WIND) at the same lead, into cy-int-seed.json { region: { key: { lead: [n, sum |error|, sum error] } } }
+(IBTrACS USA_WIND) at the same lead, into cy-int-seed.json { region: { key: { lead: [n, sum |error|, sum error, sum error^2] } } }
 (error = forecast minus actual: below zero = too weak). Only where the storm was 35 kt+ or the forecast had it so.
 """
 import csv, io, json, math, os, re, sys, time, urllib.request, datetime as dt
@@ -181,8 +181,8 @@ def main():
                 tL = t0 + dt.timedelta(hours=L)
                 w = bw_at(sid, tL)
                 if q[2] and w and (w >= 35 or q[2] >= 35):   # strength
-                    ci = RI.setdefault(key, {}).setdefault(str(L), [0, 0, 0])
-                    ci[0] += 1; ci[1] += round(abs(q[2] - w)); ci[2] += round(q[2] - w)
+                    ci = RI.setdefault(key, {}).setdefault(str(L), [0, 0, 0, 0])
+                    ci[0] += 1; ci[1] += round(abs(q[2] - w)); ci[2] += round(q[2] - w); ci[3] += round((q[2] - w) ** 2)
                 if re.match(r'^CHP\d$', key): continue   # CHIPS runs 2-7 repeat CHIP's track
                 b = bt_at(trk, tL)
                 if not b: continue
@@ -209,10 +209,12 @@ def main():
         R = KI.get(rg)
         if not R: continue
         rows = [(k, D) for k, D in R.items() if D.get('72', [0])[0] >= 10]
-        rows.sort(key=lambda x: x[1]['72'][1] / x[1]['72'][0])
-        md += ['## ' + names[rg], '', '| Model | 24 h | 48 h | 72 h | 96 h | 120 h |', '|---|---|---|---|---|---|']
+        sd = lambda c: math.sqrt(max(0, c[3] / c[0] - (c[2] / c[0]) ** 2))   # error spread once the bias is taken off
+        rows.sort(key=lambda x: sd(x[1]['72']))
+        md += ['## ' + names[rg], '', 'Each cell: mean |error| (bias) [error once its bias is removed] (forecasts)', '',
+               '| Model | 24 h | 48 h | 72 h | 96 h | 120 h |', '|---|---|---|---|---|---|']
         for k, D in rows[:40]:
-            md.append('| ' + k + ' | ' + ' | '.join(('%d (%+d) (%d)' % (round(D[str(L)][1] / D[str(L)][0]), round(D[str(L)][2] / D[str(L)][0]), D[str(L)][0])) if str(L) in D else '-' for L in LEADS) + ' |')
+            md.append('| ' + k + ' | ' + ' | '.join(('%d (%+d) [%d] (%d)' % (round(D[str(L)][1] / D[str(L)][0]), round(D[str(L)][2] / D[str(L)][0]), round(sd(D[str(L)])), D[str(L)][0])) if str(L) in D else '-' for L in LEADS) + ' |')
         md.append('')
     md.append('Fetch stats: ' + json.dumps(dict(stat)))
     open(os.path.join(OUT, 'tc-hindcast.md'), 'w').write('\n'.join(md))
