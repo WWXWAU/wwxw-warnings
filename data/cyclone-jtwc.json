@@ -1,5 +1,5 @@
 {
- "updated": "2026-11-26T18:59Z",
+ "updated": "2026-11-26T19:52Z",
  "source": "Joint Typhoon Warning Center (metoc.navy.mil/jtwc)",
  "storms": [],
  "invests": [
@@ -69,6 +69,12 @@
      "lat": -9.2,
      "lng": 67.4,
      "kt": 25
+    },
+    {
+     "t": "2026-11-26T18:00:00Z",
+     "lat": -9.4,
+     "lng": 66.8,
+     "kt": 30
     }
    ],
    "models": [
