@@ -241,20 +241,28 @@
     function sample1(f, g, lng, lat) {   // bilinear, NaN-aware
       var fx = (lng - g.lng0) / g.d, fy = (lat - g.lat0) / g.d;
       if (fx < 0 || fy < 0 || fx > g.nx - 1 || fy > g.ny - 1) return NaN;
-      var i0 = Math.min(g.nx - 2, Math.floor(fx)), j0 = Math.min(g.ny - 2, Math.floor(fy)), ax = fx - i0, ay = fy - j0, s = 0, w = 0;
-      [[i0, j0, (1 - ax) * (1 - ay)], [i0 + 1, j0, ax * (1 - ay)], [i0, j0 + 1, (1 - ax) * ay], [i0 + 1, j0 + 1, ax * ay]].forEach(function (p) {
-        var v = f[p[1] * g.nx + p[0]]; if (!isNaN(v) && p[2] > 0) { s += v * p[2]; w += p[2]; } });
+      var i0 = Math.min(g.nx - 2, Math.floor(fx)), j0 = Math.min(g.ny - 2, Math.floor(fy)), ax = fx - i0, ay = fy - j0, s = 0, w = 0, q = j0 * g.nx + i0, v, k;
+      v = f[q]; k = (1 - ax) * (1 - ay); if (v === v && k > 0) { s += v * k; w += k; }
+      v = f[q + 1]; k = ax * (1 - ay); if (v === v && k > 0) { s += v * k; w += k; }
+      v = f[q + g.nx]; k = (1 - ax) * ay; if (v === v && k > 0) { s += v * k; w += k; }
+      v = f[q + g.nx + 1]; k = ax * ay; if (v === v && k > 0) { s += v * k; w += k; }
       return w > 0.05 ? s / w : NaN;
     }
 
     // ---- the picture: a canvas in Web Mercator rows, laid over the map
-    var BOX = null, CW = 620, CH = 0;
+    // Drawn for the part of the map on screen, at about screen resolution, so band edges stay smooth when zoomed in
+    var BOX = null;
     function merc(lat) { return Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)); }
     function imerc(y) { return (2 * Math.atan(Math.exp(y)) - Math.PI / 2) * 180 / Math.PI; }
     function render() {
       var g = A.grid, w = g.lng0, e = g.lng0 + (g.nx - 1) * g.d, s = g.lat0, n = g.lat0 + (g.ny - 1) * g.d;
-      var yN = merc(n), yS = merc(s);
-      if (!CH) CH = Math.round(CW * (yN - yS) / ((e - w) * Math.PI / 180));
+      var vb = map.getBounds(), px0 = (vb.getEast() - vb.getWest()) * 0.08, py0 = (vb.getNorth() - vb.getSouth()) * 0.08;
+      w = Math.max(w, vb.getWest() - px0); e = Math.min(e, vb.getEast() + px0); s = Math.max(s, vb.getSouth() - py0); n = Math.min(n, vb.getNorth() + py0);
+      if (e - w < 0.05 || n - s < 0.05) { w = g.lng0; e = w + 0.1; s = g.lat0; n = s + 0.1; }
+      var yN = merc(n), yS = merc(s), el = map.getContainer();
+      var sx = (e - w) / Math.max(1e-6, vb.getEast() - vb.getWest()), sy = (yN - yS) / Math.max(1e-6, merc(vb.getNorth()) - merc(vb.getSouth()));
+      var q = Math.min(1.5, window.devicePixelRatio || 1);
+      var CW = Math.max(40, Math.min(1800, Math.round(el.clientWidth * sx * q))), CH = Math.max(40, Math.min(1800, Math.round(el.clientHeight * sy * q)));
       BOX = [[w, n], [e, n], [e, s], [w, s]];
       var cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
       var cx = cv.getContext('2d'), img = cx.createImageData(CW, CH), px = img.data;
@@ -279,6 +287,11 @@
       }
       cx.putImageData(img, 0, 0);
       return cv.toDataURL();
+    }
+    function drawField() {
+      if (!A || !map || !ready) return;
+      var url = render(), src = map.getSource('fld');
+      if (src) src.updateImage({ url: url, coordinates: BOX });
     }
     function draw() {
       if (!A || !map || !ready) return;
@@ -453,6 +466,7 @@
           popAt(e.lngLat.lng, e.lngLat.lat);
         });
         ready = true; draw();
+        map.on('moveend', drawField);
         choose(116.67, -31.65, 'Northam');
         var sel = document.getElementById('townSel');
         sel.innerHTML += TOWNS.map(function (t, i) { return '<option value="' + i + '">' + esc(t[0]) + '</option>'; }).join('');

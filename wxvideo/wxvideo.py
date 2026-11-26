@@ -4,7 +4,7 @@ West WX Watchers — weather story video (1080x1920, 30 fps): rain, max/min/curr
 Light "contour map" look in the website's colours: banded colour areas with thin edges, white cards for the
 title, labels, top list and key, and the logo in its own colours.
 
-  python3 wxvideo.py data.json out.mp4 [--caption "..."] [--regions 0-5] [--top 3-10] [--logo logo.png]
+  python3 wxvideo.py data.json out.mp4 [--caption "..."] [--regions 0-5] [--top 3-10] [--logo logo.png] [--style map|3d]
 
 data.json (VideoMaker.gs in the rainfall project):
   {"kind": "rain"|"tmax"|"tmin"|"temp"|"gust", "title": "...", "sub": "...", "src": "BoM, DPIRD",
@@ -215,6 +215,9 @@ def build_base(gauges, states):
     ys = np.array([lat_of(Y0 + j * q) for j in range(gh)])
     LNG, LAT = np.meshgrid(xs, ys)
     val, dmin = field_values(gauges, LNG, LAT)
+    mk = np.array(mask, dtype=np.uint8)
+    mj = np.clip(Y0 + np.arange(gh) * q, 0, BH - 1); mi = np.clip(X0 + np.arange(gw) * q, 0, BW - 1)
+    HF.update(val=val, m=(mk[np.ix_(mj, mi)] > 127).astype(np.float32), X0=X0, Y0=Y0, q=q)
     from scipy.ndimage import map_coordinates
     jj, ii = np.mgrid[0:Y1 - Y0, 0:X1 - X0].astype(np.float32) / q
     V = map_coordinates(val, [jj, ii], order=1)
@@ -328,14 +331,24 @@ def draw_gauges(dr, proj, gauges, r=4):
         if -10 < x < W + 10 and -10 < y < H + 10:
             dr.ellipse([x - r, y - r, x + r, y + r], fill=(70, 92, 100), outline=(255, 255, 255), width=1)
 
-def draw_label(img, proj, g, pop, taken=None):
+def count_from():
+    """Where the numbers start counting from: rain from 0, others from the middle of the pack (up to highs, down to lows)."""
+    if 'c0' not in K:
+        vs = sorted(x['v'] for x in STATIONS) or [0]
+        K['c0'] = 0.0 if K['floor'] is not None and not K.get('smooth') else vs[len(vs) // 2]
+    return K['c0']
+def counted(v, t):
+    return v if t is None else lerp(count_from(), v, 1 - (1 - max(0.0, min(1.0, t))) ** 3)
+
+def draw_label(img, proj, g, pop, taken=None, count=None):
     if pop <= 0: return
     dr = ImageDraw.Draw(img)
     x, y = proj(g['lat'], g['lng'])
     s = 0.6 + 0.4 * ease(pop)
     fv, fn = font(700, int(50 * s)), font(500, int(23 * s))
-    name, val = label_name(g), K['fmt'](g['v'])
-    w = max(dr.textlength(val, font=fv), dr.textlength(name, font=fn)) + 40 * s
+    name, val = label_name(g), K['fmt'](counted(g['v'], count))
+    vfull = K['fmt'](g['v'])
+    w = max(dr.textlength(vfull, font=fv) + 10 * s, dr.textlength(name, font=fn)) + 40 * s
     h = 96 * s; bx, by = x - w / 2, y - 30 * s - h
     below = False
     if taken is not None:
@@ -408,9 +421,178 @@ def summary_card(img, rows, badge, t):
         nm = label_name(g)
         while dr.textlength(nm, font=fn) > 560 and len(nm) > 6: nm = nm[:-1]
         dr.text((140 + dx, cy), nm, font=fn, fill=TEXT, anchor='lm')
-        dr.text((W - 84 + dx, cy), K['fmt'](g['v']), font=fv, fill=ACCENT, anchor='rm')
+        dr.text((W - 84 + dx, cy), K['fmt'](counted(g['v'], (t - 0.2 - 0.12 * k) / 0.9)), font=fv, fill=ACCENT, anchor='rm')
     if t > 0.4 + 0.12 * n:
         text_box(dr, (60, y0 + 76 + n * rh + 6), badge, font(600, 28), ON_ACCENT, ACCENT, pad=(20, 9))
+
+# ---------------------------------------------------------------- 3D flyover (terrain)
+# The colour map raised into a landscape: hills where the story is (wetter, hotter, or colder when the story is the
+# lowest), lit from the north-west, with haze in the distance. Drawn column by column ("voxel space"): for every
+# screen column we step away from the camera over the height grid and paint whatever rises above what's drawn so far.
+SKY_TOP, SKY_LOW, HAZE = (186, 214, 228), (228, 239, 242), (224, 236, 239)
+HF = {}          # height-field grid from build_base: val (coarse values), m (inside the coloured area), X0, Y0, q
+HFOV = math.radians(34)
+FOC = (W / 2) / math.tan(HFOV / 2)
+
+class Cam3:
+    def __init__(self, lat, lng, span, tilt=40.0, head=0.0): self.lat, self.lng, self.span, self.tilt, self.head = lat, lng, span, tilt, head
+def cam3_mix(a, b, t):
+    t = ease(t)
+    return Cam3(lerp(a.lat, b.lat, t), lerp(a.lng, b.lng, t), math.exp(lerp(math.log(a.span), math.log(b.span), t)),
+                lerp(a.tilt, b.tilt, t), lerp(a.head, b.head, t))
+
+def story_norm(v):
+    """0..1 for how far along the story each value is (1 = the wettest / hottest / coldest end)."""
+    vs = np.array([g['v'] for g in STATIONS])
+    if K['floor'] is not None and not K.get('smooth'):
+        hi = max(vs.max(), 1.0)
+        return np.sqrt(np.clip(v, 0, None) / hi)
+    if K['order'] == 1: lo, hi = vs.min(), np.percentile(vs, 92); p = (hi - v) / max(hi - lo, 1e-6)
+    else: lo, hi = np.percentile(vs, 8), vs.max(); p = (v - lo) / max(hi - lo, 1e-6)
+    return np.clip(p, 0, 1)
+
+STATIONS = []
+def build_terrain(full):
+    from scipy.ndimage import gaussian_filter
+    val, m = HF['val'], HF['m']
+    p = story_norm(np.nan_to_num(val, nan=0.0))
+    if K['floor'] is not None and not K.get('smooth'): p = np.where(val >= 0.2, p, 0)
+    hmax = full.span * PPD * 0.075
+    hgt = gaussian_filter((0.04 + 0.96 * p) * gaussian_filter(m, 1.5) * hmax, 4.5).astype(np.float32)
+    gy, gx = np.gradient(hgt, HF['q'])
+    nx, ny, nz = -gx * 1.6, -gy * 1.6, np.ones_like(hgt)      # a little extra relief for the shading
+    L = np.array([-0.55, -0.6, 0.58]); L /= np.linalg.norm(L)  # light from the north-west (image y runs south)
+    sh = (nx * L[0] + ny * L[1] + nz * L[2]) / np.sqrt(nx ** 2 + ny ** 2 + nz ** 2)
+    shade = np.clip(1 + 1.1 * (sh - L[2]), 0.6, 1.2).astype(np.float32)   # flat ground = 1 (unchanged)
+    return hgt, shade
+
+def terrain_frame(levels, hgt, shade, c, full, grow):
+    """One frame: for every screen column, walk the ground from near (below the frame) to far (the top row) along the
+    line that column sees, lift each point by the terrain, and paint the pixels it rises above."""
+    from scipy.ndimage import map_coordinates
+    X0, Y0, q = HF['X0'], HF['Y0'], HF['q']
+    tx, ty = to_px(c.lat, c.lng); ty = -ty                       # world: x east, y north (base-map pixels), z up
+    D = c.span * PPD / 2 / math.tan(HFOV / 2)
+    tl, hd = math.radians(c.tilt), math.radians(c.head)
+    fh = (math.sin(hd), math.cos(hd))
+    C = np.array([tx - D * math.sin(tl) * fh[0], ty - D * math.sin(tl) * fh[1], D * math.cos(tl)])
+    f = (np.array([tx, ty, 0.0]) - C) / D
+    r = np.array([math.cos(hd), -math.sin(hd), 0.0]); u = np.cross(r, f)
+    sc = grow * min(1.0, (c.span / (1.1 * full.span)) ** 0.7)
+    S = 720
+    rows = np.linspace(H * 1.45, 0, S, dtype=np.float32)[:, None]   # near (below the frame) to far (top row)
+    kc = ((np.arange(W, dtype=np.float32) - W / 2 + 0.5) / FOC)[None, :]
+    kr = (rows - H / 2) / FOC
+    dz = f[2] - kr * u[2]                                          # (S,1): ray's vertical component (r has none)
+    ok = dz < -1e-4
+    tt = np.where(ok, -C[2] / np.minimum(dz, -1e-4), 0)
+    dx = f[0] + kc * r[0] - kr * u[0]; dy = f[1] + kc * r[1] - kr * u[1]
+    GX = C[0] + tt * dx; GY = C[1] + tt * dy                       # ground point seen by each (row, column)
+    px, py = GX, -GY                                               # base-map pixels
+    gi, gj = (px - X0) / q, (py - Y0) / q
+    z = map_coordinates(hgt, [gj, gi], order=1, mode='constant', cval=0.0) * sc
+    vx, vy, vz = GX - C[0], GY - C[1], z - C[2]
+    zc = vx * f[0] + vy * f[1] + vz * f[2]
+    yc = vx * u[0] + vy * u[1] + vz * u[2]
+    Y = np.where(ok, H / 2 - FOC * yc / np.maximum(zc, 1.0), np.inf).astype(np.float32)
+    M = np.minimum.accumulate(Y, axis=0)
+    dist = (tt * np.sqrt(dx ** 2 + dy ** 2 + dz ** 2)).astype(np.float32)
+    col = np.empty((S, W, 3), np.float32); col[:] = HAZE
+    lev = np.clip(np.floor(np.log2(np.maximum(dist / FOC, 1e-6))), 0, len(levels) - 1).astype(int)
+    lev = np.where(ok, lev, -1)
+    for L in np.unique(lev):
+        if L < 0: continue
+        sel = lev == L; arr = levels[L]; fL = 2 ** L
+        x = px[sel] / fL - 0.5; y = py[sel] / fL - 0.5
+        x0 = np.clip(np.floor(x).astype(np.int64), 0, arr.shape[1] - 2); y0 = np.clip(np.floor(y).astype(np.int64), 0, arr.shape[0] - 2)
+        ax = np.clip(x - x0, 0, 1)[:, None]; ay = np.clip(y - y0, 0, 1)[:, None]
+        out = (arr[y0, x0] * (1 - ax) * (1 - ay) + arr[y0, x0 + 1] * ax * (1 - ay) + arr[y0 + 1, x0] * (1 - ax) * ay + arr[y0 + 1, x0 + 1] * ax * ay)
+        out[(x < 0) | (y < 0) | (x > arr.shape[1] - 1) | (y > arr.shape[0] - 1)] = SEA
+        col[sel] = out
+    s = map_coordinates(shade, [gj, gi], order=1, mode='constant', cval=1.0)
+    col *= (1 + (s - 1) * min(1.0, grow * 1.2))[..., None]
+    hz = np.clip((dist - 1.2 * D) / (2.6 * D), 0, 0.82)[..., None]
+    col = np.clip(col * (1 - hz) + np.array(HAZE, np.float32) * hz, 0, 255).astype(np.uint8)
+    rq = -np.arange(H, dtype=np.float32); negM = -M
+    idx = np.empty((H, W), np.int32)
+    for c_ in range(W): idx[:, c_] = np.searchsorted(negM[:, c_], rq, side='left')
+    pad = np.concatenate([col, np.zeros((1, W, 3), np.uint8)], 0)
+    img = pad[idx, np.arange(W)[None, :]]
+    skym = idx >= S
+    if skym.any():
+        tsk = np.clip(np.arange(H, dtype=np.float32) / (H * 0.35), 0, 1)[:, None, None]
+        sky = (np.array(SKY_TOP, np.float32) * (1 - tsk) + np.array(SKY_LOW, np.float32) * tsk).astype(np.uint8)
+        img[skym] = np.broadcast_to(sky, (H, W, 3))[skym]
+    frame = Image.fromarray(img, 'RGB')
+    def proj(lat, lng):
+        x, y = to_px(lat, lng)
+        zz = map_coordinates(hgt, [[(y - Y0) / q], [(x - X0) / q]], order=1, mode='constant', cval=0.0)[0] * sc
+        v = np.array([x, -y, zz]) - C; zc_ = v @ f
+        if zc_ < 1: return (-999, -999)
+        return (W / 2 + FOC * (v @ r) / zc_, H / 2 - FOC * (v @ u) / zc_)
+    return frame, proj, math.radians(90 - c.tilt)
+
+def pulse(img, xy, t, squash):
+    """Rings spreading out from the top spot."""
+    if t <= 0: return
+    layer = Image.new('RGBA', img.size, (0, 0, 0, 0)); d = ImageDraw.Draw(layer)
+    for k in range(2):
+        u = (t - 0.45 * k) % 1.6 / 1.6
+        if t - 0.45 * k < 0: continue
+        r = 18 + 110 * ease(u); al = int(200 * (1 - u))
+        d.ellipse([xy[0] - r, xy[1] - r * squash, xy[0] + r, xy[1] + r * squash], outline=ACCENT + (al,), width=5)
+    img.alpha_composite(layer)
+
+def render_3d(ff, bases, gauges, ranked, regions, full, period, cap, badge, ntop, region=False):
+    """Rise out of the flat map, fly to each hot spot and circle it, pull back for the top list."""
+    STATIONS[:] = gauges
+    hgt, shade = build_terrain(full)
+    levels = [np.asarray(b, dtype=np.uint8) for b in bases]
+    off = 0.0 if region else -0.12 * full.span
+    start = Cam3(full.lat, full.lng, full.span * 1.0, 0, 0)
+    over = Cam3(full.lat + off, full.lng, full.span * (1.05 if region else 1.1), 48, -12)
+    shots = [('intro', start, over, None, 4.2)]
+    head = -12
+    for i, rg in enumerate(regions):
+        head = 16 if i % 2 == 0 else -16
+        shots.append(('region', None, Cam3(rg['lat'] + 0.1 * rg['span'], rg['lng'], rg['span'] * 1.2, 52, head), rg, 4.8))
+    back = Cam3(full.lat + off, full.lng, full.span * 1.1, 40, 0)
+    shots.append(('summary', None, back, None, 3.0 + 0.25 * ntop)); shots.append(('end', None, back, None, 2.2))
+    MOVE = 1.5
+    prev = start; T = 0.0
+    for kind_s, a_, b, rg, dur in shots:
+        for i in range(int(dur * FPS)):
+            t = i / FPS
+            if kind_s == 'intro':
+                c = cam3_mix(a_, b, t / (dur - 0.3)); grow = ease((t - 0.3) / 2.6)
+            elif kind_s in ('region', 'summary'):
+                c = cam3_mix(prev, b, t / MOVE); grow = 1.0
+                if kind_s == 'region' and t > MOVE: c.head += 9 * (t - MOVE) / (dur - MOVE) * (1 if b.head >= 0 else -1)
+            else:
+                c, grow = b, 1.0
+            frame, proj, pitch = terrain_frame(levels, hgt, shade, c, full, grow)
+            frame = frame.convert('RGBA')
+            if kind_s == 'region':
+                top = rg['labels'][0]
+                pulse(frame, proj(top['lat'], top['lng']), t - MOVE - 0.1, math.sin(pitch))
+                taken = []
+                for k, g in enumerate(rg['labels']):
+                    tp = t - MOVE - 0.1 - 0.3 * k
+                    draw_label(frame, proj, g, tp / 0.3, taken, count=tp / 1.1)
+            if kind_s != 'end':
+                top_card(frame, period, cap, rg['tag'] if kind_s == 'region' and t > 0.4 else None, slide=min(1.0, (T + t) / 0.6))
+                if kind_s == 'summary' and t > MOVE * 0.6: summary_card(frame, ranked[:ntop], badge, t - MOVE * 0.6)
+                bottom_card(frame)
+            else:
+                fade = ease(t / 0.5)
+                frame.alpha_composite(Image.new('RGBA', (W, H), BG + (int(250 * fade),)))
+                dr = ImageDraw.Draw(frame)
+                lg = logo_img(300)
+                if lg is not None: frame.alpha_composite(lg, (int((W - lg.width) / 2), int(H / 2 - 240)))
+                else: dr.text((W / 2, H / 2 - 40), 'West WX Watchers', font=font(700, 84), fill=TEXT, anchor='mm')
+                dr.text((W / 2, H / 2 + 130), 'Data: ' + SRC, font=font(500, 28), fill=MUTED, anchor='mm')
+            ff.stdin.write(frame.convert('RGB').tobytes())
+        T += dur; prev = b if b is not None else prev
 
 # ---------------------------------------------------------------- main
 def main():
@@ -421,11 +603,13 @@ def main():
     ap.add_argument('--regions', type=int, default=3, help='zoom-in stops, 0-5')
     ap.add_argument('--top', type=int, default=3, help='how many in the top list, 3-10')
     ap.add_argument('--logo', help='logo PNG (its own colours, transparent background)')
+    ap.add_argument('--style', choices=['map', '3d'], help='map (flat, default) or 3d (flyover with a column per station)')
     a = ap.parse_args()
     lp = a.logo or os.path.join(HERE, 'logo.png')
     if os.path.exists(lp): LOGO = Image.open(lp).convert('RGBA')
     doc, gauges = read_data(a.data)
     if not gauges: sys.exit('No stations with values in the data.')
+    STATIONS[:] = gauges
     kind = doc.get('kind', 'rain'); K = dict(KINDS.get(kind, KINDS['temp']))
     if doc.get('order') in (-1, 1) and kind != 'rain': K['order'] = doc['order']   # tell the story of the highest or the lowest
     CLIP = doc.get('clip') or None
@@ -457,6 +641,10 @@ def main():
     ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
                            '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', '-preset', 'medium', '-movflags', '+faststart', a.out],
                           stdin=subprocess.PIPE)
+    if (a.style or doc.get('style')) == '3d':
+        c3 = Cam(float(v['lat']), float(v['lng']), float(v['span'])) if v else full   # 3D: no edge to keep inside
+        render_3d(ff, bases, gauges, ranked, regions, c3, period, cap, badge, ntop, region=bool(v))
+        shots = []
     prev = full; T = 0.0
     for kind_s, cam, r, dur in shots:
         for i in range(int(dur * FPS)):
@@ -467,9 +655,11 @@ def main():
             dr = ImageDraw.Draw(frame)
             draw_gauges(dr, proj, gauges, r=3 if c.span > 9 else 5)
             if kind_s == 'region':
+                pulse(frame, proj(r['labels'][0]['lat'], r['labels'][0]['lng']), t - MOVE - 0.1, 1.0)
                 taken = []
                 for k, g in enumerate(r['labels']):
-                    draw_label(frame, proj, g, (t - MOVE - 0.1 - 0.3 * k) / 0.3, taken)
+                    tp = t - MOVE - 0.1 - 0.3 * k
+                    draw_label(frame, proj, g, tp / 0.3, taken, count=tp / 1.1)
             if kind_s != 'end':
                 top_card(frame, period, cap, r['tag'] if kind_s == 'region' and t > 0.4 else None, slide=min(1.0, (T + t) / 0.6))
                 if kind_s == 'summary' and t > MOVE * 0.6: summary_card(frame, ranked[:ntop], badge, t - MOVE * 0.6)
