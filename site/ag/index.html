@@ -4,7 +4,7 @@
   <link rel="preconnect" href="https://raw.githubusercontent.com">
   <link rel="preconnect" href="https://unpkg.com">
   <meta charset="UTF-8">
-<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');}}catch(e){}</script>
+<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');parent.postMessage({wwxwPath:location.pathname},'*');}}catch(e){}</script>
 <style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="robots" content="noindex">
@@ -45,6 +45,7 @@
     .pills button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500; cursor: pointer; }
     .pills button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--onAccent); }
     .layers { margin-left: auto; }
+    .layersel { display: none; font-weight: 600; max-width: none; }   /* phones: a dropdown instead of the row of buttons */
     .themebtn { flex: none; width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .themebtn svg { width: 16px; height: 16px; }
     .bar2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 0 20px 10px; }
@@ -94,7 +95,9 @@
       .top, .bar2 { padding-left: 12px; padding-right: 12px; }
       h1 { font-size: 20px; }
       h1 { width: 100%; }
-      .layers { margin-left: 0; flex: 1; min-width: 0; }
+      .layers { display: none; }
+      .layersel { display: block; flex: 1; min-width: 0; font-size: 15px; padding: 7px 14px; }
+      .townsel { font-size: 15px; padding: 7px 14px; }
       .foot { padding: 0 12px 20px; }
     }
     @media (max-width: 600px) {
@@ -128,6 +131,11 @@
       <button type="button" data-l="frost" aria-pressed="false">Frost</button>
       <button type="button" data-l="fog" aria-pressed="false">Fog</button>
     </div>
+    <select class="townsel layersel" id="layerSel" aria-label="What to show">
+      <option value="spray">Spraying</option><option value="dt">Delta T</option><option value="ws">Wind</option>
+      <option value="et">ET short crop</option><option value="ett">ET tall crop</option><option value="st">Soil temp</option>
+      <option value="frost">Frost</option><option value="fog">Fog</option>
+    </select>
     <button class="themebtn" id="themeBtn" type="button" aria-label="Switch between light and dark"></button>
   </div>
   <div class="bar2">
@@ -332,6 +340,10 @@
       document.querySelectorAll('#layers button').forEach(function (b) { b.addEventListener('click', function () {
         layer = b.getAttribute('data-l'); document.querySelectorAll('#layers button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
         document.getElementById('hourBox').hidden = !!DAILY[layer]; draw(); }); });
+      var ls = document.getElementById('layerSel'); ls.value = layer;
+      ls.addEventListener('change', function () {   // the phone dropdown drives the same buttons
+        var b = document.querySelector('#layers button[data-l="' + ls.value + '"]'); if (b) b.click(); });
+      document.querySelectorAll('#layers button').forEach(function (b) { b.addEventListener('click', function () { ls.value = b.getAttribute('data-l'); }); });
       var hr = document.getElementById('hour'); hr.max = A.hours.length - 1; hr.value = hourI;
       document.getElementById('hourOut').textContent = hourLabel(A.hours[hourI]);
       hr.addEventListener('input', function () { hourI = +hr.value; document.getElementById('hourOut').textContent = hourLabel(A.hours[hourI]); draw(); });
