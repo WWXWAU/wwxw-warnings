@@ -1,8 +1,19 @@
 name: Android release (Play Store)
 # Run by hand (Actions tab > Android release > Run workflow). Builds the signed release bundle (.aab) to upload to
 # Google Play, signed with the private upload key in the UPLOAD_KEYSTORE_B64 and UPLOAD_KEY_PASS secrets.
+# With the PLAY_SERVICE_ACCOUNT_JSON secret set it also sends the bundle straight to Google Play (the track picked below);
+# without it, download the .aab from the run's artifacts and upload it in the Play Console by hand.
 on:
   workflow_dispatch:
+    inputs:
+      track:
+        description: 'Google Play track'
+        type: choice
+        options: [production, internal]
+        default: production
+      notes:
+        description: "What's new (shown on the Play Store)"
+        default: 'Improvements and fixes.'
 permissions:
   contents: write
 jobs:
@@ -65,3 +76,19 @@ jobs:
           name: wwxw-play-release
           path: /tmp/out/*.aab
           retention-days: 30
+      - name: Send to Google Play
+        env:
+          PSA: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: |
+          if [ -z "$PSA" ]; then echo "::notice::No PLAY_SERVICE_ACCOUNT_JSON secret: upload the .aab in the Play Console by hand"; echo "PLAY_UP=no" >> $GITHUB_ENV; exit 0; fi
+          mkdir -p /tmp/whatsnew && printf '%s' "${{ inputs.notes }}" | head -c 500 > /tmp/whatsnew/whatsnew-en-AU
+          echo "PLAY_UP=yes" >> $GITHUB_ENV
+      - if: env.PLAY_UP == 'yes'
+        uses: r0adkll/upload-google-play@v1.1.3
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          packageName: com.westweatherwatchers.app
+          releaseFiles: /tmp/out/*.aab
+          track: ${{ inputs.track }}
+          status: completed
+          whatsNewDirectory: /tmp/whatsnew
