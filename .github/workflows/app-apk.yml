@@ -48,6 +48,7 @@ jobs:
           if [ -n "$GSJ" ]; then printf '%s' "$GSJ" > android/app/google-services.json; elif [ -f google-services.json ]; then cp google-services.json android/app/; fi
           npx cap sync android
           grep -n "permission\|meta-data" $M
+          grep -n "KeepRunning" android/app/src/main/res/xml/config.xml   # the web page pauses in the background (battery)
       - name: Signing key
         run: |
           # a fixed test key (password "android"), so each new APK installs over the last one. Test builds only:

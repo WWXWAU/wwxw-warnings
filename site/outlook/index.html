@@ -113,7 +113,8 @@
       el.innerHTML = h; el.style.display = 'block';
     }
     function load() { fetch(U, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(show).catch(function () {}); }
-    load(); setInterval(load, 300000);
+    load(); var wbLast = Date.now(); setInterval(function () { if (!document.hidden) { wbLast = Date.now(); load(); } }, 300000);   // only while on screen (saves battery in the app)
+    document.addEventListener('visibilitychange', function () { if (!document.hidden && Date.now() - wbLast > 120000) { wbLast = Date.now(); load(); } });
   })();
   </script>
   <div class="frame">

@@ -2,6 +2,22 @@
   "appId": "com.westweatherwatchers.app",
   "appName": "WWXW",
   "webDir": "www",
-  "android": { "adjustMarginsForEdgeToEdge": "force", "backgroundColor": "#0E2A33" },
-  "plugins": { "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] } }
+  "android": {
+    "adjustMarginsForEdgeToEdge": "force",
+    "backgroundColor": "#0E2A33"
+  },
+  "plugins": {
+    "PushNotifications": {
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
+    }
+  },
+  "cordova": {
+    "preferences": {
+      "KeepRunning": "false"
+    }
+  }
 }
