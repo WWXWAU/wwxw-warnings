@@ -563,13 +563,91 @@ def asce_daily(lat, doy, T, Td, U, Rsw, tall):
     return max(0.0, (0.408 * dlt * rn + gam * cn / (tm + 273) * u2 * max(es - ea, 0)) / (dlt + gam * (1 + cd * u2)))
 
 
-def write_ag(path, nx, ny, inwa, gh, times, dates, box=None):
+# ---------------------------------------------------------------- ET calibration against DPIRD's measured ET
+# Each run keeps our raw (uncorrected) ET forecast for tomorrow at every DPIRD station; once DPIRD has measured that
+# day (Live Obs etd / etdt, "yesterday"), the pairs go into ag-etcal.json on site-data. The correction is a factor by
+# latitude (2 deg bands, 21 days, the latest counting most), pulled towards 1 until there are enough days (n/(n+5))
+# and kept within 0.8-1.25, separately for short and tall crop.
+ETCAL_URL = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/site-data/ag-etcal.json'
+OBS_URL = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/pages/obs-live.json'
+ETCAL_BANDS = [-14, -16, -18, -20, -22, -24, -26, -28, -30, -32, -34, -36]
+
+
+def etcal_load():
+    try: S = json.loads(urllib.request.urlopen(ETCAL_URL + '?t=%d' % time.time(), timeout=60).read())
+    except Exception: S = {}
+    S.setdefault('fc', {}); S.setdefault('pairs', []); S.setdefault('done', [])
+    try: obs = json.loads(urllib.request.urlopen(OBS_URL + '?t=%d' % time.time(), timeout=60).read())
+    except Exception as e: log('ET calibration: no Live Obs (%s)' % e); obs = None
+    stations = []
+    if obs and obs.get('t', 0) / 1000 > time.time() - 3 * 3600:
+        tobs = dt.datetime.fromtimestamp(obs['t'] / 1000, dt.timezone(dt.timedelta(hours=8)))
+        yday = (tobs.date() - dt.timedelta(days=1)).isoformat()
+        stations = [p for p in obs['points'] if p.get('source') == 'DPIRD']
+        F = S['fc'].get(yday)
+        if F and yday not in S['done'] and tobs.hour >= 1:
+            n = 0
+            for p in stations:
+                f = F.get(p['name'])
+                if f and p.get('etd') is not None and f[0] is not None:
+                    S['pairs'].append([yday, round(p['lat'], 2), f[0], p['etd'], f[1], p.get('etdt')]); n += 1
+            S['done'].append(yday)
+            log('ET calibration: %d stations paired for %s' % (n, yday))
+    keep = (dt.date.today() - dt.timedelta(days=30)).isoformat()
+    S['pairs'] = [x for x in S['pairs'] if x[0] >= keep]; S['done'] = [d for d in S['done'] if d >= keep]
+    # the factors
+    today = dt.date.today(); fac = {'s': [], 't': []}
+    for c in ETCAL_BANDS:
+        for key, fi, mi in (('s', 2, 3), ('t', 4, 5)):
+            sw = sf = sm = 0; days = set()
+            for x in S['pairs']:
+                if abs(x[1] - c) > 2.5 or x[fi] is None or x[mi] is None or x[fi] <= 0.3: continue
+                w = 0.93 ** max(0, (today - dt.date.fromisoformat(x[0])).days); sf += w * x[fi]; sm += w * x[mi]; days.add(x[0])
+            r = sm / sf if sf > 0 else 1.0; k = len(days) / (len(days) + 5)
+            fac[key].append(round(max(0.8, min(1.25, 1 + (r - 1) * k)), 3))
+    S['factor'] = {'bands': ETCAL_BANDS, 'short': fac['s'], 'tall': fac['t'], 'days': len(set(x[0] for x in S['pairs']))}
+    return S, stations
+
+
+def etcal_factor(S, lat, tall):
+    B, F = S['factor']['bands'], S['factor']['tall' if tall else 'short']
+    if lat >= B[0]: return F[0]
+    if lat <= B[-1]: return F[-1]
+    for i in range(len(B) - 1):
+        if B[i] >= lat >= B[i + 1]:
+            f = (B[i] - lat) / (B[i] - B[i + 1]); return F[i] + f * (F[i + 1] - F[i])
+    return 1.0
+
+
+def etcal_record(S, stations, raws):
+    """Keep our raw forecast for tomorrow (and today, if not kept yet) at each DPIRD station: the fine grid where it
+    has the station, else the 0.5 deg grid."""
+    today = dt.datetime.now(dt.timezone(dt.timedelta(hours=8))).date()
+    for d in (today.isoformat(), (today + dt.timedelta(days=1)).isoformat()):
+        if d == today.isoformat() and d in S['fc']: continue
+        F = {}
+        for p in stations:
+            for R in raws:
+                if not R or d not in R['days']: continue
+                best, bd = None, 1e9
+                for i, (la, lo) in enumerate(zip(R['lats'], R['lngs'])):
+                    dd = (la - p['lat']) ** 2 + (lo - p['lng']) ** 2
+                    if dd < bd: bd, best = dd, i
+                if best is not None and bd <= (R['d'] * 0.75) ** 2:
+                    F[p['name']] = [R['days'][d][0][best], R['days'][d][1][best]]; break
+        if F: S['fc'][d] = F
+    S['fc'] = {d: v for d, v in S['fc'].items() if d >= (today - dt.timedelta(days=3)).isoformat()}
+
+
+def write_ag(path, nx, ny, inwa, gh, times, dates, box=None, cal=None):
     """ag.json: for every WA grid point, each day's reference ET (FAO-56, short crop, mm) and, hour by hour from 5 am
     to 8 pm, Delta T and 10 m wind. Hourly values are packed one character per point (AG_ABC): Delta T in half
     degrees, wind in km/h."""
     days = []
     g = box or {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}
     lats = [g['lat0'] + (q // nx) * g['d'] for q, w in enumerate(inwa) if w]
+    lngs = [g['lng0'] + (q % nx) * g['d'] for q, w in enumerate(inwa) if w]
+    raw = {'lats': lats, 'lngs': lngs, 'd': g['d'], 'days': {}}
     for d in dates:
         idx = {int(x[11:13]): i for i, x in enumerate(times) if x.startswith(d)}
         doy = dt.date.fromisoformat(d).timetuple().tm_yday
@@ -582,8 +660,13 @@ def write_ag(path, nx, ny, inwa, gh, times, dates, box=None):
             else:   # no radiation (an older run): Open-Meteo's short-crop figure, no tall crop
                 e = [v for v in col('et0_fao_evapotranspiration') if 0 <= v <= 1.6]   # a model glitch (one hour of 100+ mm seen) drops out
                 es_, et_ = (sum(e) * 24 / len(e) if len(e) >= 20 else None), None
-            et.append(int(round(es_ * 10)) if es_ is not None and es_ <= 20 else -1)
-            ett.append(int(round(et_ * 10)) if et_ is not None and et_ <= 30 else -1)
+            if es_ is not None and es_ > 20: es_ = None
+            if et_ is not None and et_ > 30: et_ = None
+            raw['days'].setdefault(d, ([], []))[0].append(None if es_ is None else round(es_, 2)); raw['days'][d][1].append(None if et_ is None else round(et_, 2))
+            if cal and es_ is not None: es_ *= etcal_factor(cal, lats[p], False)   # corrected against DPIRD's measured ET
+            if cal and et_ is not None: et_ *= etcal_factor(cal, lats[p], True)
+            et.append(int(round(es_ * 10)) if es_ is not None else -1)
+            ett.append(int(round(et_ * 10)) if et_ is not None else -1)
             S = col('soil_temperature_6cm')
             st.append(ag_code(sum(S) / len(S) + 20) if len(S) >= 20 else '_')   # daily mean soil temperature at 6 cm, +20
         for hr in AG_HOURS:
@@ -594,7 +677,7 @@ def write_ag(path, nx, ny, inwa, gh, times, dates, box=None):
         days.append({'date': d, 'et': et, 'ett': ett, 'st': ''.join(st), 'dt': dts, 'ws': wss, 'tn': tn, 'gt': gt, 'fr': fr, 'fg': fg})
     out = {'made': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Open-Meteo (best-match models)',
            'grid': box or {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}, 'mask': ''.join('1' if w else '0' for w in inwa),
-           'hours': AG_HOURS, 'abc': AG_ABC, 'days': days}
+           'hours': AG_HOURS, 'abc': AG_ABC, 'days': days, 'etcal': cal['factor'] if cal else None}
     with open(path, 'w') as fh:
         json.dump(out, fh, separators=(',', ':'))
     om = [sum(v for v in h['et0_fao_evapotranspiration'][24:48] if v is not None) for h in gh] if all(h.get('et0_fao_evapotranspiration') for h in gh) else []
@@ -604,6 +687,7 @@ def write_ag(path, nx, ny, inwa, gh, times, dates, box=None):
         min([v for v in days[0]['ett'] if v >= 0] or [0]) / 10, max(days[0]['ett'] or [0]) / 10,
         ('; ours vs Open-Meteo short crop (day 2): mean %+.2f mm' % (sum(days[1]['et'][i] / 10 - om[i] for i in ok) / len(ok))) if om and ok else '',
         'yes' if days[0]['st'].strip('_') else 'none'))
+    return raw
 
 
 def main():
@@ -673,7 +757,10 @@ def main():
         json.dump(out, fh, separators=(',', ':'))
     write_geo(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-geo.json'))
     try:
-        write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag.json'), nx, ny, inwa, gh, ph[0]['time'], dates)
+        try: cal, dstations = etcal_load()
+        except Exception as e: log('ET calibration not loaded: %s' % e); cal, dstations = None, []
+        if cal: log('ET calibration: %d days; short %s; tall %s' % (cal['factor']['days'], cal['factor']['short'], cal['factor']['tall']))
+        rc = write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag.json'), nx, ny, inwa, gh, ph[0]['time'], dates, cal=cal)
         # the farming areas again on a 0.25 deg grid (about 25 km), fetched with just the variables the farm page uses
         fb = AG_FINE; fnx = int(round((fb['lng1'] - fb['lng0']) / fb['d'])) + 1; fny = int(round((fb['lat1'] - fb['lat0']) / fb['d'])) + 1
         fgrid = [(fb['lat0'] + j * fb['d'], fb['lng0'] + i * fb['d']) for j in range(fny) for i in range(fnx)]
@@ -682,8 +769,12 @@ def main():
         t1 = time.time()
         fh = fetch(fpts, AG_VARS, soft=True)
         log('Farm forecast, fine grid: %d points fetched in %.0f s' % (len(fpts), time.time() - t1))
-        write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag-fine.json'), fnx, fny, fin, fh, next(x['time'] for x in fh if x.get('time')), dates,
-                 {'lat0': fb['lat0'], 'lng0': fb['lng0'], 'd': fb['d'], 'nx': fnx, 'ny': fny})
+        rf = write_ag(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag-fine.json'), fnx, fny, fin, fh, next(x['time'] for x in fh if x.get('time')), dates,
+                      {'lat0': fb['lat0'], 'lng0': fb['lng0'], 'd': fb['d'], 'nx': fnx, 'ny': fny}, cal=cal)
+        if cal:
+            etcal_record(cal, dstations, [rf, rc])
+            with open(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ag-etcal.json'), 'w') as fh2:
+                json.dump(cal, fh2, separators=(',', ':'))
     except Exception as e:  # noqa: BLE001  (the farm forecast never stops Ripper Weather)
         log('Farm forecast not written: %s' % e)
     record_day(os.path.join(os.path.dirname(os.path.abspath(out_path)), 'ripper-history.json'), dates[0], towns)
