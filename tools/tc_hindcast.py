@@ -9,6 +9,9 @@ Best tracks: IBTrACS v04r01 (South Indian + South Pacific): BoM positions where 
 Scoring (as Cyclones.gs cyVerifyScore_): great-circle error at 24-120 h; ensemble suites (XX01..XX30) as their mean
 when at least 5 members; JTWC's official forecast as OFF; region from the storm's first best-track position.
 Output: cy-skill-seed.json in the live record's layout { region: { key: { lead: [n, sum km] } } } and tc-hindcast.md.
+Strength (Nov 2026): each forecast's maximum wind (kt, 1-minute, a-deck column 9) against JTWC's best-track wind
+(IBTrACS USA_WIND) at the same lead, into cy-int-seed.json { region: { key: { lead: [n, sum |error|, sum error] } } }
+(error = forecast minus actual: below zero = too weak). Only where the storm was 35 kt+ or the forecast had it so.
 """
 import csv, io, json, math, os, re, sys, time, urllib.request, datetime as dt
 from collections import defaultdict, Counter
@@ -54,6 +57,8 @@ def season_of(t):
     return t.year + 1 if t.month >= 7 else t.year
 
 # ---------------- best tracks
+BTW = defaultdict(dict)   # best-track 1-minute wind (kt): BTW[sid][time]
+
 def ibtracs():
     bt = defaultdict(dict)
     for basin in ['SI', 'SP']:
@@ -67,6 +72,8 @@ def ibtracs():
             aid = (r.get('USA_ATCF_ID') or '').strip().upper()
             if not aid: continue
             t = dt.datetime.strptime(r['ISO_TIME'][:16], '%Y-%m-%d %H:%M')
+            try: BTW[aid][t] = float(r['USA_WIND'])
+            except (ValueError, KeyError, TypeError): pass
             for la, lo in (('BOM_LAT', 'BOM_LON'), ('USA_LAT', 'USA_LON'), ('LAT', 'LON')):
                 try:
                     bt[aid][t] = (float(r[la]), float(r[lo])); break
@@ -74,6 +81,16 @@ def ibtracs():
                     continue
     print('IBTrACS storms since', SEASONS[0], ':', len(bt))
     return bt
+
+def bw_at(sid, t):
+    w = BTW.get(sid) or {}
+    if t in w: return w[t]
+    ks = sorted(w)
+    for i in range(len(ks) - 1):
+        if ks[i] < t < ks[i + 1] and (ks[i + 1] - ks[i]).total_seconds() <= 12 * 3600:
+            f = (t - ks[i]).total_seconds() / (ks[i + 1] - ks[i]).total_seconds()
+            return w[ks[i]] + f * (w[ks[i + 1]] - w[ks[i]])
+    return None
 
 def bt_at(track, t):
     if t in track: return track[t]
@@ -104,8 +121,10 @@ def take(text, source):
         if not re.match(r'^\d{10}$', init) or int(cy) >= 80: continue      # no invests
         t0 = dt.datetime.strptime(init, '%Y%m%d%H')
         sid = 'SH' + cy + str(season_of(t0))
-        if tech in ('CARQ', 'WRNG', 'BEST', 'TCVT', 'XTRP', 'CLIP', 'CLP5') or re.match(r'^CHP\d$', tech): continue   # CHP2-7 repeat CHIP's track
-        fc[(sid, init)][tech][tau] = (lat, lon)
+        if tech in ('CARQ', 'WRNG', 'BEST', 'TCVT', 'XTRP', 'CLIP', 'CLP5'): continue
+        try: vmax = float(f[8])
+        except (ValueError, IndexError): vmax = 0
+        fc[(sid, init)][tech][tau] = (lat, lon, vmax if vmax > 0 else None)
         techs[(source, tech)] += 1
 
 def main():
@@ -134,14 +153,14 @@ def main():
         print('Weather Lab season', Y, 'done', dict(stat)); sys.stdout.flush()
     print('Models:', sorted(((s, t), n) for (s, t), n in techs.items() if n >= 50))
     # score
-    K = {}
+    K = {}; KI = {}
     first = {}
     for sid, tr in bt.items():
         if tr: k0 = min(tr); first[sid] = region(*tr[k0])
     for (sid, init), T in fc.items():
         trk = bt.get(sid)
         if not trk or sid not in first: stat['no_best_track'] += 1; continue
-        rg = first[sid]; R = K.setdefault(rg, {})
+        rg = first[sid]; R = K.setdefault(rg, {}); RI = KI.setdefault(rg, {})
         t0 = dt.datetime.strptime(init, '%Y%m%d%H')
         keys = {}
         suites = defaultdict(lambda: defaultdict(list))
@@ -154,15 +173,23 @@ def main():
             P = {}
             for L, qs in D.items():
                 if len(qs) >= 5:
-                    P[L] = (sum(q[0] for q in qs) / len(qs), sum(q[1] for q in qs) / len(qs))   # SH: no dateline issue for these
+                    vv = [q[2] for q in qs if q[2]]
+                    P[L] = (sum(q[0] for q in qs) / len(qs), sum(q[1] for q in qs) / len(qs), sum(vv) / len(vv) if len(vv) >= 5 else None)   # SH: no dateline issue for these
             if P: keys[s + '##'] = P
         for key, P in keys.items():
             for L, q in P.items():
-                b = bt_at(trk, t0 + dt.timedelta(hours=L))
+                tL = t0 + dt.timedelta(hours=L)
+                w = bw_at(sid, tL)
+                if q[2] and w and (w >= 35 or q[2] >= 35):   # strength
+                    ci = RI.setdefault(key, {}).setdefault(str(L), [0, 0, 0])
+                    ci[0] += 1; ci[1] += round(abs(q[2] - w)); ci[2] += round(q[2] - w)
+                if re.match(r'^CHP\d$', key): continue   # CHIPS runs 2-7 repeat CHIP's track
+                b = bt_at(trk, tL)
                 if not b: continue
                 c = R.setdefault(key, {}).setdefault(str(L), [0, 0])
                 c[0] += 1; c[1] += round(km(q[0], q[1], b[0], b[1]))
     json.dump(K, open(os.path.join(OUT, 'cy-skill-seed.json'), 'w'), separators=(',', ':'))
+    json.dump(KI, open(os.path.join(OUT, 'cy-int-seed.json'), 'w'), separators=(',', ':'))
     # report
     names = {'WA': 'WA (90-135°E)', 'NAUS': 'Northern Australia east (135-160°E)', 'SP': 'South Pacific (160°E+)', 'SWIO': 'South-west Indian Ocean (<90°E)'}
     md = ['# Cyclone track errors, Southern Hemisphere seasons ' + ', '.join('%d-%02d' % (y - 1, y % 100) for y in SEASONS), '',
@@ -176,6 +203,16 @@ def main():
         md += ['## ' + names[rg], '', '| Model | 24 h | 48 h | 72 h | 96 h | 120 h |', '|---|---|---|---|---|---|']
         for k, D in rows[:30]:
             md.append('| ' + k + ' | ' + ' | '.join(('%d (%d)' % (round(D[str(L)][1] / D[str(L)][0]), D[str(L)][0])) if str(L) in D else '-' for L in LEADS) + ' |')
+        md.append('')
+    md += ['# Strength: mean error in kt, |error| (bias, + too strong) (forecasts), 1-minute winds against JTWC best tracks', '']
+    for rg in ['WA', 'NAUS', 'SP', 'SWIO']:
+        R = KI.get(rg)
+        if not R: continue
+        rows = [(k, D) for k, D in R.items() if D.get('72', [0])[0] >= 10]
+        rows.sort(key=lambda x: x[1]['72'][1] / x[1]['72'][0])
+        md += ['## ' + names[rg], '', '| Model | 24 h | 48 h | 72 h | 96 h | 120 h |', '|---|---|---|---|---|---|']
+        for k, D in rows[:40]:
+            md.append('| ' + k + ' | ' + ' | '.join(('%d (%+d) (%d)' % (round(D[str(L)][1] / D[str(L)][0]), round(D[str(L)][2] / D[str(L)][0]), D[str(L)][0])) if str(L) in D else '-' for L in LEADS) + ' |')
         md.append('')
     md.append('Fetch stats: ' + json.dumps(dict(stat)))
     open(os.path.join(OUT, 'tc-hindcast.md'), 'w').write('\n'.join(md))
