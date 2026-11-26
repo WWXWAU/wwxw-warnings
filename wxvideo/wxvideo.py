@@ -109,9 +109,10 @@ K = KINDS['rain']   # set in main
 def read_data(path):
     doc = json.load(open(path, encoding='utf-8'))
     pts = []
-    for name, lat, lng, v in doc['points']:
+    for row in doc.get('points') or []:
+        name, lat, lng, v = row[:4]
         if v is None or not (-36 < lat < -13 and 112 < lng < 129.5): continue
-        pts.append({'name': str(name).strip(), 'lat': float(lat), 'lng': float(lng), 'v': float(v)})
+        pts.append({'name': str(name).strip(), 'lat': float(lat), 'lng': float(lng), 'v': float(v), 'd': row[4] if len(row) > 4 else None})
     return doc, pts
 
 def caption_for(kind, pts, days):
@@ -383,7 +384,9 @@ def top_card(img, sub, cap, tag=None, slide=1.0):
     dr = ImageDraw.Draw(img)
     lg = logo_img(66)
     if lg is not None: img.alpha_composite(lg, (W - 58 - lg.width, y0 + 24))
-    dr.text((60, y0 + 30), TITLE, font=font(700, 62), fill=TEXT)
+    room = W - 120 - (lg.width + 30 if lg is not None else 0); fs = 62
+    while fs > 38 and dr.textlength(TITLE, font=font(700, fs)) > room: fs -= 2   # long titles shrink to clear the logo
+    dr.text((60, y0 + 30 + (62 - fs) * 0.6), TITLE, font=font(700, fs), fill=TEXT)
     dr.text((62, y0 + 112), sub, font=font(500, 25), fill=MUTED)
     b = text_box(dr, (60, y0 + 166), cap, font(700, 28), ON_ACCENT, ACCENT, pad=(22, 9))
     if tag: text_box(dr, (b[2] + 14, y0 + 166), tag, font(600, 26), ACCENT, SURFACE, pad=(20, 10), outline=ACCENT)
@@ -561,6 +564,14 @@ def render_3d(ff, bases, gauges, ranked, regions, full, period, cap, badge, ntop
     MOVE = 1.5
     prev = start; T = 0.0
     for kind_s, a_, b, rg, dur in shots:
+        if kind_s == 'intro': cue('whoosh', 0.4, 0.8)
+        if kind_s in ('region', 'summary'): cue('whoosh', T + 0.05, 1.0 if kind_s == 'region' else 0.6)
+        if kind_s == 'region':
+            for k in range(len(rg['labels'])): cue('pop', T + MOVE + 0.1 + 0.3 * k)
+            cue('ding', T + MOVE + 0.1 + 1.1)
+        if kind_s == 'summary':
+            for k in range(ntop): cue('tick', T + MOVE * 0.6 + 0.2 + 0.12 * k)
+        if kind_s == 'end': cue('swell', T)
         for i in range(int(dur * FPS)):
             t = i / FPS
             if kind_s == 'intro':
@@ -584,15 +595,294 @@ def render_3d(ff, bases, gauges, ranked, regions, full, period, cap, badge, ntop
                 if kind_s == 'summary' and t > MOVE * 0.6: summary_card(frame, ranked[:ntop], badge, t - MOVE * 0.6)
                 bottom_card(frame)
             else:
-                fade = ease(t / 0.5)
-                frame.alpha_composite(Image.new('RGBA', (W, H), BG + (int(250 * fade),)))
-                dr = ImageDraw.Draw(frame)
-                lg = logo_img(300)
-                if lg is not None: frame.alpha_composite(lg, (int((W - lg.width) / 2), int(H / 2 - 240)))
-                else: dr.text((W / 2, H / 2 - 40), 'West WX Watchers', font=font(700, 84), fill=TEXT, anchor='mm')
-                dr.text((W / 2, H / 2 + 130), 'Data: ' + SRC, font=font(500, 28), fill=MUTED, anchor='mm')
+                end_card(frame, t)
             ff.stdin.write(frame.convert('RGB').tobytes())
         T += dur; prev = b if b is not None else prev
+    return T
+
+# ---------------------------------------------------------------- shared bits for every style
+CUES = []                                     # (sound, seconds) for the soundtrack
+def cue(kind, t, gain=1.0): CUES.append((kind, t, gain))
+
+def set_ppd(p):
+    """Map detail (pixels per degree). The still-camera styles draw at about the frame's own resolution (faster)."""
+    global PPD, SCALE, BW, BH
+    PPD = p; SCALE = PPD * 180 / math.pi
+    BW = int((LNG1 - LNG0) * PPD); BH = int((merc(LAT0) - merc(LAT1)) * SCALE)
+
+def end_card(frame, t):
+    fade = ease(t / 0.5)
+    frame.alpha_composite(Image.new('RGBA', (W, H), BG + (int(250 * fade),)))
+    dr = ImageDraw.Draw(frame)
+    lg = logo_img(300)
+    if lg is not None: frame.alpha_composite(lg, (int((W - lg.width) / 2), int(H / 2 - 240)))
+    else: dr.text((W / 2, H / 2 - 40), 'West WX Watchers', font=font(700, 84), fill=TEXT, anchor='mm')
+    dr.text((W / 2, H / 2 + 130), 'Data: ' + SRC, font=font(500, 28), fill=MUTED, anchor='mm')
+
+def fit_cam(v):
+    if not v: return Cam(-25.0, 121.0, 18.5)
+    sp, la = float(v['span']), float(v['lat'])
+    hh = 0.93 * H / W * sp / 2 * math.cos(math.radians(la))   # keep the view inside the base map (north edge 9 deg S)
+    return Cam(min(la, LAT0 - 0.5 - hh), float(v['lng']), sp)
+
+def still_frame(gauges, states, cam):
+    """The coloured map for one still camera, drawn at about frame resolution: (frame RGBA, projector)."""
+    set_ppd(max(40, math.ceil(W * 1.15 / cam.span)))
+    b = build_base(gauges, states)
+    fr, proj = view([b], cam)
+    return fr.convert('RGBA'), proj
+
+def plain_frame(states, cam):
+    """The map with no colours (land, sea, coast) for the same camera."""
+    set_ppd(max(40, math.ceil(W * 1.15 / cam.span)))
+    base = Image.new('RGB', (BW, BH), SEA); dr = ImageDraw.Draw(base)
+    for name, g in states.items():
+        if name in ('Western Australia', 'Northern Territory', 'South Australia'):
+            for ring in rings(g):
+                pts = [to_px(lat, lng) for lng, lat in ring]
+                if len(pts) > 2: dr.polygon(pts, fill=WA_LAND if name == 'Western Australia' else LAND)
+                if len(pts) > 2: dr.line(pts + [pts[0]], fill=COAST, width=3)
+    fr, proj = view([base], cam)
+    return fr.convert('RGBA'), proj
+
+def stat_card(img, rows, y0=300):
+    """Small running-total card under the title: [(label, value), ...]."""
+    card(img, (30, y0, W - 30, y0 + 112), r=22)
+    dr = ImageDraw.Draw(img); n = len(rows); cw = (W - 120) / n
+    for k, (lab, val) in enumerate(rows):
+        x = 60 + k * cw
+        dr.text((x, y0 + 18), lab, font=font(500, 22), fill=MUTED)
+        dr.text((x, y0 + 50), val, font=font(700, 38), fill=TEXT)
+
+# ---------------------------------------------------------------- style: rain build (districts fill one by one)
+def render_build(ff, gauges, states, full, period, cap, badge, ntop, dists):
+    """Start from the plain map; each district's rain fills in (driest first, wettest last) with its top gauge."""
+    colour, proj = still_frame(gauges, states, full)
+    plain, _ = plain_frame(states, full)
+    # a mask per district, in frame pixels
+    masks = {}
+    for name, rs in dists.items():
+        m = Image.new('L', (W, H), 0); md = ImageDraw.Draw(m)
+        for r in rs:
+            pts = [proj(r[i + 1], r[i]) for i in range(0, len(r) - 1, 2)]
+            if len(pts) > 2: md.polygon(pts, fill=255)
+        masks[name] = m.filter(ImageFilter.GaussianBlur(1.2))
+    by = {}
+    for g in gauges:
+        if g.get('d') in masks: by.setdefault(g['d'], []).append(g)
+    steps = sorted([(max(x['v'] for x in gs), d, max(gs, key=lambda x: x['v'])) for d, gs in by.items()])
+    dry = [s for s in steps if s[0] < 1]; wet = [s for s in steps if s[0] >= 1]
+    seq = ([('Dry areas', [s[1] for s in dry], None)] if dry else []) + [(s[1], [s[1]], s[2]) for s in wet]
+    ranked = sorted(gauges, key=lambda g: -g['v'])
+    STEP = 1.25 if len(seq) <= 12 else 1.0
+    total = 1.2 + STEP * len(seq) + 1.0 + (3.0 + 0.25 * ntop) + 2.2
+    shown = Image.new('L', (W, H), 0)
+    best, nwet = None, 0
+    T = 0.0
+    cue('whoosh', 0.2)
+    def base_frame(reveal, extra=None, a=0.0):
+        fr = plain.copy()
+        m = reveal if extra is None else Image.composite(Image.new('L', (W, H), 255), reveal, extra.point(lambda v: int(v * a)))
+        fr.paste(colour, (0, 0), m)
+        return fr
+    # intro: the plain map
+    for i in range(int(1.2 * FPS)):
+        t = i / FPS; fr = plain.copy()
+        top_card(fr, period, cap, None, slide=min(1.0, t / 0.6)); bottom_card(fr)
+        ff.stdin.write(fr.convert('RGB').tobytes())
+    T = 1.2
+    for name, ds, g in seq:
+        m = Image.new('L', (W, H), 0)
+        for d in ds: m = Image.composite(Image.new('L', (W, H), 255), m, masks[d])
+        cue('pop', T + 0.25)
+        if g is not None: cue('tick', T + 0.25 + 0.9)
+        for i in range(int(STEP * FPS)):
+            t = i / FPS; a = ease(t / 0.45)
+            fr = base_frame(shown, m, a)
+            dr = ImageDraw.Draw(fr); draw_gauges(dr, proj, [x for x in gauges if x.get('d') in ds or shown.getpixel((int(min(W - 1, max(0, proj(x['lat'], x['lng'])[0]))), int(min(H - 1, max(0, proj(x['lat'], x['lng'])[1]))))) > 128], r=3)
+            if g is not None: draw_label(fr, proj, g, (t - 0.25) / 0.3, [], count=(t - 0.25) / 0.9)
+            cur = best if g is None or (best is not None and best['v'] >= g['v']) or t < 1.15 * 0.9 else g
+            nw = nwet + (sum(1 for x in by[ds[0]] if x['v'] >= 1) if g is not None and t > 0.3 else 0)
+            top_card(fr, period, cap, name)
+            stat_card(fr, [('Wettest so far', K['fmt'](cur['v']) if cur else '—'), ('Gauges 1 mm+', str(nw))])
+            bottom_card(fr)
+            ff.stdin.write(fr.convert('RGB').tobytes())
+        shown = Image.composite(Image.new('L', (W, H), 255), shown, m)
+        if g is not None:
+            nwet += sum(1 for x in by[name] if x['v'] >= 1)
+            if best is None or g['v'] > best['v']: best = g
+        T += STEP
+    # hold on the full picture, then the top list
+    cue('whoosh', T + 0.6, 0.6)
+    ts = 3.0 + 0.25 * ntop + 1.0
+    for k in range(ntop): cue('tick', T + 1.0 + 0.2 + 0.12 * k)
+    cue('ding', T + 1.0 + 0.2 + 0.12 * ntop + 0.9)
+    for i in range(int(ts * FPS)):
+        t = i / FPS; fr = base_frame(shown)
+        draw_gauges(ImageDraw.Draw(fr), proj, gauges, r=3)
+        top_card(fr, period, cap, None)
+        if t > 1.0: summary_card(fr, ranked[:ntop], badge, t - 1.0)
+        bottom_card(fr)
+        ff.stdin.write(fr.convert('RGB').tobytes())
+    T += ts
+    cue('swell', T)
+    for i in range(int(2.2 * FPS)):
+        fr = base_frame(shown); end_card(fr, i / FPS); ff.stdin.write(fr.convert('RGB').tobytes())
+    return T + 2.2
+
+# ---------------------------------------------------------------- style: head to head (two stations race)
+H2H_COL = [(14, 124, 134), (232, 120, 40)]
+def render_h2h(ff, doc, states, period):
+    S = doc['series'][:2]
+    order = K['order']
+    for s in S:
+        s['v'] = [None if x is None else float(x) for x in s['v']]
+        s['ok'] = [x for x in s['v'] if x is not None]
+    allv = [x for s in S for x in s['ok']]
+    lo, hi = min(allv), max(allv)
+    step = next(x for x in (1, 2, 5, 10, 20, 50, 100) if (hi - lo) / x <= 5)   # round numbers on the axis
+    lo = math.floor(lo / step) * step; hi = math.ceil(hi / step) * step
+    if hi - lo < 2 * step: hi += step; lo -= step
+    nt = int(round((hi - lo) / step))
+    n = max(len(s['v']) for s in S); hrs = S[0]['t']
+    best = [(max if order != 1 else min)(s['ok']) for s in S]
+    win = 0 if (best[0] >= best[1]) == (order != 1) else 1
+    diff = abs(best[0] - best[1])
+    word = {'tmax': 'hotter', 'temp': 'hotter', 'app': 'hotter', 'tmin': 'colder', 'gust': 'gustier', 'wind': 'windier', 'dew': 'more humid',
+            'rh': 'more humid', 'pres': 'higher', 'rain': 'wetter'}.get(doc.get('kind'), 'higher')
+    if order == 1 and word == 'hotter': word = 'colder'
+    # mini map
+    mm = Image.new('RGBA', (420, 520), (0, 0, 0, 0)); md = ImageDraw.Draw(mm)
+    mp = lambda lat, lng: ((lng - 112.5) / 17 * 400 + 10, (-13.3 - lat) / 22.6 * 500 + 10)
+    for ring in rings(states['Western Australia']):
+        pts = [mp(lat, lng) for lng, lat in ring]
+        if len(pts) > 2: md.polygon(pts, fill=WA_LAND + (255,), outline=COAST + (255,))
+    for k, s in enumerate(S):
+        x, y = mp(s['lat'], s['lng']); md.ellipse([x - 11, y - 11, x + 11, y + 11], fill=H2H_COL[k] + (255,), outline=(255, 255, 255, 255), width=3)
+    RACE, HOLD = 8.0, 3.2
+    T = 0.0; cue('whoosh', 0.1)
+    for j in range(n): cue('tick', 0.8 + RACE * (j + 1) / n, 0.6)
+    cue('ding', 0.8 + RACE + 0.3)
+    total = 0.8 + RACE + HOLD
+    CX0, CX1, CY0, CY1 = 120, W - 70, 760, 1250
+    def chart_xy(j, v): return (CX0 + (CX1 - CX0) * j / max(1, n - 1), CY1 - (CY1 - CY0) * (v - lo) / (hi - lo))
+    for i in range(int(total * FPS)):
+        t = i / FPS; p = max(0.0, min(1.0, (t - 0.8) / RACE)); jf = p * (n - 1)
+        fr = Image.new('RGBA', (W, H), BG + (255,)); dr = ImageDraw.Draw(fr)
+        top_card(fr, period, doc.get('cap') or (S[0]['name'] + ' v ' + S[1]['name']), None, slide=min(1.0, t / 0.6))
+        # score cards
+        for k, s in enumerate(S):
+            x0 = 30 + k * (W - 60) / 2 + (0 if k == 0 else 10); x1 = x0 + (W - 60) / 2 - 10
+            card(fr, (x0, 300, x1, 700), r=24); dr = ImageDraw.Draw(fr)
+            dr.rounded_rectangle([x0, 300, x0 + 14, 700], radius=7, fill=H2H_COL[k])
+            nm = label_name({'name': s['name'], 'lat': s['lat'], 'lng': s['lng']})
+            fn = font(600, 34)
+            while dr.textlength(nm, font=fn) > x1 - x0 - 60 and len(nm) > 4: nm = nm[:-1]
+            dr.text((x0 + 36, 326), nm, font=fn, fill=TEXT)
+            seen = [x for x in s['v'][:int(jf) + 1] if x is not None]
+            cur = None
+            if seen:
+                j0 = int(jf); a = s['v'][j0]; b = s['v'][min(n - 1, j0 + 1)]
+                cur = a if a is not None and (b is None or j0 + 1 >= n) else (lerp(a, b, jf - j0) if a is not None else b)
+            dr.text((x0 + 36, 390), K['fmt'](cur) if cur is not None else '—', font=font(700, 92), fill=H2H_COL[k])
+            sofar = (max if order != 1 else min)(seen + ([cur] if cur is not None else [])) if seen else None
+            dr.text((x0 + 36, 520), ('Highest' if order != 1 else 'Lowest') + ' so far', font=font(500, 24), fill=MUTED)
+            dr.text((x0 + 36, 556), K['fmt'](sofar) if sofar is not None else '—', font=font(700, 46), fill=TEXT)
+            if t > 0.8 + RACE + 0.3 and k == win:
+                text_box(dr, (x0 + 36, 632), 'Winner', font(700, 26), ON_ACCENT, H2H_COL[k], pad=(18, 7))
+        # chart
+        card(fr, (30, 730, W - 30, 1380), r=24); dr = ImageDraw.Draw(fr)
+        for q in range(nt + 1):
+            v = lo + step * q; y = chart_xy(0, v)[1]
+            dr.line([CX0, y, CX1, y], fill=LINE, width=2)
+            dr.text((CX0 - 14, y), f'{v:g}', font=font(500, 22), fill=MUTED, anchor='rm')
+        for j in range(0, n, max(1, n // 6)):
+            x = chart_xy(j, lo)[0]
+            lab = datetime.utcfromtimestamp(hrs[j] * 3600 + 8 * 3600).strftime('%-I%p').lower() if j < len(hrs) else ''
+            dr.text((x, CY1 + 22), lab, font=font(500, 20), fill=MUTED, anchor='mt')
+        for k, s in enumerate(S):
+            pts = []
+            for j in range(int(jf) + 1):
+                if s['v'][j] is not None: pts.append(chart_xy(j, s['v'][j]))
+            j0 = int(jf)
+            if j0 + 1 < n and s['v'][j0] is not None and s['v'][j0 + 1] is not None:
+                pts.append(chart_xy(jf, lerp(s['v'][j0], s['v'][j0 + 1], jf - j0)))
+            if len(pts) > 1: dr.line(pts, fill=H2H_COL[k], width=7, joint='curve')
+            if pts: x, y = pts[-1]; dr.ellipse([x - 11, y - 11, x + 11, y + 11], fill=H2H_COL[k], outline=(255, 255, 255), width=3)
+        if 0 < p < 1 or t <= 0.8 + RACE:
+            hidx = min(len(hrs) - 1, int(round(jf)))
+            clock = datetime.utcfromtimestamp(hrs[hidx] * 3600 + 8 * 3600).strftime('%-I %p %a').replace('AM', 'am').replace('PM', 'pm')
+            text_box(dr, (W - 60, 760), clock, font(700, 30), ON_ACCENT, ACCENT, pad=(18, 8), anchor='rt')
+        # map and result
+        card(fr, (30, 1410, W - 30, H - 36), r=24); dr = ImageDraw.Draw(fr)
+        fr.alpha_composite(mm.resize((336, 416), Image.LANCZOS), (60, 1440))
+        if t > 0.8 + RACE + 0.3:
+            u = ease((t - 0.8 - RACE - 0.3) / 0.5)
+            dr.text((430, 1520), S[win]['name'].title()[:22], font=font(700, 44), fill=H2H_COL[win])
+            dr.text((430, 1580), f"{word} by", font=font(500, 34), fill=MUTED)
+            dr.text((430, 1630), K['fmt'](diff * u), font=font(700, 84), fill=TEXT)
+            dr.text((430, 1740), ('peak ' if order != 1 else 'low ') + K['fmt'](best[win]) + ' v ' + K['fmt'](best[1 - win]), font=font(500, 26), fill=MUTED)
+        else:
+            for k, s in enumerate(S):
+                dr.ellipse([430, 1530 + k * 90, 456, 1556 + k * 90], fill=H2H_COL[k])
+                dr.text((476, 1543 + k * 90), s['name'].title()[:24], font=font(600, 34), fill=TEXT, anchor='lm')
+        ff.stdin.write(fr.convert('RGB').tobytes())
+    T = total; cue('swell', T)
+    for i in range(int(2.2 * FPS)):
+        fr = Image.new('RGBA', (W, H), BG + (255,)); end_card(fr, 1.0); ff.stdin.write(fr.convert('RGB').tobytes())
+    return T + 2.2
+
+# ---------------------------------------------------------------- style: time-lapse (hour by hour)
+def render_timelapse(ff, doc, states, full, period, cap, ntop):
+    names = doc['stations']; hrs = doc['hours']; vals = doc['vals']
+    frames, tops, peak = [], [], {}
+    print(f'time-lapse: {len(hrs)} hours, {len(names)} stations', flush=True)
+    for h, row in zip(hrs, vals):
+        gs = [{'name': n[0], 'lat': n[1], 'lng': n[2], 'v': float(v)} for n, v in zip(names, row) if v is not None and -36 < n[1] < -13 and 112 < n[2] < 129.5]
+        if len(gs) < 5: continue
+        STATIONS[:] = gs
+        fr, proj = still_frame(gs, states, full)
+        draw_gauges(ImageDraw.Draw(fr), proj, gs, r=3 if full.span > 9 else 5)
+        top = max(gs, key=score)
+        frames.append((h, fr, proj, top))
+        for g in gs:
+            k = g['name']
+            if k not in peak or score(g) > score(peak[k]): peak[k] = g
+    if not frames: sys.exit('No hourly values for the time-lapse.')
+    HOUR, FADE = 0.6, 0.3
+    T = 0.0; cue('whoosh', 0.1)
+    best = None
+    for j in range(len(frames)): cue('tick', 0.6 + j * HOUR, 0.5)
+    for j, (h, fr, proj, top) in enumerate(frames):
+        nxt = frames[j + 1] if j + 1 < len(frames) else None
+        if best is None or score(top) > score(best): best = top; cue('pop', 0.6 + j * HOUR + 0.05)
+        dur = HOUR + (0.6 if j == 0 else 0) + (1.2 if nxt is None else 0)
+        for i in range(int(dur * FPS)):
+            t = i / FPS; tt = t - (0.6 if j == 0 else 0)
+            f = fr.copy()
+            if nxt is not None and tt > HOUR - FADE:
+                f = Image.blend(fr, nxt[1], ease((tt - (HOUR - FADE)) / FADE))
+            clock = datetime.utcfromtimestamp(h * 3600 + 8 * 3600)   # Perth time
+            draw_label(f, proj, top, 1.0, [(0, 0, W, 430), (0, H - 250, W, H)])   # keep clear of the cards
+            top_card(f, period, clock.strftime('%-I %p').replace('AM', 'am').replace('PM', 'pm') + ' ' + clock.strftime('%a %-d %b'), None, slide=min(1.0, (T + t) / 0.6))
+            stat_card(f, [(('Highest' if K['order'] != 1 else 'Lowest') + ' this hour', K['fmt'](top['v'])), ('Peak so far', K['fmt'](best['v']) + ' ' + label_name(best)[:14])])
+            bottom_card(f)
+            ff.stdin.write(f.convert('RGB').tobytes())
+        T += dur
+    ranked = sorted(peak.values(), key=lambda g: -score(g))
+    last = frames[-1][1]
+    badge = f"Peak over {len(frames)} hours"
+    ts = 3.0 + 0.25 * ntop
+    cue('whoosh', T, 0.6)
+    for k in range(ntop): cue('tick', T + 0.2 + 0.12 * k)
+    cue('ding', T + 0.2 + 0.12 * ntop + 0.9)
+    for i in range(int(ts * FPS)):
+        f = last.copy(); top_card(f, period, cap, None); summary_card(f, ranked[:ntop], badge, i / FPS); bottom_card(f)
+        ff.stdin.write(f.convert('RGB').tobytes())
+    T += ts; cue('swell', T)
+    for i in range(int(2.2 * FPS)):
+        f = last.copy(); end_card(f, i / FPS); ff.stdin.write(f.convert('RGB').tobytes())
+    return T + 2.2
 
 # ---------------------------------------------------------------- main
 def main():
@@ -603,12 +893,14 @@ def main():
     ap.add_argument('--regions', type=int, default=3, help='zoom-in stops, 0-5')
     ap.add_argument('--top', type=int, default=3, help='how many in the top list, 3-10')
     ap.add_argument('--logo', help='logo PNG (its own colours, transparent background)')
-    ap.add_argument('--style', choices=['map', '3d'], help='map (flat, default) or 3d (flyover with a column per station)')
+    ap.add_argument('--style', choices=['map', '3d', 'build', 'h2h', 'timelapse'], help='default: from the data (map if not set)')
+    ap.add_argument('--sound', choices=['on', 'off'], help='music and effects (default: from the data, on)')
     a = ap.parse_args()
     lp = a.logo or os.path.join(HERE, 'logo.png')
     if os.path.exists(lp): LOGO = Image.open(lp).convert('RGBA')
     doc, gauges = read_data(a.data)
-    if not gauges: sys.exit('No stations with values in the data.')
+    style = a.style or doc.get('style') or 'map'
+    if not gauges and style not in ('h2h', 'timelapse'): sys.exit('No stations with values in the data.')
     STATIONS[:] = gauges
     kind = doc.get('kind', 'rain'); K = dict(KINDS.get(kind, KINDS['temp']))
     if doc.get('order') in (-1, 1) and kind != 'rain': K['order'] = doc['order']   # tell the story of the highest or the lowest
@@ -619,34 +911,61 @@ def main():
     ranked = sorted(gauges, key=lambda g: -score(g))
     if K['floor'] is not None: ranked = [g for g in ranked if g['v'] >= 0.2] or ranked
     ntop = max(3, min(10, a.top)); nreg = max(0, min(5, a.regions))
-    cap = (a.caption or '').strip() or caption_for(kind, gauges, int(doc.get('days', 1)))
-    badge = badge_for(kind, gauges)
-    print(f'{kind}: {len(gauges)} stations, top {ranked[0]["name"]} {ranked[0]["v"]}; {nreg} zoom stops, top {ntop}. Building the map...', flush=True)
-    base = build_base(gauges, states)
-    bases = [base]
-    while bases[-1].width > 1500: bases.append(bases[-1].resize((bases[-1].width // 2, bases[-1].height // 2), Image.LANCZOS))
-    regions = pick_regions(gauges, towns, nreg) if nreg else []
+    cap = (a.caption or '').strip() or (caption_for(kind, gauges, int(doc.get('days', 1))) if gauges else '')
+    badge = badge_for(kind, gauges) if gauges else ''
+    v = doc.get('view'); full = fit_cam(v)
+    vid = a.out + '.video.mp4'
+    ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
+                           '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', '-preset', 'medium', '-movflags', '+faststart', vid],
+                          stdin=subprocess.PIPE)
+    print(f'{kind} ({style}): {len(gauges)} stations; {nreg} zoom stops, top {ntop}.', flush=True)
+    if style == 'build':
+        total = render_build(ff, gauges, states, full, period, cap, badge, ntop, doc.get('dists') or {})
+    elif style == 'h2h':
+        doc['cap'] = (a.caption or '').strip()
+        total = render_h2h(ff, doc, states, period)
+    elif style == 'timelapse':
+        total = render_timelapse(ff, doc, states, full, period, cap, ntop)
+    else:
+        base = build_base(gauges, states)
+        bases = [base]
+        while bases[-1].width > 1500: bases.append(bases[-1].resize((bases[-1].width // 2, bases[-1].height // 2), Image.LANCZOS))
+        regions = pick_regions(gauges, towns, nreg) if nreg else []
+        if style == '3d':
+            c3 = Cam(float(v['lat']), float(v['lng']), float(v['span'])) if v else full   # 3D: no edge to keep inside
+            total = render_3d(ff, bases, gauges, ranked, regions, c3, period, cap, badge, ntop, region=bool(v))
+        else:
+            total = render_flat(ff, bases, gauges, ranked, regions, full, period, cap, badge, ntop)
+    ff.stdin.close(); ff.wait()
+    if ff.returncode: sys.exit('ffmpeg failed')
+    if (a.sound or doc.get('sound') or 'on') == 'on':
+        import sound
+        mix = sound.Mix(total); mix.music()
+        for kind_, t_, g_ in CUES: mix.cue(kind_, t_, g_)
+        wav = a.out + '.wav'; mix.write(wav)
+        r = subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', vid, '-i', wav, '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k',
+                            '-shortest', '-movflags', '+faststart', a.out])
+        os.remove(wav)
+        if r.returncode: sys.exit('Adding the sound failed')
+        os.remove(vid)
+    else:
+        os.replace(vid, a.out)
+    print('Wrote', a.out, flush=True)
 
-    v = doc.get('view')   # a region picked on the page: fit the map to it
-    if v:   # keep the view inside the base map (north edge 9 deg S): a wide region in the north sits lower in the frame
-        sp, la = float(v['span']), float(v['lat'])
-        hh = 0.93 * H / W * sp / 2 * math.cos(math.radians(la))   # about half the frame's height in degrees
-        la = min(la, LAT0 - 0.5 - hh)
-        full = Cam(la, float(v['lng']), sp)
-    else: full = Cam(-25.0, 121.0, 18.5)
+def render_flat(ff, bases, gauges, ranked, regions, full, period, cap, badge, ntop):
     shots = [('intro', full, None, 3.0)]
     for r in regions: shots.append(('region', Cam(r['lat'] - 0.02 * r['span'], r['lng'], r['span']), r, 4.0))
     shots.append(('summary', full, None, 3.0 + 0.25 * ntop)); shots.append(('end', full, None, 2.2))
     MOVE = 1.1
-    ff = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
-                           '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', '-preset', 'medium', '-movflags', '+faststart', a.out],
-                          stdin=subprocess.PIPE)
-    if (a.style or doc.get('style')) == '3d':
-        c3 = Cam(float(v['lat']), float(v['lng']), float(v['span'])) if v else full   # 3D: no edge to keep inside
-        render_3d(ff, bases, gauges, ranked, regions, c3, period, cap, badge, ntop, region=bool(v))
-        shots = []
     prev = full; T = 0.0
     for kind_s, cam, r, dur in shots:
+        if kind_s in ('region', 'summary'): cue('whoosh', T + 0.05, 1.0 if kind_s == 'region' else 0.6)
+        if kind_s == 'region':
+            for k in range(len(r['labels'])): cue('pop', T + MOVE + 0.1 + 0.3 * k)
+            cue('ding', T + MOVE + 0.1 + 1.1)
+        if kind_s == 'summary':
+            for k in range(ntop): cue('tick', T + MOVE * 0.6 + 0.2 + 0.12 * k)
+        if kind_s == 'end': cue('swell', T)
         for i in range(int(dur * FPS)):
             t = i / FPS
             c = cam_mix(prev, cam, t / MOVE) if kind_s in ('region', 'summary') else cam
@@ -665,17 +984,10 @@ def main():
                 if kind_s == 'summary' and t > MOVE * 0.6: summary_card(frame, ranked[:ntop], badge, t - MOVE * 0.6)
                 bottom_card(frame)
             else:
-                fade = ease(t / 0.5)
-                frame.alpha_composite(Image.new('RGBA', (W, H), BG + (int(250 * fade),)))
-                dr = ImageDraw.Draw(frame)
-                lg = logo_img(300)
-                if lg is not None: frame.alpha_composite(lg, (int((W - lg.width) / 2), int(H / 2 - 240)))
-                else: dr.text((W / 2, H / 2 - 40), 'West WX Watchers', font=font(700, 84), fill=TEXT, anchor='mm')
-                dr.text((W / 2, H / 2 + 130), 'Data: ' + SRC, font=font(500, 28), fill=MUTED, anchor='mm')
+                end_card(frame, t)
             ff.stdin.write(frame.convert('RGB').tobytes())
         T += dur; prev = cam
-    ff.stdin.close(); ff.wait()
-    print('Wrote', a.out, flush=True)
+    return T
 
 if __name__ == '__main__':
     main()
