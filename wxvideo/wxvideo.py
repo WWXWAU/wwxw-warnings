@@ -24,6 +24,7 @@ LNG0, LNG1, LAT0, LAT1 = 108.0, 134.0, -9.0, -40.0   # base map extent (N edge L
 BG, SURFACE, TEXT, MUTED, LINE, ACCENT, ON_ACCENT = (238, 244, 245), (255, 255, 255), (14, 42, 51), (74, 100, 112), (201, 216, 220), (14, 124, 134), (255, 255, 255)
 SEA, LAND, WA_LAND, COAST = (206, 225, 230), (229, 233, 229), (247, 247, 242), (128, 152, 160)
 LOGO = None   # set from --logo
+CLIP = None   # district rings to colour (set from the data, when a region is picked)
 
 def merc(lat): return math.log(math.tan(math.pi / 4 + math.radians(lat) / 2))
 SCALE = PPD * 180 / math.pi                  # pixels per radian of Mercator y
@@ -82,6 +83,27 @@ for _k in ('tmax', 'temp', 'tmin'):
     KINDS[_k]['legend'] = list(range(0, 48, 4))
 KINDS['gust']['bands'] = bands_from(GUST_STOPS, [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 130])
 KINDS['gust']['legend'] = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 130]
+# More from Live Obs (Nov 2026): feels like, wind, dew point, humidity, Delta T, pressure, soil, evapotranspiration
+def _scale(stops, edges, legend, unit, fmt, order=-1, word='station', sig=0.5, cover=(2.5, 4.0), near=3):
+    return dict(stops=stops, bands=bands_from(stops, edges), legend=legend, unit=unit, fmt=fmt, sig=sig, cover=cover, floor=None, order=order, word=word, near=near)
+WIND_STOPS = [(0, (170, 190, 210, 215)), (10, (90, 170, 210, 215)), (20, (80, 200, 140, 215)), (30, (200, 220, 70, 220)), (40, (250, 170, 50, 225)), (50, (235, 80, 40, 235)), (65, (160, 20, 90, 240))]
+DEW_STOPS = [(-5, (150, 110, 70, 215)), (0, (190, 150, 90, 215)), (5, (225, 205, 140, 215)), (10, (170, 215, 150, 215)), (15, (80, 190, 120, 215)), (20, (40, 160, 150, 220)), (25, (30, 110, 175, 230))]
+RH_STOPS = [(0, (160, 100, 50, 215)), (20, (215, 160, 90, 215)), (40, (235, 215, 140, 215)), (60, (150, 210, 160, 215)), (80, (70, 170, 200, 220)), (100, (40, 90, 180, 230))]
+DT_STOPS = [(0, (44, 127, 184, 215)), (2, (65, 182, 196, 215)), (4, (127, 205, 187, 215)), (6, (199, 233, 180, 215)), (8, (246, 226, 127, 220)), (10, (246, 165, 74, 225)), (12, (232, 88, 44, 230)), (15, (178, 24, 43, 235))]
+PRES_STOPS = [(985, (110, 40, 150, 230)), (995, (60, 110, 210, 220)), (1005, (70, 180, 200, 215)), (1012, (150, 210, 120, 215)), (1018, (240, 220, 90, 220)), (1025, (245, 150, 50, 225)), (1035, (210, 50, 40, 235))]
+ET_STOPS = [(0, (247, 244, 232, 215)), (2, (239, 227, 184, 215)), (4, (221, 182, 90, 220)), (6, (201, 124, 42, 225)), (8, (156, 67, 30, 230)), (10, (124, 45, 26, 235)), (14, (90, 28, 20, 240))]
+ETW_STOPS = [(-60, (90, 28, 20, 235)), (-30, (201, 124, 42, 225)), (-10, (230, 207, 134, 215)), (0, (214, 236, 210, 215)), (10, (159, 211, 199, 215)), (30, (78, 167, 201, 225)), (60, (44, 95, 163, 235))]
+fmt_pc = lambda v: f"{v:.0f}%"; fmt_hpa = lambda v: f"{v:.0f} hPa"; fmt_dt = lambda v: f"{v:.1f}°"; fmt_et = lambda v: f"{v:.1f} mm" if abs(v) < 20 else f"{v:.0f} mm"
+KINDS.update({
+    'app': dict(KINDS['temp']), 'soil': dict(KINDS['temp']),
+    'wind': _scale(WIND_STOPS, [0, 5, 10, 15, 20, 25, 30, 40, 50, 65], [0, 10, 20, 30, 40, 50, 65], 'km/h', fmt_g, near=10),
+    'dew': _scale(DEW_STOPS, list(range(-6, 28, 2)), list(range(-4, 28, 4)), '°C', fmt_t),
+    'rh': _scale(RH_STOPS, list(range(0, 101, 10)), list(range(0, 101, 20)), '%', fmt_pc, near=10),
+    'dt': _scale(DT_STOPS, [0, 2, 4, 6, 8, 10, 12, 15], [0, 2, 4, 6, 8, 10, 12, 15], '°C', fmt_dt),
+    'pres': _scale(PRES_STOPS, list(range(985, 1036, 3)), list(range(988, 1036, 6)), 'hPa', fmt_hpa, near=3),
+    'et': _scale(ET_STOPS, [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 12, 14], [0, 2, 4, 6, 8, 10, 12, 14], 'mm', fmt_et, near=2),
+    'etw': _scale(ETW_STOPS, [-60, -45, -30, -20, -10, 0, 10, 25, 50], [-60, -30, -10, 0, 10, 25, 50], 'mm', fmt_et, near=10),
+})
 K = KINDS['rain']   # set in main
 
 def read_data(path):
@@ -94,6 +116,9 @@ def read_data(path):
 
 def caption_for(kind, pts, days):
     vs = [p['v'] for p in pts]; hi, lo = max(vs), min(vs)
+    if K['order'] != KINDS.get(kind, K)['order'] or kind not in ('rain', 'tmax', 'temp', 'tmin', 'gust'):   # the other end, or a newer kind
+        v = lo if K['order'] == 1 else hi
+        return ('Lowest ' if K['order'] == 1 else 'Highest ') + K['fmt'](v)
     if kind == 'rain':
         big, soak = (50, 25) if days <= 1 else (80, 40)
         return 'Big falls!' if hi >= big else 'Solid soaking!' if hi >= soak else 'Showers about' if hi >= 5 else 'Mostly dry'
@@ -107,6 +132,8 @@ def badge_for(kind, pts):
     n = lambda f: sum(1 for p in pts if f(p['v']))
     pl = lambda c, w: f'{c} {w}{"s" if c != 1 else ""}'
     w = K['word']
+    if K['order'] != KINDS.get(kind, K)['order'] or kind not in ('rain', 'tmax', 'temp', 'tmin', 'gust'):
+        return pl(len(pts), w)
     if kind == 'rain':
         for thr in (25, 10, 1):
             c = n(lambda v: v >= thr)
@@ -173,9 +200,14 @@ def build_base(gauges, states):
                 pts = [to_px(lat, lng) for lng, lat in ring]
                 if len(pts) > 2: dr.polygon(pts, fill=WA_LAND if name == 'Western Australia' else LAND)
     mask = Image.new('L', (BW, BH), 0); md = ImageDraw.Draw(mask)
-    for ring in rings(states['Western Australia']):
-        pts = [to_px(lat, lng) for lng, lat in ring]
-        if len(pts) > 2: md.polygon(pts, fill=255)
+    if CLIP:   # a region picked on the page: colour only its districts (rings as flat [lng, lat, lng, lat, ...])
+        for r in CLIP:
+            pts = [to_px(r[i + 1], r[i]) for i in range(0, len(r) - 1, 2)]
+            if len(pts) > 2: md.polygon(pts, fill=255)
+    else:
+        for ring in rings(states['Western Australia']):
+            pts = [to_px(lat, lng) for lng, lat in ring]
+            if len(pts) > 2: md.polygon(pts, fill=255)
     # the field over WA's box only: coarse grid, then smoothly up to full resolution
     X0, Y0 = [int(v) for v in to_px(-13.0, 112.0)]; X1, Y1 = [int(v) for v in to_px(-35.7, 129.7)]
     q = 4; gw, gh = (X1 - X0) // q + 2, (Y1 - Y0) // q + 2
@@ -362,7 +394,7 @@ def summary_card(img, rows, badge, t):
     y0 = 310; h = 70 + n * rh + 80
     card(img, (30, y0, W - 30, y0 + h))
     dr = ImageDraw.Draw(img)
-    dr.text((60, y0 + 26), 'Top ' + str(n), font=font(700, 34), fill=TEXT)
+    dr.text((60, y0 + 26), ('Lowest ' if K['order'] == 1 else 'Top ') + str(n), font=font(700, 34), fill=TEXT)
     fv, fn = font(700, 46 if rh > 80 else 38), font(600, 32 if rh > 80 else 28)
     for k, g in enumerate(rows):
         p = ease((t - 0.2 - 0.12 * k) / 0.3)
@@ -382,7 +414,7 @@ def summary_card(img, rows, badge, t):
 
 # ---------------------------------------------------------------- main
 def main():
-    global LOGO, TITLE, SRC, K
+    global LOGO, TITLE, SRC, K, CLIP
     ap = argparse.ArgumentParser()
     ap.add_argument('data'); ap.add_argument('out')
     ap.add_argument('--caption', help='short caption; default picked from the values')
@@ -394,7 +426,9 @@ def main():
     if os.path.exists(lp): LOGO = Image.open(lp).convert('RGBA')
     doc, gauges = read_data(a.data)
     if not gauges: sys.exit('No stations with values in the data.')
-    kind = doc.get('kind', 'rain'); K = KINDS[kind]
+    kind = doc.get('kind', 'rain'); K = dict(KINDS.get(kind, KINDS['temp']))
+    if doc.get('order') in (-1, 1) and kind != 'rain': K['order'] = doc['order']   # tell the story of the highest or the lowest
+    CLIP = doc.get('clip') or None
     TITLE, period, SRC = doc['title'], doc['sub'], doc.get('src', 'BoM, DPIRD, DWER')
     states = json.load(open(os.path.join(HERE, 'aus_states.json')))
     towns = json.load(open(os.path.join(HERE, 'towns.json'))); TOWNS[:] = towns
@@ -409,7 +443,13 @@ def main():
     while bases[-1].width > 1500: bases.append(bases[-1].resize((bases[-1].width // 2, bases[-1].height // 2), Image.LANCZOS))
     regions = pick_regions(gauges, towns, nreg) if nreg else []
 
-    full = Cam(-25.0, 121.0, 18.5)
+    v = doc.get('view')   # a region picked on the page: fit the map to it
+    if v:   # keep the view inside the base map (north edge 9 deg S): a wide region in the north sits lower in the frame
+        sp, la = float(v['span']), float(v['lat'])
+        hh = 0.93 * H / W * sp / 2 * math.cos(math.radians(la))   # about half the frame's height in degrees
+        la = min(la, LAT0 - 0.5 - hh)
+        full = Cam(la, float(v['lng']), sp)
+    else: full = Cam(-25.0, 121.0, 18.5)
     shots = [('intro', full, None, 3.0)]
     for r in regions: shots.append(('region', Cam(r['lat'] - 0.02 * r['span'], r['lng'], r['span']), r, 4.0))
     shots.append(('summary', full, None, 3.0 + 0.25 * ntop)); shots.append(('end', full, None, 2.2))
