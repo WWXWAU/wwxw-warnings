@@ -1,0 +1,50 @@
+name: tmp dem
+on: workflow_dispatch
+permissions: { contents: write }
+jobs:
+  d:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install numpy pillow scipy >/dev/null
+      - run: |
+          cat > dem.py <<'PY'
+          import math, io, urllib.request, numpy as np
+          from PIL import Image
+          from concurrent.futures import ThreadPoolExecutor
+          Z = 8
+          def tx(lng): return (lng + 180) / 360 * 2 ** Z
+          def ty(lat): r = math.radians(lat); return (1 - math.log(math.tan(r) + 1 / math.cos(r)) / math.pi) / 2 * 2 ** Z
+          LNG0, LNG1, LAT0, LAT1 = 108.0, 134.0, -9.0, -40.0
+          X0, X1 = int(tx(LNG0)), int(tx(LNG1)); Y0, Y1 = int(ty(LAT0)), int(ty(LAT1))
+          print('tiles', (X1 - X0 + 1) * (Y1 - Y0 + 1), flush=True)
+          def get(xy):
+              x, y = xy
+              for k in range(4):
+                  try:
+                      b = urllib.request.urlopen(f'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{Z}/{x}/{y}.png', timeout=60).read()
+                      a = np.asarray(Image.open(io.BytesIO(b)).convert('RGB')).astype(np.float32)
+                      return xy, a[..., 0] * 256 + a[..., 1] + a[..., 2] / 256 - 32768
+                  except Exception as e: err = e
+              raise err
+          big = np.zeros(((Y1 - Y0 + 1) * 256, (X1 - X0 + 1) * 256), np.float32)
+          with ThreadPoolExecutor(16) as ex:
+              for (x, y), e in ex.map(get, [(x, y) for x in range(X0, X1 + 1) for y in range(Y0, Y1 + 1)]):
+                  big[(y - Y0) * 256:(y - Y0 + 1) * 256, (x - X0) * 256:(x - X0 + 1) * 256] = e
+          # resample to a regular lat/lng grid, 0.02 deg
+          from scipy.ndimage import map_coordinates
+          D = 0.02
+          lngs = np.arange(LNG0, LNG1 + 1e-9, D); lats = np.arange(LAT0, LAT1 - 1e-9, -D)
+          LN, LA = np.meshgrid(lngs, lats)
+          px = (tx(LN) - X0) * 256 - 0.5
+          r = np.radians(LA); py = ((1 - np.log(np.tan(r) + 1 / np.cos(r)) / np.pi) / 2 * 2 ** Z - Y0) * 256 - 0.5
+          el = map_coordinates(big, [py, px], order=1)
+          el = np.clip(np.round(el), -100, 3000).astype(np.int16)
+          np.savez_compressed('wa_dem.npz', elev=el, lng0=LNG0, lat0=LAT0, d=D)
+          print(el.shape, el.max(), el.min(), flush=True)
+          PY
+          python3 dem.py
+      - run: |
+          mv wa_dem.npz wxvideo/wa_dem.npz && rm -f dem.py
+          git config user.name "github-actions[bot]"; git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add wxvideo/wa_dem.npz && git commit -m "wxvideo: WA elevation grid (AWS terrain tiles, 0.02 deg)" && git pull --rebase && git push
