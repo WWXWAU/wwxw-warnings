@@ -444,29 +444,26 @@ def cam3_mix(a, b, t):
     return Cam3(lerp(a.lat, b.lat, t), lerp(a.lng, b.lng, t), math.exp(lerp(math.log(a.span), math.log(b.span), t)),
                 lerp(a.tilt, b.tilt, t), lerp(a.head, b.head, t))
 
-def story_norm(v):
-    """0..1 for how far along the story each value is (1 = the wettest / hottest / coldest end)."""
-    vs = np.array([g['v'] for g in STATIONS])
-    if K['floor'] is not None and not K.get('smooth'):
-        hi = max(vs.max(), 1.0)
-        return np.sqrt(np.clip(v, 0, None) / hi)
-    if K['order'] == 1: lo, hi = vs.min(), np.percentile(vs, 92); p = (hi - v) / max(hi - lo, 1e-6)
-    else: lo, hi = np.percentile(vs, 8), vs.max(); p = (v - lo) / max(hi - lo, 1e-6)
-    return np.clip(p, 0, 1)
-
 STATIONS = []
+EXAGGERATE = 28     # real land heights, stretched up so WA's ranges and scarps show
 def build_terrain(full):
-    from scipy.ndimage import gaussian_filter
-    val, m = HF['val'], HF['m']
-    p = story_norm(np.nan_to_num(val, nan=0.0))
-    if K['floor'] is not None and not K.get('smooth'): p = np.where(val >= 0.2, p, 0)
-    hmax = full.span * PPD * 0.075
-    hgt = gaussian_filter((0.04 + 0.96 * p) * gaussian_filter(m, 1.5) * hmax, 4.5).astype(np.float32)
-    gy, gx = np.gradient(hgt, HF['q'])
-    nx, ny, nz = -gx * 1.6, -gy * 1.6, np.ones_like(hgt)      # a little extra relief for the shading
+    """The real land (WA elevation grid, AWS terrain tiles) on the map's grid, and its hill shading."""
+    from scipy.ndimage import map_coordinates, gaussian_filter
+    X0, Y0, q = HF['X0'], HF['Y0'], HF['q']
+    gh, gw = HF['val'].shape
+    dem = np.load(os.path.join(HERE, 'wa_dem.npz'))
+    el, lng0, lat0, d = dem['elev'].astype(np.float32), float(dem['lng0']), float(dem['lat0']), float(dem['d'])
+    lng = LNG0 + (X0 + np.arange(gw) * q) / PPD
+    lat = np.array([lat_of(Y0 + j * q) for j in range(gh)])
+    LN, LA = np.meshgrid(lng, lat)
+    e = map_coordinates(el, [(lat0 - LA) / d, (LN - lng0) / d], order=1, mode='nearest')
+    e = gaussian_filter(np.clip(e, 0, None), 1.3)
+    hgt = (e * PPD / 111000 * EXAGGERATE).astype(np.float32)
+    gy, gx = np.gradient(hgt, q)
+    nx, ny, nz = -gx * 2.0, -gy * 2.0, np.ones_like(hgt)
     L = np.array([-0.55, -0.6, 0.58]); L /= np.linalg.norm(L)  # light from the north-west (image y runs south)
     sh = (nx * L[0] + ny * L[1] + nz * L[2]) / np.sqrt(nx ** 2 + ny ** 2 + nz ** 2)
-    shade = np.clip(1 + 1.1 * (sh - L[2]), 0.6, 1.2).astype(np.float32)   # flat ground = 1 (unchanged)
+    shade = np.clip(1 + 0.9 * (sh - L[2]), 0.68, 1.18).astype(np.float32)   # flat ground = 1 (unchanged)
     return hgt, shade
 
 def terrain_frame(levels, hgt, shade, c, full, grow):
@@ -481,7 +478,7 @@ def terrain_frame(levels, hgt, shade, c, full, grow):
     C = np.array([tx - D * math.sin(tl) * fh[0], ty - D * math.sin(tl) * fh[1], D * math.cos(tl)])
     f = (np.array([tx, ty, 0.0]) - C) / D
     r = np.array([math.cos(hd), -math.sin(hd), 0.0]); u = np.cross(r, f)
-    sc = grow * min(1.0, (c.span / (1.1 * full.span)) ** 0.7)
+    sc = grow                                                      # real land: the same height at every zoom
     S = 720
     rows = np.linspace(H * 1.45, 0, S, dtype=np.float32)[:, None]   # near (below the frame) to far (top row)
     kc = ((np.arange(W, dtype=np.float32) - W / 2 + 0.5) / FOC)[None, :]
@@ -932,6 +929,7 @@ def main():
         while bases[-1].width > 1500: bases.append(bases[-1].resize((bases[-1].width // 2, bases[-1].height // 2), Image.LANCZOS))
         regions = pick_regions(gauges, towns, nreg) if nreg else []
         if style == '3d':
+            SRC += ' · terrain: AWS Terrain Tiles'   # the elevation's credit
             c3 = Cam(float(v['lat']), float(v['lng']), float(v['span'])) if v else full   # 3D: no edge to keep inside
             total = render_3d(ff, bases, gauges, ranked, regions, c3, period, cap, badge, ntop, region=bool(v))
         else:
