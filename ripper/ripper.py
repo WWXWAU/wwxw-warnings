@@ -58,7 +58,7 @@ BOM_ICON = {1: 'sun', 2: 'sun', 14: 'sun', 3: 'partly', 6: 'partly', 9: 'partly'
             8: 'rain', 11: 'rain', 12: 'rain', 15: 'rain', 17: 'rain', 18: 'rain', 16: 'storm', 19: 'storm'}
 BOM_CLOUD = {'sun': 10, 'partly': 40, 'cloud': 85, 'rain': 80, 'storm': 70}
 HOURLY = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'wind_direction_10m', 'wind_gusts_10m',
-          'cloud_cover', 'precipitation', 'weather_code', 'et0_fao_evapotranspiration']   # 9 variables: still one call per place (fog on the 0.5 deg grid goes by dew point)
+          'cloud_cover', 'precipitation', 'weather_code', 'et0_fao_evapotranspiration', 'shortwave_radiation']   # 10 variables: still one call per place (fog on the 0.5 deg grid goes by dew point)
 DAY_H = range(9, 18)          # 9 am - 5 pm
 BANDS = [(85, 'Bloody ripper'), (70, 'Beaut'), (50, 'Decent'), (30, 'Not bad'), (0, 'Bit ordinary')]
 
@@ -488,7 +488,8 @@ def record_day(path, date, towns):
 
 # ---------------------------------------------------------------- farm forecast (site/ag): ET and spraying weather
 AG_FINE = {'lat0': -35.5, 'lat1': -27.0, 'lng0': 114.0, 'lng1': 124.0, 'd': 0.25}   # the farming areas at ~25 km
-AG_VARS = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'cloud_cover', 'et0_fao_evapotranspiration', 'visibility']
+AG_VARS = ['temperature_2m', 'dew_point_2m', 'wind_speed_10m', 'cloud_cover', 'et0_fao_evapotranspiration', 'visibility',
+           'shortwave_radiation', 'soil_temperature_6cm']
 AG_HOURS = list(range(5, 21))   # 5 am to 8 pm
 AG_ABC = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_'   # one character per value; '_' = no data
 
@@ -539,32 +540,70 @@ def night(gh, times, d):
     return ''.join(tn), ''.join(gt), ''.join(fr), ''.join(fg)
 
 
+def asce_daily(lat, doy, T, Td, U, Rsw, tall):
+    """ASCE standardized reference ET for a day (mm): short crop (grass, ETo: Cn 900, Cd 0.34) or tall crop
+    (alfalfa/lucerne, ETr: Cn 1600, Cd 0.38), from hourly temperature and dew point (C), 10 m wind (km/h) and
+    shortwave radiation (W/m2). Elevation taken as 300 m."""
+    if len(T) < 20 or len(Rsw) < 20: return None
+    tx, tn = max(T), min(T); tm = (tx + tn) / 2
+    e = lambda t: 0.6108 * math.exp(17.27 * t / (t + 237.3))
+    es = (e(tx) + e(tn)) / 2; ea = sum(e(x) for x in Td) / len(Td)
+    rs = sum(Rsw) * 24 / len(Rsw) * 3600 / 1e6                                     # MJ/m2/day
+    phi = math.radians(lat); dr = 1 + 0.033 * math.cos(2 * math.pi * doy / 365); dl = 0.409 * math.sin(2 * math.pi * doy / 365 - 1.39)
+    ws = math.acos(max(-1, min(1, -math.tan(phi) * math.tan(dl))))
+    ra = 24 * 60 / math.pi * 0.082 * dr * (ws * math.sin(phi) * math.sin(dl) + math.cos(phi) * math.cos(dl) * math.sin(ws))
+    rso = (0.75 + 2e-5 * 300) * ra
+    fcd = max(0.05, min(1.0, 1.35 * min(rs / rso, 1) - 0.35)) if rso > 0 else 0.5
+    rnl = 4.901e-9 * fcd * (0.34 - 0.14 * math.sqrt(max(ea, 0))) * (((tx + 273.16) ** 4 + (tn + 273.16) ** 4) / 2)
+    rn = 0.77 * rs - rnl
+    u2 = sum(U) / len(U) / 3.6 * 4.87 / math.log(67.8 * 10 - 5.42)
+    gam = 0.000665 * 101.3 * ((293 - 0.0065 * 300) / 293) ** 5.26
+    dlt = 2503 * math.exp(17.27 * tm / (tm + 237.3)) / (tm + 237.3) ** 2
+    cn, cd = (1600, 0.38) if tall else (900, 0.34)
+    return max(0.0, (0.408 * dlt * rn + gam * cn / (tm + 273) * u2 * max(es - ea, 0)) / (dlt + gam * (1 + cd * u2)))
+
+
 def write_ag(path, nx, ny, inwa, gh, times, dates, box=None):
     """ag.json: for every WA grid point, each day's reference ET (FAO-56, short crop, mm) and, hour by hour from 5 am
     to 8 pm, Delta T and 10 m wind. Hourly values are packed one character per point (AG_ABC): Delta T in half
     degrees, wind in km/h."""
     days = []
+    g = box or {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}
+    lats = [g['lat0'] + (q // nx) * g['d'] for q, w in enumerate(inwa) if w]
     for d in dates:
         idx = {int(x[11:13]): i for i, x in enumerate(times) if x.startswith(d)}
-        et, dts, wss = [], [], []
-        for h in gh:
-            e = [h['et0_fao_evapotranspiration'][i] for i in idx.values() if h['et0_fao_evapotranspiration'][i] is not None]
-            e = [v for v in e if 0 <= v <= 1.6]          # a model glitch (one hour of 100+ mm seen) drops out
-            tot = sum(e) * 24 / len(e) if len(e) >= 20 else None
-            et.append(int(round(tot * 10)) if tot is not None and tot <= 20 else -1)
+        doy = dt.date.fromisoformat(d).timetuple().tm_yday
+        et, ett, st, dts, wss = [], [], [], [], []
+        for p, h in enumerate(gh):
+            col = lambda k: [h[k][i] for i in idx.values() if h.get(k) and h[k][i] is not None]
+            T, Td, U, R = col('temperature_2m'), col('dew_point_2m'), col('wind_speed_10m'), [v for v in col('shortwave_radiation') if 0 <= v <= 1400]
+            if R:   # ASCE standardized, short and tall crop, from the same inputs
+                es_, et_ = asce_daily(lats[p], doy, T, Td, U, R, False), asce_daily(lats[p], doy, T, Td, U, R, True)
+            else:   # no radiation (an older run): Open-Meteo's short-crop figure, no tall crop
+                e = [v for v in col('et0_fao_evapotranspiration') if 0 <= v <= 1.6]   # a model glitch (one hour of 100+ mm seen) drops out
+                es_, et_ = (sum(e) * 24 / len(e) if len(e) >= 20 else None), None
+            et.append(int(round(es_ * 10)) if es_ is not None and es_ <= 20 else -1)
+            ett.append(int(round(et_ * 10)) if et_ is not None and et_ <= 30 else -1)
+            S = col('soil_temperature_6cm')
+            st.append(ag_code(sum(S) / len(S) + 20) if len(S) >= 20 else '_')   # daily mean soil temperature at 6 cm, +20
         for hr in AG_HOURS:
             i = idx.get(hr)
             dts.append(''.join(ag_code(None if i is None else (lambda v: None if v is None else v * 2)(delta_t(h['temperature_2m'][i], h['dew_point_2m'][i]))) for h in gh))
             wss.append(''.join(ag_code(None if i is None else h['wind_speed_10m'][i]) for h in gh))
         tn, gt, fr, fg = night(gh, times, d)
-        days.append({'date': d, 'et': et, 'dt': dts, 'ws': wss, 'tn': tn, 'gt': gt, 'fr': fr, 'fg': fg})
+        days.append({'date': d, 'et': et, 'ett': ett, 'st': ''.join(st), 'dt': dts, 'ws': wss, 'tn': tn, 'gt': gt, 'fr': fr, 'fg': fg})
     out = {'made': dt.datetime.now(dt.timezone.utc).strftime('%Y-%m-%dT%H:%MZ'), 'source': 'Open-Meteo (best-match models)',
            'grid': box or {'lat0': LAT0, 'lng0': LNG0, 'd': GRID_D, 'nx': nx, 'ny': ny}, 'mask': ''.join('1' if w else '0' for w in inwa),
            'hours': AG_HOURS, 'abc': AG_ABC, 'days': days}
     with open(path, 'w') as fh:
         json.dump(out, fh, separators=(',', ':'))
-    log('Wrote %s (%.0f KB): ET day 1 range %.1f-%.1f mm' % (path, os.path.getsize(path) / 1024,
-        min(v for v in days[0]['et'] if v >= 0) / 10, max(days[0]['et']) / 10))
+    om = [sum(v for v in h['et0_fao_evapotranspiration'][24:48] if v is not None) for h in gh] if all(h.get('et0_fao_evapotranspiration') for h in gh) else []
+    ok = [i for i in range(len(gh)) if days[1]['et'][i] >= 0] if len(days) > 1 else []
+    log('Wrote %s (%.0f KB): ET day 1 short %.1f-%.1f mm, tall %.1f-%.1f mm%s; soil 6 cm %s' % (path, os.path.getsize(path) / 1024,
+        min(v for v in days[0]['et'] if v >= 0) / 10, max(days[0]['et']) / 10,
+        min([v for v in days[0]['ett'] if v >= 0] or [0]) / 10, max(days[0]['ett'] or [0]) / 10,
+        ('; ours vs Open-Meteo short crop (day 2): mean %+.2f mm' % (sum(days[1]['et'][i] / 10 - om[i] for i in ok) / len(ok))) if om and ok else '',
+        'yes' if days[0]['st'].strip('_') else 'none'))
 
 
 def main():

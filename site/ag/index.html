@@ -77,6 +77,8 @@
     .etbars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; align-items: end; height: 110px; margin-top: 6px; }
     .etbars div { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; font-size: 11px; color: var(--muted); }
     .etbars b { display: block; width: 70%; border-radius: 4px 4px 0 0; background: #C97C2A; }
+    .etbars i { display: block; width: 70%; border-radius: 4px 4px 0 0; background: #E9C79B; position: relative; }
+    .etbars i b { position: absolute; left: 0; right: 0; bottom: 0; width: auto; }
     .etbars span.v { font-weight: 700; color: var(--text); font-size: 11.5px; }
     .etbars div.sel span { color: var(--accent); font-weight: 700; }
     details.how { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 12px 16px; font-size: 13px; color: var(--muted); }
@@ -120,7 +122,9 @@
       <button type="button" data-l="spray" aria-pressed="true">Spraying</button>
       <button type="button" data-l="dt" aria-pressed="false">Delta T</button>
       <button type="button" data-l="ws" aria-pressed="false">Wind</button>
-      <button type="button" data-l="et" aria-pressed="false">Evapotranspiration</button>
+      <button type="button" data-l="et" aria-pressed="false">ET short crop</button>
+      <button type="button" data-l="ett" aria-pressed="false">ET tall crop</button>
+      <button type="button" data-l="st" aria-pressed="false">Soil temp</button>
       <button type="button" data-l="frost" aria-pressed="false">Frost</button>
       <button type="button" data-l="fog" aria-pressed="false">Fog</button>
     </div>
@@ -143,7 +147,7 @@
     <div class="panel">
       <section class="card" id="here" aria-live="polite"><h2>Tap the map</h2><div class="sub">for the spraying hours and ET at that spot</div></section>
       <section class="card" id="nightcard" hidden><h2>Frost and fog, next 7 nights</h2><div class="sub">Lowest temperature from 6 pm to 9 am, and a rough grass (ground) temperature</div><table class="hrs" id="nights"></table></section>
-      <section class="card" id="etcard" hidden><h2>Evapotranspiration, next 7 days</h2><div class="sub" id="etsub"></div><div class="etbars" id="etbars"></div></section>
+      <section class="card" id="etcard" hidden><h2>Evapotranspiration, next 7 days</h2><div class="sub"><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#C97C2A;vertical-align:-1px"></span> short crop (pasture) &nbsp; <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#E9C79B;vertical-align:-1px"></span> tall crop (lucerne)</div><div class="sub" id="etsub"></div><div class="etbars" id="etbars"></div></section>
       <details class="how">
         <summary>About this forecast</summary>
         <p><b>Spraying</b> combines Delta T and wind. Good: Delta T 2–8 °C and wind 3–15 km/h. Marginal: Delta T 8–10 °C or wind 15–20 km/h. Stop: Delta T over 10 °C or wind over 20 km/h. Inversion risk: Delta T under 2 °C or wind under 3 km/h, when spray drift can travel a long way; surface inversions are common from late afternoon until after sunrise.</p>
@@ -151,7 +155,9 @@
         <p><b>Wind</b> is the forecast at 10 m. Near the ground it is usually a little lighter.</p>
         <p><b>Frost</b> uses the forecast overnight low (6 pm to 9 am) and a rough grass temperature: on clear, calm nights the ground runs 2–4 °C colder than the air in a weather screen. Possible: grass 2 °C or below. Likely: 0 °C or below. Severe: −2 °C or below. Low-lying paddocks can be colder still.</p>
         <p><b>Fog</b> is flagged when the models have the air close to saturation (temperature within about 1 °C of the dew point) with light winds overnight or early morning, or forecast visibility under 1 km.</p>
-        <p><b>Evapotranspiration</b> is reference ET (FAO-56, short crop): the water a well-watered pasture loses to the air in a day. Yesterday's measured ET at DPIRD's stations is on <a href="/obs/">Live Obs</a>.</p>
+        <p><b>Evapotranspiration</b> is reference ET by the ASCE standardized method, from the forecast sun, temperature, humidity and wind: <b>short crop</b> is a well-watered pasture (ETo), <b>tall crop</b> is lucerne (ETr), which uses more water.</p>
+        <p><b>Soil temperature</b> is the model's day-average at 6 cm, across the farming areas (the 25 km grid).</p>
+        <p>Yesterday's measured ET (short and tall crop) at DPIRD's stations is on <a href="/obs/">Live Obs</a>.</p>
         <p>The forecast comes from computer models on a 0.25° grid (about 25 km) across the farming areas and a 0.5° grid (about 50 km) elsewhere, updated four times a day. Always check the conditions on the paddock before and while spraying, and follow the label.</p>
       </details>
     </div>
@@ -179,11 +185,13 @@
     var SCALES = {
       dt: { n: 'Delta T', u: ' °C', b: [0, 2, 4, 6, 8, 10, 12, 15], c: ['#2c7fb8', '#41b6c4', '#7fcdbb', '#c7e9b4', '#f6e27f', '#f6a54a', '#e8582c', '#b2182b'] },
       ws: { n: 'Wind (10 m)', u: ' km/h', b: [0, 3, 10, 15, 20, 30, 40], c: ['#a7b8d8', '#a5d6a7', '#66bb6a', '#d4e157', '#ffca28', '#ef5350', '#9c27b0'] },
-      et: { n: 'ET for the day', u: ' mm', b: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10], c: ['#f7f4e8', '#efe3b8', '#e6cf86', '#ddb65a', '#d49a3a', '#c97c2a', '#b85e22', '#9c431e', '#7c2d1a', '#5a1c14'] }
+      ett: { n: 'Tall-crop ET for the day', u: ' mm', b: [0, 2, 4, 5, 6, 7, 8, 9, 10, 12], c: ['#f7f4e8', '#efe3b8', '#e6cf86', '#ddb65a', '#d49a3a', '#c97c2a', '#b85e22', '#9c431e', '#7c2d1a', '#5a1c14'] },
+      st: { n: 'Soil temperature at 6 cm, day average', u: ' °C', b: [0, 8, 10, 12, 14, 16, 18, 20, 25, 30, 35], c: ['#2c5fa3', '#4ea7c9', '#7fcdbb', '#a8d8a0', '#d6ecd2', '#f6e27f', '#f6c14a', '#f6a54a', '#e8582c', '#b2182b', '#67001f'] },
+      et: { n: 'Short-crop ET for the day', u: ' mm', b: [0, 2, 3, 4, 5, 6, 7, 8, 9, 10], c: ['#f7f4e8', '#efe3b8', '#e6cf86', '#ddb65a', '#d49a3a', '#c97c2a', '#b85e22', '#9c431e', '#7c2d1a', '#5a1c14'] }
     };
     var FROST = [['No frost', '#E6EDEF'], ['Frost possible', '#A9CDEB'], ['Frost likely', '#4F8FD1'], ['Severe frost', '#5B3A9E']];
     var FOG = [['No fog', '#E6EDEF'], ['Fog possible', '#B5BEC4'], ['Fog likely', '#6F7C85']];
-    var DAILY = { et: 1, frost: 1, fog: 1 };
+    var DAILY = { et: 1, ett: 1, st: 1, frost: 1, fog: 1 };
     FROST.concat(FOG).forEach(function (s) { s.rgb = hex(s[1]); });
     SPRAY.forEach(function (s) { s.rgb = hex(s[2]); });
     Object.keys(SCALES).forEach(function (k) { SCALES[k].rgb = SCALES[k].c.map(hex); });
@@ -202,12 +210,13 @@
     }
     function grid1(kind, d, h, D) {
       var g = D.grid, N = g.nx * g.ny, f = new Float32Array(N), k = 0, src = D.days[d];
-      if (kind !== 'et' && !src[kind]) { f.fill(NaN); return f; }   // an older forecast file without it
-      var str = kind === 'et' ? null : typeof src[kind] === 'string' ? src[kind] : src[kind][h];
+      var arr = kind === 'et' || kind === 'ett';
+      if (!src[kind]) { f.fill(NaN); return f; }   // an older forecast file without it
+      var str = arr ? null : typeof src[kind] === 'string' ? src[kind] : src[kind][h];
       for (var i = 0; i < N; i++) {
         if (D.mask.charAt(i) !== '1') { f[i] = NaN; continue; }
-        if (kind === 'et') { var e = src.et[k]; f[i] = e < 0 || e > 200 ? NaN : e / 10; }
-        else { var c = D.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : kind === 'tn' || kind === 'gt' ? c - 20 : c); }
+        if (arr) { var e = src[kind][k]; f[i] = e < 0 || e > 300 ? NaN : e / 10; }
+        else { var c = D.abc.indexOf(str.charAt(k)); f[i] = c < 0 || c === 63 ? NaN : (kind === 'dt' ? c / 2 : kind === 'tn' || kind === 'gt' || kind === 'st' ? c - 20 : c); }
         k++;
       }
       for (var pass = 0; pass < 3; pass++) {
@@ -251,7 +260,7 @@
       var cx = cv.getContext('2d'), img = cx.createImageData(CW, CH), px = img.data;
       var fa = null, fb = null;
       var CL = layer === 'frost' ? FROST : layer === 'fog' ? FOG : null;
-      if (layer === 'et') fa = field('et', dayI);
+      if (layer === 'et' || layer === 'ett' || layer === 'st') fa = field(layer, dayI);
       else if (CL) fa = field(layer === 'frost' ? 'fr' : 'fg', dayI);
       else if (layer === 'dt') fa = field('dt', dayI, hourI);
       else if (layer === 'ws') fa = field('ws', dayI, hourI);
@@ -300,7 +309,7 @@
     function stamp() {
       var d = A.days[dayI].date;
       document.getElementById('stamp').textContent = layer === 'frost' || layer === 'fog' ? 'Overnight to ' + dayLong(d) + ' morning'
-        : dayLong(d) + (layer === 'et' ? ', whole day' : ', ' + hourLabel(A.hours[hourI]));
+        : dayLong(d) + (DAILY[layer] ? ', whole day' : ', ' + hourLabel(A.hours[hourI]));
     }
     function buttons() {
       var el = document.getElementById('days');
@@ -333,13 +342,16 @@
         : 'No good spraying hours forecast between ' + hourLabel(A.hours[0]) + ' and ' + hourLabel(A.hours[A.hours.length - 1] + 1) + '.';
       document.getElementById('here').innerHTML = '<h2>' + esc(here.name) + '</h2><div class="sub">' + dayLong(d.date) + ' · tap the map to move</div>'
         + '<p class="win">' + win + '</p><table class="hrs"><tr><th>Time</th><th style="text-align:right">Delta T</th><th style="text-align:right">Wind</th><th>Spraying</th></tr>' + rows + '</table>';
-      var ets = A.days.map(function (x, k) { return sample(field('et', k), here.lng, here.lat); }), mx = Math.max.apply(null, ets.filter(function (v) { return !isNaN(v); }).concat([6]));
-      var tot = 0; ets.forEach(function (v) { if (!isNaN(v)) tot += v; });
-      document.getElementById('etsub').textContent = 'Reference ET (short crop) · ' + tot.toFixed(0) + ' mm over the week';
+      var ets = A.days.map(function (x, k) { return sample(field('et', k), here.lng, here.lat); });
+      var ett = A.days.map(function (x, k) { return sample(field('ett', k), here.lng, here.lat); });
+      var mx = Math.max.apply(null, ets.concat(ett).filter(function (v) { return !isNaN(v); }).concat([6]));
+      var tot = 0, tott = 0; ets.forEach(function (v) { if (!isNaN(v)) tot += v; }); ett.forEach(function (v) { if (!isNaN(v)) tott += v; });
+      document.getElementById('etsub').textContent = 'Short crop ' + tot.toFixed(0) + ' mm' + (tott ? ', tall crop ' + tott.toFixed(0) + ' mm' : '') + ' over the week';
       document.getElementById('etbars').innerHTML = ets.map(function (v, k) {
-        return '<div class="' + (k === dayI ? 'sel' : '') + '"><span class="v">' + (isNaN(v) ? '–' : v.toFixed(1)) + '</span><b style="height:' + (isNaN(v) ? 0 : Math.round(v / mx * 78)) + 'px"></b><span>' + dayLabel(A.days[k].date, k).replace('Tomorrow', 'Tmrw') + '</span></div>'; }).join('');
+        var t = ett[k], hs = isNaN(v) ? 0 : Math.round(v / mx * 70), ht = isNaN(t) ? hs : Math.round(t / mx * 70);
+        return '<div class="' + (k === dayI ? 'sel' : '') + '"><span class="v">' + (isNaN(v) ? '–' : v.toFixed(1)) + (isNaN(t) ? '' : '<br><span style="font-weight:500;color:var(--muted)">' + t.toFixed(1) + '</span>') + '</span><i style="height:' + ht + 'px"><b style="height:' + hs + 'px"></b></i><span>' + dayLabel(A.days[k].date, k).replace('Tomorrow', 'Tmrw') + '</span></div>'; }).join('');
       document.getElementById('etcard').hidden = false;
-      var nr = '<tr><th>Morning</th><th style="text-align:right">Low</th><th style="text-align:right">Grass</th><th>Frost</th><th>Fog</th></tr>', any = false;
+      var nr = '<tr><th>Morning</th><th style="text-align:right">Low</th><th style="text-align:right">Grass</th><th>Frost</th><th>Fog</th><th style="text-align:right">Soil 6 cm</th></tr>', any = false;
       A.days.forEach(function (x, k) {
         var tn = sample(field('tn', k), here.lng, here.lat), gt = sample(field('gt', k), here.lng, here.lat);
         var fr = sample(field('fr', k), here.lng, here.lat), fg = sample(field('fg', k), here.lng, here.lat);
@@ -347,7 +359,8 @@
         var F = FROST[Math.max(0, Math.min(3, Math.round(fr)))], G = FOG[Math.max(0, Math.min(2, Math.round(fg)))];
         nr += '<tr' + (k === dayI ? ' class="now"' : '') + '><td>' + dayLabel(x.date, k) + '</td><td class="n">' + Math.round(tn) + '°</td><td class="n">' + Math.round(gt) + '°</td>'
           + '<td>' + (fr >= 0.5 ? '<span class="chip" style="background:' + F[1] + '">' + F[0].replace('Frost ', '') + '</span>' : '–') + '</td>'
-          + '<td>' + (fg >= 0.5 ? '<span class="chip" style="background:' + G[1] + '">' + G[0].replace('Fog ', '') + '</span>' : '–') + '</td></tr>';
+          + '<td>' + (fg >= 0.5 ? '<span class="chip" style="background:' + G[1] + '">' + G[0].replace('Fog ', '') + '</span>' : '–') + '</td>'
+          + '<td class="n">' + (function (v) { return isNaN(v) ? '–' : Math.round(v) + '°'; })(sample(field('st', k), here.lng, here.lat)) + '</td></tr>';
       });
       document.getElementById('nights').innerHTML = nr;
       document.getElementById('nightcard').hidden = !any;
@@ -359,13 +372,16 @@
     function popAt(lng, lat) {   // a small box on the map with the numbers at that spot
       if (pop) pop.remove();
       var h = '<b>' + esc(here.name) + '</b><br><span style="color:var(--muted)">' + dayLabel(A.days[dayI].date, dayI)
-        + (layer === 'frost' || layer === 'fog' ? ' morning' : layer === 'et' ? '' : ', ' + hourLabel(A.hours[hourI])) + '</span><br>';
+        + (layer === 'frost' || layer === 'fog' ? ' morning' : DAILY[layer] ? '' : ', ' + hourLabel(A.hours[hourI])) + '</span><br>';
       if (layer === 'frost' || layer === 'fog') {
         var tn = sample(field('tn', dayI), lng, lat), gt = sample(field('gt', dayI), lng, lat), cl = sample(field(layer === 'frost' ? 'fr' : 'fg', dayI), lng, lat);
         if (isNaN(tn)) return;
         var C = (layer === 'frost' ? FROST : FOG)[Math.max(0, Math.min(layer === 'frost' ? 3 : 2, Math.round(cl)))];
         h += 'Overnight low <b>' + tn.toFixed(0) + '°</b>' + (layer === 'frost' ? ', grass about <b>' + gt.toFixed(0) + '°</b>' : '') + '<br><span class="chip" style="background:' + C[1] + '">' + C[0] + '</span>';
-      } else if (layer === 'et') { var v = sample(field('et', dayI), lng, lat); h += 'ET <b>' + (isNaN(v) ? '–' : v.toFixed(1) + ' mm') + '</b> for the day'; }
+      } else if (layer === 'et' || layer === 'ett') {
+        var v = sample(field('et', dayI), lng, lat), vt = sample(field('ett', dayI), lng, lat);
+        h += 'ET short crop <b>' + (isNaN(v) ? '–' : v.toFixed(1) + ' mm') + '</b>' + (isNaN(vt) ? '' : '<br>ET tall crop <b>' + vt.toFixed(1) + ' mm</b>');
+      } else if (layer === 'st') { var sv = sample(field('st', dayI), lng, lat); if (isNaN(sv)) return; h += 'Soil at 6 cm <b>' + sv.toFixed(0) + '°C</b> day average'; }
       else {
         var dt = sample(field('dt', dayI, hourI), lng, lat), ws = sample(field('ws', dayI, hourI), lng, lat);
         if (isNaN(dt) || isNaN(ws)) return;
