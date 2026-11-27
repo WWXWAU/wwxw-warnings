@@ -8,15 +8,167 @@
   <meta name="theme-color" content="#FFFFFF">
   <title>WA weather balloons (Skew-T) — West WX Watchers</title>
   <meta name="description" content="Skew-T diagrams of the latest WA weather balloon flights: temperature, dew point, winds, CAPE, lifted index and freezing level for Perth, Albany, Esperance, Geraldton, Learmonth, Port Hedland, Broome and Giles.">
-  <meta name="robots" content="noindex">
-  <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
+    <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
   <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap">
   <script>
-  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
-    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-    document.documentElement.setAttribute('data-theme', t); })();
+  (function () {
+    var BR = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/';
+    var LATEST = BR + 'nowcast-data/sondes.json', LIB = BR + 'sondes-archive/';
+    var L = 44, R = 560, T = 16, B = 690, P0 = 1050, P1 = 100, TMIN = -40, TMAX = 50, SKEW = 0.62;
+    var D = null, IDX = {}, cur = null;
+    function y(p) { return B - (B - T) * (Math.log(P0 / p) / Math.log(P0 / P1)); }
+    function x(t, p) { return L + (t - TMIN) / (TMAX - TMIN) * (R - L) + (B - y(p)) * SKEW; }
+    var RD = 287.04, CP = 1005.7, LVH = 2.501e6, EPS = 0.622, KMH = 3.6;
+    function sat(t) { return 6.112 * Math.exp(17.67 * t / (t + 243.5)); }
+    function mixr(p, td) { var e = sat(td); return EPS * e / (p - e); }
+    function lapse(p, TK) { var es = sat(TK - 273.15), ws = EPS * es / (p - es); return (1 / p) * (RD * TK + LVH * ws) / (CP + (LVH * LVH * ws * EPS) / (RD * TK * TK)); }
+    function moistTo(p0, TK, p1) { var p = p0; while (Math.abs(p1 - p) > 1e-6) { var h = p1 > p ? Math.min(5, p1 - p) : Math.max(-5, p1 - p), k1 = lapse(p, TK), k2 = lapse(p + h, TK + k1 * h); TK += 0.5 * (k1 + k2) * h; p += h; } return TK; }
+    function thetaE(p, t, td) { var TK = t + 273.15, TdK = td + 273.15, w = mixr(p, td), TL = 1 / (1 / (TdK - 56) + Math.log(TK / TdK) / 800) + 56; return TK * Math.pow(1000 / p, 0.2854 * (1 - 0.28 * w)) * Math.exp((3.376 / TL - 0.00254) * 1000 * w * (1 + 0.81 * w)); }
+    function el(n, a, txt) { var e = document.createElementNS('http://www.w3.org/2000/svg', n); for (var k in a) e.setAttribute(k, a[k]); if (txt) e.textContent = txt; return e; }
+    function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888'; }
+    function at(rows, p, i) { for (var k = 0; k < rows.length - 1; k++) { var a = rows[k], b = rows[k + 1]; if (a[0] >= p && p >= b[0] && a[i] !== null && b[i] !== null) { var w = Math.log(a[0] / p) / Math.log(a[0] / b[0]); return a[i] + w * (b[i] - a[i]); } } return NaN; }
+    function atZ(rows, z, f) { for (var k = 0; k < rows.length - 1; k++) { var a = rows[k], b = rows[k + 1]; if (a[1] <= z && z <= b[1]) { var va = f(a), vb = f(b); if (va === null || vb === null) continue; var w = (z - a[1]) / Math.max(1, b[1] - a[1]); return va.map(function (q, i) { return q + w * (vb[i] - q); }); } } return null; }
+    function pOfZ(rows, z) { for (var k = 0; k < rows.length - 1; k++) { var a = rows[k], b = rows[k + 1]; if (a[1] <= z && z <= b[1]) { var w = (z - a[1]) / Math.max(1, b[1] - a[1]); return Math.exp(Math.log(a[0]) + w * (Math.log(b[0]) - Math.log(a[0]))); } } return NaN; }
+    function zOfP(rows, p) { return at(rows, p, 1); }
+    function uv(r) { if (r[4] === null || r[5] === null) return null; var a = r[4] * Math.PI / 180, s = r[5] / KMH; return [-s * Math.sin(a), -s * Math.cos(a)]; }   // m/s, toward
+
+    // A parcel from (p0, t0, td0): its path, CAPE and CIN, LCL, LFC and EL
+    function parcel(rows, p0, t0, td0) {
+      var Tk = t0 + 273.15, Tdk = Math.min(td0, t0) + 273.15, TL = 1 / (1 / (Tdk - 56) + Math.log(Tk / Tdk) / 800) + 56, pL = p0 * Math.pow(TL / Tk, 1 / 0.2854);
+      var path = [], cape = 0, cin = 0, lfc = null, elp = null, li = NaN, Tp = TL, pm = pL, top = Math.max(rows[rows.length - 1][0], 120), cinAcc = 0;
+      for (var p = p0; p >= top; p -= 5) {
+        var tp = p >= pL ? Tk * Math.pow(p / p0, 0.2854) : (Tp = moistTo(pm, Tp, p), pm = p, Tp), te = at(rows, p, 2) + 273.15;
+        if (!isFinite(te)) continue;
+        path.push([p, tp - 273.15, te - 273.15]);
+        if (p < p0) { var b = RD * (tp - te) * Math.log((p + 5) / p);
+          if (tp > te && p <= pL) { if (lfc === null) { lfc = p; cin = cinAcc; } cape += b; elp = p; } else if (lfc === null) cinAcc += Math.min(0, b); }
+        if (p <= 500 && !isFinite(li)) li = te - tp;
+      }
+      return { path: path, cape: cape, cin: lfc === null ? 0 : cin, li: li, pL: pL, lfc: lfc, el: elp };
+    }
+    function analyse(S) {
+      var rows = S.rows.filter(function (r) { return r[2] !== null && r[3] !== null; }), s = rows[0], z0 = s[1];
+      var sb = parcel(rows, s[0], s[2], s[3]);
+      // mixed layer: the lowest 100 hPa, mean potential temperature and mixing ratio
+      var th = 0, w = 0, n = 0; rows.forEach(function (r) { if (r[0] >= s[0] - 100) { th += (r[2] + 273.15) * Math.pow(1000 / r[0], 0.2854); w += mixr(r[0], r[3]); n++; } });
+      th /= n; w /= n; var tMl = th * Math.pow(s[0] / 1000, 0.2854) - 273.15, eMl = w * s[0] / (EPS + w), tdMl = 243.5 * Math.log(eMl / 6.112) / (17.67 - Math.log(eMl / 6.112));
+      var ml = parcel(rows, s[0], tMl, tdMl);
+      // most unstable: the highest theta-e in the lowest 300 hPa
+      var best = null; rows.forEach(function (r) { if (r[0] >= s[0] - 300) { var te = thetaE(r[0], r[2], r[3]); if (!best || te > best.te) best = { te: te, r: r }; } });
+      var mu = parcel(rows, best.r[0], best.r[2], best.r[3]), muMr = mixr(best.r[0], best.r[3]) * 1000;
+      var hz = function (p) { return p === null || !isFinite(p) ? null : Math.round(zOfP(rows, p) - z0); };
+      var t700 = at(rows, 700, 2), t500 = at(rows, 500, 2), t850 = at(rows, 850, 2), td850 = at(rows, 850, 3), td700 = at(rows, 700, 3);
+      var z700 = zOfP(rows, 700), z500 = zOfP(rows, 500), lapse75 = (t700 - t500) / (z500 - z700) * 1000;
+      var t3 = atZ(rows, z0 + 3000, function (r) { return [r[2]]; }), lapse03 = t3 ? (s[2] - t3[0]) / 3 : NaN;
+      var fz = null, wbz = null; for (var k = 0; k < rows.length - 1; k++) { var a = rows[k], c = rows[k + 1];
+        if (fz === null && a[2] >= 0 && c[2] < 0) fz = Math.round(a[1] + a[2] / (a[2] - c[2]) * (c[1] - a[1]) - z0);
+        var wa = wetbulb(a[2], a[3], a[0]), wc = wetbulb(c[2], c[3], c[0]); if (wbz === null && wa >= 0 && wc < 0) wbz = Math.round(a[1] + wa / (wa - wc) * (c[1] - a[1]) - z0); }
+      var pw = 0; for (k = 0; k < rows.length - 1; k++) { var a2 = rows[k], c2 = rows[k + 1]; if (a2[0] < 300) break; pw += (mixr(a2[0], a2[3]) + mixr(c2[0], c2[3])) / 2 * (a2[0] - c2[0]) * 100 / 9.81; }
+      var kidx = t850 - t500 + td850 - (t700 - td700), tt = t850 + td850 - 2 * t500;
+      // winds by height above ground
+      var W = function (h) { var v = atZ(rows.filter(function (r) { return r[4] !== null && r[5] !== null; }), z0 + h, function (r) { return uv(r); }); return v; };
+      var w0 = uv(s) || W(10), w1 = W(1000), w6 = W(6000), w3 = W(3000);
+      var shear = function (a, b) { return a && b ? Math.hypot(b[0] - a[0], b[1] - a[1]) : NaN; };
+      var bs01 = shear(w0, w1), bs06 = shear(w0, w6);
+      var mean = [0, 0], nm = 0; for (var hh = 0; hh <= 6000; hh += 250) { var q = W(hh); if (q) { mean[0] += q[0]; mean[1] += q[1]; nm++; } }
+      var storm = null, srh1 = NaN, srh3 = NaN;
+      if (nm && w0 && w6) {
+        mean = [mean[0] / nm, mean[1] / nm]; var su = w6[0] - w0[0], sv = w6[1] - w0[1], sm = Math.hypot(su, sv) || 1;
+        storm = [mean[0] - 7.5 * (sv / sm), mean[1] + 7.5 * (su / sm)];   // Southern Hemisphere left mover, as the outlook
+        var srh = function (top) { var tot = 0, prev = w0; for (var h2 = 250; h2 <= top; h2 += 250) { var c3 = W(h2); if (!c3) continue; tot += (prev[0] - storm[0]) * (c3[1] - storm[1]) - (prev[1] - storm[1]) * (c3[0] - storm[0]); prev = c3; } return -tot; };
+        srh1 = srh(1000); srh3 = srh(3000);
+      }
+      var cape = sb.cape, dirFrom = function (v) { return v ? (Math.atan2(-v[0], -v[1]) * 180 / Math.PI + 360) % 360 : NaN; };
+      var ship = (function () { var cp = mu.cape; if (!(cp > 0) || !isFinite(lapse75) || !isFinite(t500)) return 0; var mr = Math.max(11, Math.min(13.6, muMr || 11)), sh = Math.max(7, Math.min(27, bs06)), t5 = Math.min(t500, -5.5);
+        var v = cp * mr * lapse75 * (-t5) * sh / 42000000; if (cp < 1300) v *= cp / 1300; if (lapse75 < 5.8) v *= lapse75 / 5.8; if (fz && fz < 2400) v *= fz / 2400; return Math.max(0, v); })();
+      var lclM = hz(sb.pL), lclF = lclM <= 1000 ? 1 : Math.max(0, (2000 - lclM) / 1000), cinF = sb.cin >= -50 ? 1 : Math.max(0, (200 + sb.cin) / 150);
+      var stp = (ml.cape / 1500) * lclF * (Math.max(0, -srh1) / 150) * (bs06 < 12.5 ? 0 : Math.min(bs06, 30) / 20) * cinF;
+      var scp = (mu.cape / 1000) * (Math.max(0, -srh3) / 50) * (bs06 < 10 ? 0 : Math.min(bs06, 20) / 20);
+      var dcape = (function () { var src = null; rows.forEach(function (r) { if (r[0] < s[0] - 50 && r[0] >= s[0] - 400) { var te = thetaE(r[0], r[2], r[3]); if (!src || te < src.te) src = { te: te, r: r }; } });
+        if (!src) return NaN; var TK = wetbulb(src.r[2], src.r[3], src.r[0]) + 273.15, p = src.r[0], dc = 0;
+        while (p < s[0]) { var h3 = Math.min(10, s[0] - p), k1 = lapse(p, TK), k2 = lapse(p + h3, TK + k1 * h3); var T1 = TK + 0.5 * (k1 + k2) * h3, d = 0.5 * ((at(rows, p, 2) + 273.15 - TK) + (at(rows, p + h3, 2) + 273.15 - T1)); if (isFinite(d) && d > 0) dc += RD * d * Math.log((p + h3) / p); TK = T1; p += h3; } return dc; })();
+      return { rows: rows, sb: sb, ml: ml, mu: mu, lcl: { p: sb.pL, z: lclM }, lfcZ: hz(sb.lfc), elZ: hz(sb.el), mlLcl: hz(ml.pL), fz: fz, wbz: wbz, pw: pw, kidx: kidx, tt: tt,
+        lapse75: lapse75, lapse03: lapse03, bs01: bs01, bs06: bs06, srh1: srh1, srh3: srh3, storm: storm, stormFrom: dirFrom(storm), stormSpd: storm ? Math.hypot(storm[0], storm[1]) * KMH : NaN,
+        ship: ship, stp: stp, scp: scp, dcape: dcape, t500: t500, muMr: muMr };
+    }
+    function wetbulb(t, td, p) { var e = sat(td), lo = td, hi = t; for (var i = 0; i < 25; i++) { var m = (lo + hi) / 2, f = sat(m) - 0.00066 * p * (1 + 0.00115 * m) * (t - m) - e; if (f > 0) hi = m; else lo = m; } return (lo + hi) / 2; }
+
+    function draw(S) {
+      var A = analyse(S), rows = A.rows, svg = document.getElementById('sk'), line = css('--line'), mut = css('--muted'), txt = css('--text');
+      svg.innerHTML = ''; var cl = el('clipPath', { id: 'cp' }); cl.appendChild(el('rect', { x: L, y: T, width: R - L, height: B - T })); svg.appendChild(cl);
+      var g = el('g', { 'clip-path': 'url(#cp)' }); svg.appendChild(g);
+      [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100].forEach(function (p) { g.appendChild(el('line', { x1: L, x2: R, y1: y(p), y2: y(p), stroke: line, 'stroke-width': 1 })); svg.appendChild(el('text', { x: L - 6, y: y(p) + 4, 'text-anchor': 'end', 'font-size': 11, fill: mut }, String(p))); });
+      for (var t = -100; t <= 50; t += 10) { g.appendChild(el('line', { x1: x(t, P0), y1: y(P0), x2: x(t, P1), y2: y(P1), stroke: t === 0 ? '#3B6FD8' : line, 'stroke-width': t === 0 ? 1.4 : 1 })); if (t >= TMIN) svg.appendChild(el('text', { x: x(t, P0), y: B + 16, 'text-anchor': 'middle', 'font-size': 11, fill: mut }, t + '°')); }
+      for (var th = -30; th <= 170; th += 10) { var d = ''; for (var p = P0; p >= P1; p -= 25) { var tc = (th + 273.15) * Math.pow(p / 1000, 0.2854) - 273.15; d += (d ? 'L' : 'M') + x(tc, p).toFixed(1) + ' ' + y(p).toFixed(1); } g.appendChild(el('path', { d: d, fill: 'none', stroke: '#C9A26B', 'stroke-width': .7, opacity: .55 })); }
+      [-10, 0, 10, 20, 30].forEach(function (t0) { var TK = t0 + 273.15, pp = 1000, d2 = 'M' + x(t0, 1000) + ' ' + y(1000); for (var p = 1000; p >= 200; p -= 20) { TK = moistTo(pp, TK, p); pp = p; d2 += 'L' + x(TK - 273.15, p).toFixed(1) + ' ' + y(p).toFixed(1); } g.appendChild(el('path', { d: d2, fill: 'none', stroke: '#4C9A6A', 'stroke-width': .7, opacity: .45, 'stroke-dasharray': '4 3' })); });
+      var P = A.sb.path, lfc = A.sb.lfc;
+      for (var i = 0; i < P.length - 1; i++) { var a = P[i], b2 = P[i + 1], pos = a[1] > a[2] && a[0] <= A.sb.pL, neg = A.sb.cape > 0 && lfc !== null && a[0] > lfc && a[1] < a[2];
+        if (pos || neg) g.appendChild(el('path', { d: 'M' + x(a[1], a[0]) + ' ' + y(a[0]) + 'L' + x(b2[1], b2[0]) + ' ' + y(b2[0]) + 'L' + x(b2[2], b2[0]) + ' ' + y(b2[0]) + 'L' + x(a[2], a[0]) + ' ' + y(a[0]) + 'Z', fill: pos ? '#D8342B' : '#3B6FD8', opacity: .22 })); }
+      g.appendChild(el('path', { d: P.map(function (q, k) { return (k ? 'L' : 'M') + x(q[1], q[0]).toFixed(1) + ' ' + y(q[0]).toFixed(1); }).join(''), fill: 'none', stroke: txt, 'stroke-width': 1.4, 'stroke-dasharray': '6 4', opacity: .7 }));
+      var path = function (k) { return rows.filter(function (r) { return r[0] >= P1; }).map(function (r, j) { return (j ? 'L' : 'M') + x(r[k], r[0]).toFixed(1) + ' ' + y(r[0]).toFixed(1); }).join(''); };
+      g.appendChild(el('path', { d: path(3), fill: 'none', stroke: '#1E9E52', 'stroke-width': 2.6, 'stroke-linejoin': 'round' }));
+      g.appendChild(el('path', { d: path(2), fill: 'none', stroke: '#D8342B', 'stroke-width': 2.6, 'stroke-linejoin': 'round' }));
+      [['LCL', A.sb.pL], ['LFC', A.sb.lfc], ['EL', A.sb.el]].forEach(function (m) { if (m[1] && isFinite(m[1]) && m[1] >= P1) { var yy = y(m[1]); g.appendChild(el('line', { x1: R - 70, x2: R - 40, y1: yy, y2: yy, stroke: txt, 'stroke-width': 1.5 })); svg.appendChild(el('text', { x: R - 36, y: yy + 4, 'font-size': 11, fill: txt, 'font-weight': 700 }, m[0])); } });
+      var lastY = -99; S.rows.forEach(function (r) { if (r[4] === null || r[5] === null || r[0] < 150 || Math.abs(y(r[0]) - lastY) < 22) return; lastY = y(r[0]); barb(svg, R + 34, y(r[0]), r[4], r[5] / 1.852, txt); });
+      svg.appendChild(el('line', { x1: R + 34, x2: R + 34, y1: T, y2: B, stroke: line }));
+      cards(S, A);
+    }
+    function f0(v, u) { return isFinite(v) && v !== null ? Math.round(v).toLocaleString() + (u || '') : '–'; }
+    function f1(v, u) { return isFinite(v) && v !== null ? v.toFixed(1) + (u || '') : '–'; }
+    function compass(d) { return isFinite(d) ? ['north', 'north-north-east', 'north-east', 'east-north-east', 'east', 'east-south-east', 'south-east', 'south-south-east', 'south', 'south-south-west', 'south-west', 'west-south-west', 'west', 'west-north-west', 'north-west', 'north-north-west'][Math.round(d / 22.5) % 16] : '–'; }
+    function cards(S, A) {
+      var when = new Date(S.utc).toLocaleString('en-AU', { timeZone: 'Australia/Perth', weekday: 'short', day: 'numeric', month: 'short', hour: 'numeric' }), s = A.rows[0];
+      var sec = function (title, list) { return '<h3>' + title + '</h3><table class="ix">' + list.map(function (r) { return '<tr><td>' + r[0] + (r[2] ? '<div class="hint">' + r[2] + '</div>' : '') + '</td><td>' + r[1] + '</td></tr>'; }).join('') + '</table>'; };
+      document.getElementById('ix').innerHTML = '<div class="ix"><h2>' + S.name + '</h2><div class="sub">Balloon launched about ' + when + ' WST' + (S._lib ? ' (from the library)' : '') + '</div>'
+        + sec('Instability', [['CAPE, surface parcel', f0(A.sb.cape, ' J/kg')], ['CAPE, mixed layer (lowest 100 hPa)', f0(A.ml.cape, ' J/kg')], ['CAPE, most unstable', f0(A.mu.cape, ' J/kg')],
+            ['CIN (surface)', A.sb.cape > 0 ? f0(A.sb.cin, ' J/kg') : '–', 'the lid: more negative = harder to start'], ['Lifted index', f1(A.sb.li), 'below −4: strong storms possible'], ['DCAPE', f0(A.dcape, ' J/kg'), 'downdraft strength: over 1,000 = damaging winds'],
+            ['Lapse rate 700–500 hPa', f1(A.lapse75, ' °C/km'), 'over 7: steep, good for hail'], ['Lapse rate 0–3 km', f1(A.lapse03, ' °C/km')]])
+        + sec('Heights (above ground)', [['LCL, cloud base', f0(A.lcl.z, ' m') + ' (' + f0(A.lcl.p, ' hPa') + ')'], ['LCL, mixed layer', f0(A.mlLcl, ' m')], ['LFC, free convection', A.lfcZ === null ? '–' : f0(A.lfcZ, ' m')],
+            ['EL, storm tops', A.elZ === null ? '–' : f0(A.elZ, ' m')], ['Freezing level', f0(A.fz, ' m')], ['Wet-bulb zero', f0(A.wbz, ' m'), 'under about 3,000 m helps hail reach the ground']])
+        + sec('Moisture', [['Surface', f1(s[2], '°') + ', dew point ' + f1(s[3], '°')], ['Precipitable water', f0(A.pw, ' mm')], ['K index', f0(A.kidx), 'over 30: thunderstorms likely'], ['Total totals', f0(A.tt), 'over 50: severe storms possible']])
+        + sec('Wind', [['Bulk shear 0–6 km', f0(A.bs06 * KMH, ' km/h') + ' (' + f0(A.bs06 * 1.944, ' kt') + ')', 'over 70 km/h (40 kt): organised and supercell storms'], ['Bulk shear 0–1 km', f0(A.bs01 * KMH, ' km/h')],
+            ['Helicity 0–1 km', f0(A.srh1, ' m²/s²'), 'negative = the spin Southern Hemisphere supercells use'], ['Helicity 0–3 km', f0(A.srh3, ' m²/s²')],
+            ['Storm motion (left mover)', isFinite(A.stormSpd) ? 'from the ' + compass(A.stormFrom) + ' at ' + f0(A.stormSpd, ' km/h') : '–']])
+        + sec('Severe weather', [['SHIP (hail)', f1(A.ship), 'over 1: hail 5 cm or more possible'], ['SCP (supercells)', f1(A.scp), 'over 1: supercells possible'], ['STP (tornadoes)', f1(A.stp), 'over 1: tornado risk, rare in WA']])
+        + '</div>';
+    }
+    function barb(svg, cx, cy, dir, kt, col) {
+      var g = el('g', { transform: 'translate(' + cx + ' ' + cy + ') rotate(' + dir + ')' }); svg.appendChild(g);
+      if (kt < 2.5) { g.appendChild(el('circle', { r: 3, fill: 'none', stroke: col })); return; }
+      g.appendChild(el('line', { x1: 0, y1: 0, x2: 0, y2: -26, stroke: col, 'stroke-width': 1.4 }));
+      var n = Math.round(kt / 5) * 5, pos = -26;   // Southern Hemisphere: feathers on the left
+      while (n >= 50) { g.appendChild(el('path', { d: 'M0 ' + pos + 'L-9 ' + (pos + 3) + 'L0 ' + (pos + 6) + 'Z', fill: col })); pos += 7; n -= 50; }
+      while (n >= 10) { g.appendChild(el('line', { x1: 0, y1: pos, x2: -10, y2: pos - 4, stroke: col, 'stroke-width': 1.4 })); pos += 4; n -= 10; }
+      if (n >= 5) g.appendChild(el('line', { x1: 0, y1: pos, x2: -5, y2: pos - 2, stroke: col, 'stroke-width': 1.4 }));
+    }
+    function flights(sid) {
+      var sel = document.getElementById('fl'), F = (IDX[sid] && IDX[sid].flights) || [];
+      sel.innerHTML = '<option value="">Latest</option>' + F.map(function (k) { var d = new Date(Date.UTC(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8), +k.slice(8, 10)));
+        return '<option value="' + k + '">' + d.toLocaleString('en-AU', { timeZone: 'Australia/Perth', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric' }) + '</option>'; }).join('');
+    }
+    function show(sid, key) {
+      cur = sid; document.querySelectorAll('#st button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.id === sid); });
+      try { history.replaceState(null, '', '#' + sid + (key ? '-' + key : '')); } catch (e) {}
+      if (!key) { if (D && D.st[sid]) draw(D.st[sid]); else if (IDX[sid] && IDX[sid].flights[0]) show(sid, IDX[sid].flights[0]); return; }
+      fetch(LIB + key.slice(0, 4) + '/' + sid + '-' + key + '.json').then(function (r) { return r.json(); }).then(function (S) { S._lib = true; draw(S); })
+        .catch(function () { document.getElementById('ix').innerHTML = '<p class="mut">That flight couldn\'t be loaded.</p>'; });
+    }
+    var bust = '?t=' + Math.floor(Date.now() / 600000);
+    Promise.all([fetch(LATEST + bust).then(function (r) { return r.json(); }).catch(function () { return { st: {} }; }),
+                 fetch(LIB + 'index.json' + bust).then(function (r) { return r.json(); }).catch(function () { return {}; })]).then(function (res) {
+      D = res[0]; IDX = res[1];
+      var ids = Object.keys(Object.assign({}, IDX, D.st)), info = function (id) { return D.st[id] || IDX[id]; };
+      ids.sort(function (a, b) { return info(b).lat - info(a).lat; });
+      if (!ids.length) { document.getElementById('when').textContent = 'No balloon flights to show yet.'; return; }
+      document.getElementById('st').innerHTML = ids.map(function (id) { return '<button type="button" data-id="' + id + '">' + info(id).name.replace(' Airport', '') + '</button>'; }).join('');
+      document.querySelectorAll('#st button').forEach(function (b) { b.onclick = function () { flights(b.dataset.id); show(b.dataset.id, ''); }; });
+      document.getElementById('fl').onchange = function () { show(cur, this.value); };
+      var h = location.hash.slice(1).split('-'), sid = info(h[0]) ? h[0] : (info('94610') ? '94610' : ids[0]);
+      flights(sid); if (h[1]) document.getElementById('fl').value = h[1]; show(sid, h[1] || '');
+    });
+  })();
   </script>
   <style>
     :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF; color-scheme: light; }
@@ -54,6 +206,7 @@
     <a href="/ripper/">Ripper Weather</a>
     <a href="/tc/">Cyclones</a>
     <a href="/ag/">Farm</a>
+    <a href="/soundings/" class="on" aria-current="page">Balloons</a>
     <a class="kofi-nav" data-kofi href="https://ko-fi.com/westweatherwatchers" target="_blank" rel="noopener" title="Support West WX Watchers on Ko-fi">☕ Support</a>
   </nav>
 
@@ -61,9 +214,10 @@
     <h1>Weather balloons</h1>
     <p class="when" id="when">The latest Bureau of Meteorology balloon flights over WA, drawn as Skew-T diagrams.</p>
     <div class="pills" id="st" role="group" aria-label="Station"></div>
+    <div class="pick"><label for="fl">Flight</label> <select id="fl" aria-label="Choose a flight"><option value="">Latest</option></select></div>
     <div class="grid">
       <div class="card plot"><svg id="sk" viewBox="0 0 620 720" role="img" aria-label="Skew-T diagram"></svg>
-        <div class="key"><span style="color:#D8342B">&#9644; temperature</span> <span style="color:#1E9E52">&#9644; dew point</span> <span style="color:#555">&#9476; lifted parcel (from the ground)</span> <span style="color:#D8342B;opacity:.6">&#9632; CAPE</span> <span style="color:#3B6FD8;opacity:.6">&#9632; CIN</span></div></div>
+        <div class="key"><span style="color:#D8342B">&#9644; temperature</span> <span style="color:#1E9E52">&#9644; dew point</span> <span style="color:#555">&#9476; lifted parcel (from the ground)</span> <span>LCL cloud base · LFC free convection · EL storm tops</span> <span style="color:#D8342B;opacity:.6">&#9632; CAPE</span> <span style="color:#3B6FD8;opacity:.6">&#9632; CIN</span></div></div>
       <div class="card" id="ix"></div>
     </div>
     <p class="mut">Data: Bureau of Meteorology radiosonde flights, from the WMO network via the University of Wyoming upper-air archive. Balloons go up at about 7 am and 7 pm WST (not every station every time). The lifted parcel starts from the surface reading at launch, so a morning flight usually shows less CAPE than the afternoon will have.</p>
@@ -81,85 +235,13 @@
     .mut { color: var(--muted); font-size: 13.5px; }
     table.ix { width: 100%; border-collapse: collapse; font-size: 14.5px; }
     table.ix td { padding: 6px 2px; border-top: 1px solid var(--line); }
-    table.ix td:last-child { text-align: right; font-weight: 600; }
+    table.ix td:last-child { text-align: right; font-weight: 600; white-space: nowrap; padding-left: 10px; }
     .ix h2 { margin: 0 0 4px; font-size: 18px; }
     .ix .sub { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+    .ix h3 { margin: 14px 0 2px; font-size: 14px; color: var(--accent); }
+    .ix .hint { color: var(--muted); font-size: 12px; font-weight: 400; }
+    .pick { margin: -4px 0 12px; font-size: 14px; } .pick select { font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--text); }
   </style>
-  <script>
-  (function () {
-    var SRC = 'https://raw.githubusercontent.com/WWXWAU/wwxw-warnings/nowcast-data/sondes.json';
-    var W = 620, H = 720, L = 44, R = 560, T = 16, B = 690, P0 = 1050, P1 = 100, TMIN = -40, TMAX = 50, SKEW = 0.62;
-    var D, cur;
-    function y(p) { return B - (B - T) * (Math.log(P0 / p) / Math.log(P0 / P1)); }
-    function x(t, p) { return L + (t - TMIN) / (TMAX - TMIN) * (R - L) + (B - y(p)) * SKEW; }
-    var RD = 287.04, CP = 1005.7, LVH = 2.501e6, EPS = 0.622;
-    function sat(t) { return 6.112 * Math.exp(17.67 * t / (t + 243.5)); }
-    function lapse(p, TK) { var es = sat(TK - 273.15), ws = EPS * es / (p - es); return (1 / p) * (RD * TK + LVH * ws) / (CP + (LVH * LVH * ws * EPS) / (RD * TK * TK)); }
-    function moistTo(p0, TK, p1) { var p = p0; while (Math.abs(p1 - p) > 1e-6) { var h = p1 > p ? Math.min(5, p1 - p) : Math.max(-5, p1 - p), k1 = lapse(p, TK), k2 = lapse(p + h, TK + k1 * h); TK += 0.5 * (k1 + k2) * h; p += h; } return TK; }
-    function el(n, a, txt) { var e = document.createElementNS('http://www.w3.org/2000/svg', n); for (var k in a) e.setAttribute(k, a[k]); if (txt) e.textContent = txt; return e; }
-    function css(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#888'; }
-    function envT(rows, p, i) { for (var k = 0; k < rows.length - 1; k++) { var a = rows[k], b = rows[k + 1]; if (a[0] >= p && p >= b[0] && a[i] !== null && b[i] !== null) { var w = Math.log(a[0] / p) / Math.log(a[0] / b[0]); return a[i] + w * (b[i] - a[i]); } } return NaN; }
-    function analyse(rows) {
-      var s = rows[0], Tk = s[2] + 273.15, Tdk = Math.min(s[3], s[2]) + 273.15;
-      var TL = 1 / (1 / (Tdk - 56) + Math.log(Tk / Tdk) / 800) + 56, pL = s[0] * Math.pow(TL / Tk, 1 / 0.2854);
-      var par = [], cape = 0, cin = 0, lfc = false, el_ = null, li = NaN, Tp = TL, pm = pL, last = rows[rows.length - 1][0];
-      for (var p = s[0]; p >= Math.max(last, 150); p -= 5) {
-        var tp = p >= pL ? Tk * Math.pow(p / s[0], 0.2854) : (Tp = moistTo(pm, Tp, p), pm = p, Tp);
-        var te = envT(rows, p, 2) + 273.15; par.push([p, tp - 273.15, te - 273.15]);
-        if (p < s[0]) { var b = RD * (tp - te) * Math.log((p + 5) / p); if (tp > te && p < pL) { lfc = true; cape += b; el_ = p; } else if (!lfc) cin += Math.min(0, b); }
-        if (p <= 500 && !isFinite(li)) li = te - tp;
-      }
-      var pw = 0; for (var k = 0; k < rows.length - 1; k++) { var a = rows[k], c = rows[k + 1]; if (a[3] === null || c[3] === null || a[0] < 300) continue;
-        var q = function (r) { var e = sat(r[3]); return EPS * e / (r[0] - e); }; pw += (q(a) + q(c)) / 2 * (a[0] - c[0]) * 100 / 9.81; }
-      var fz = null; for (k = 0; k < rows.length - 1; k++) if (rows[k][2] >= 0 && rows[k + 1][2] < 0) { var f = rows[k][2] / (rows[k][2] - rows[k + 1][2]); fz = Math.round(rows[k][1] + f * (rows[k + 1][1] - rows[k][1])); break; }
-      var uv = function (r) { var a2 = r[4] * Math.PI / 180; return [-r[5] * Math.sin(a2), -r[5] * Math.cos(a2)]; }, z6 = rows.filter(function (r) { return r[1] - s[1] <= 6000 && r[4] !== null; }).pop();
-      var sh = null; if (z6 && s[4] !== null) { var A = uv(s), Bv = uv(z6); sh = Math.round(Math.hypot(Bv[0] - A[0], Bv[1] - A[1])); }
-      if (!lfc) cin = 0;   // no free convection: CIN means nothing
-      return { par: par, cape: Math.round(cape), cin: Math.round(cin), li: li, pL: pL, pw: pw, fz: fz, sh: sh, lclZ: Math.round(s[1] + (s[2] - s[3]) * 125) };
-    }
-    function draw(sid) {
-      cur = sid; var S = D.st[sid], rows = S.rows.filter(function (r) { return r[2] !== null; }), svg = document.getElementById('sk'), line = css('--line'), mut = css('--muted'), txt = css('--text');
-      svg.innerHTML = ''; var cl = el('clipPath', { id: 'cp' }); cl.appendChild(el('rect', { x: L, y: T, width: R - L, height: B - T })); svg.appendChild(cl);
-      var g = el('g', { 'clip-path': 'url(#cp)' }); svg.appendChild(g);
-      [1000, 925, 850, 700, 500, 400, 300, 250, 200, 150, 100].forEach(function (p) { g.appendChild(el('line', { x1: L, x2: R, y1: y(p), y2: y(p), stroke: line, 'stroke-width': 1 })); svg.appendChild(el('text', { x: L - 6, y: y(p) + 4, 'text-anchor': 'end', 'font-size': 11, fill: mut }, String(p))); });
-      for (var t = -100; t <= 50; t += 10) { g.appendChild(el('line', { x1: x(t, P0), y1: y(P0), x2: x(t, P1), y2: y(P1), stroke: t === 0 ? '#3B6FD8' : line, 'stroke-width': t === 0 ? 1.4 : 1 })); if (t >= TMIN) svg.appendChild(el('text', { x: x(t, P0), y: B + 16, 'text-anchor': 'middle', 'font-size': 11, fill: mut }, t + '°')); }
-      for (var th = -30; th <= 170; th += 10) { var d = ''; for (var p = P0; p >= P1; p -= 25) { var tc = (th + 273.15) * Math.pow(p / 1000, 0.2854) - 273.15; d += (d ? 'L' : 'M') + x(tc, p).toFixed(1) + ' ' + y(p).toFixed(1); } g.appendChild(el('path', { d: d, fill: 'none', stroke: '#C9A26B', 'stroke-width': .7, opacity: .55 })); }
-      [-10, 0, 10, 20, 30].forEach(function (t0) { var TK = t0 + 273.15, pp = 1000, d2 = 'M' + x(t0, 1000) + ' ' + y(1000); for (var p = 1000; p >= 200; p -= 20) { TK = moistTo(pp, TK, p); pp = p; d2 += 'L' + x(TK - 273.15, p).toFixed(1) + ' ' + y(p).toFixed(1); } g.appendChild(el('path', { d: d2, fill: 'none', stroke: '#4C9A6A', 'stroke-width': .7, opacity: .45, 'stroke-dasharray': '4 3' })); });
-      var A = analyse(rows), path = function (k) { return rows.filter(function (r) { return r[k] !== null && r[0] >= P1; }).map(function (r, i) { return (i ? 'L' : 'M') + x(r[k], r[0]).toFixed(1) + ' ' + y(r[0]).toFixed(1); }).join(''); };
-      // CAPE / CIN shading between parcel and environment
-      for (var i = 0; i < A.par.length - 1; i++) { var a = A.par[i], b2 = A.par[i + 1]; if (!isFinite(a[2]) || !isFinite(b2[2])) continue; var pos = a[1] > a[2] && a[0] < A.pL, neg = A.cape > 0 && a[1] < a[2] && !pos;
-        if (pos || (neg && a[0] > (A.par.filter(function (q) { return q[1] > q[2] && q[0] < A.pL; })[0] || [0])[0])) g.appendChild(el('path', { d: 'M' + x(a[1], a[0]) + ' ' + y(a[0]) + 'L' + x(b2[1], b2[0]) + ' ' + y(b2[0]) + 'L' + x(b2[2], b2[0]) + ' ' + y(b2[0]) + 'L' + x(a[2], a[0]) + ' ' + y(a[0]) + 'Z', fill: pos ? '#D8342B' : '#3B6FD8', opacity: .22, stroke: 'none' })); }
-      g.appendChild(el('path', { d: A.par.map(function (q, i2) { return (i2 ? 'L' : 'M') + x(q[1], q[0]).toFixed(1) + ' ' + y(q[0]).toFixed(1); }).join(''), fill: 'none', stroke: txt, 'stroke-width': 1.4, 'stroke-dasharray': '6 4', opacity: .7 }));
-      g.appendChild(el('path', { d: path(3), fill: 'none', stroke: '#1E9E52', 'stroke-width': 2.6, 'stroke-linejoin': 'round' }));
-      g.appendChild(el('path', { d: path(2), fill: 'none', stroke: '#D8342B', 'stroke-width': 2.6, 'stroke-linejoin': 'round' }));
-      // wind barbs (knots) on the right
-      var lastY = -99; rows.forEach(function (r) { if (r[4] === null || r[5] === null || r[0] < 150 || Math.abs(y(r[0]) - lastY) < 22) return; lastY = y(r[0]); barb(svg, R + 34, y(r[0]), r[4], r[5] / 1.852, txt); });
-      svg.appendChild(el('line', { x1: R + 34, x2: R + 34, y1: T, y2: B, stroke: line }));
-      var li = isFinite(A.li) ? A.li.toFixed(1) : '–', rowsI = [
-        ['CAPE (from the ground)', A.cape + ' J/kg'], ['CIN', A.cape > 0 ? A.cin + ' J/kg' : '–'], ['Lifted index', li], ['Cloud base (lifted)', '~' + A.lclZ.toLocaleString() + ' m'],
-        ['Freezing level', A.fz ? A.fz.toLocaleString() + ' m' : '–'], ['Precipitable water', A.pw.toFixed(0) + ' mm'], ['Wind change, ground to 6 km', A.sh !== null ? A.sh + ' km/h' : '–'],
-        ['Surface', rows[0][2].toFixed(1) + '°, dew point ' + rows[0][3].toFixed(1) + '°'], ['500 hPa', (S.lv['500'][0] !== null ? S.lv['500'][0] + '°' : '–')]];
-      document.getElementById('ix').innerHTML = '<div class="ix"><h2>' + S.name + '</h2><div class="sub">Balloon launched about ' + new Date(S.utc).toLocaleString('en-AU', { timeZone: 'Australia/Perth', weekday: 'short', hour: 'numeric', minute: '2-digit' }).replace(':00', '') + ' WST</div><table class="ix">' + rowsI.map(function (r) { return '<tr><td>' + r[0] + '</td><td>' + r[1] + '</td></tr>'; }).join('') + '</table></div>';
-      document.querySelectorAll('#st button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.id === sid); });
-      try { history.replaceState(null, '', '#' + sid); } catch (e) {}
-    }
-    function barb(svg, cx, cy, dir, kt, col) {
-      var g = el('g', { transform: 'translate(' + cx + ' ' + cy + ') rotate(' + dir + ')' }); svg.appendChild(g);
-      if (kt < 2.5) { g.appendChild(el('circle', { r: 3, fill: 'none', stroke: col })); return; }
-      g.appendChild(el('line', { x1: 0, y1: 0, x2: 0, y2: -26, stroke: col, 'stroke-width': 1.4 }));
-      var n = Math.round(kt / 5) * 5, pos = -26;
-      while (n >= 50) { g.appendChild(el('path', { d: 'M0 ' + pos + 'L9 ' + (pos + 3) + 'L0 ' + (pos + 6) + 'Z', fill: col })); pos += 7; n -= 50; }
-      while (n >= 10) { g.appendChild(el('line', { x1: 0, y1: pos, x2: 10, y2: pos - 4, stroke: col, 'stroke-width': 1.4 })); pos += 4; n -= 10; }
-      if (n >= 5) g.appendChild(el('line', { x1: 0, y1: pos, x2: 5, y2: pos - 2, stroke: col, 'stroke-width': 1.4 }));
-    }
-    fetch(SRC + '?t=' + Math.floor(Date.now() / 600000)).then(function (r) { return r.json(); }).then(function (d) {
-      D = d; var ids = Object.keys(d.st).sort(function (a, b) { return d.st[a].lat - d.st[b].lat; }).reverse();
-      if (!ids.length) { document.getElementById('when').textContent = 'No balloon flights in the last 15 hours.'; return; }
-      document.getElementById('st').innerHTML = ids.map(function (id) { return '<button type="button" data-id="' + id + '">' + d.st[id].name.replace(' Airport', '') + '</button>'; }).join('');
-      document.querySelectorAll('#st button').forEach(function (b) { b.onclick = function () { draw(b.dataset.id); }; });
-      var want = location.hash.slice(1); draw(d.st[want] ? want : (d.st['94610'] ? '94610' : ids[0]));
-    }).catch(function () { document.getElementById('when').textContent = 'The balloon data couldn\'t be loaded. Try again shortly.'; });
-  })();
-  </script>
+
 </body>
 </html>
