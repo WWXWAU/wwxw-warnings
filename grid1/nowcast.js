@@ -166,7 +166,7 @@ function main() {
       if (up.length) {
         [[850, 5, 13], [700, 6, 14], [500, 7, null]].forEach(function (L) {
           var a = spread(up, lat, lng, UP_R, 0.5, 'T' + L[0]) * wu; if (isFinite(a)) r[L[1]] = +(num(r[L[1]]) + a).toFixed(1);
-          if (L[2]) { var b = spread(up, lat, lng, UP_R, 0.5, 'D' + L[0]) * wu; if (isFinite(b) && isFinite(num(r[L[2]]))) r[L[2]] = +(num(r[L[2]]) + b).toFixed(1); }
+          if (L[2]) { var b = spread(up, lat, lng, UP_R, 0.5, 'D' + L[0]) * wu * 0.5;   // dew points aloft vary a lot in dry layers: half weight if (isFinite(b) && isFinite(num(r[L[2]]))) r[L[2]] = +(num(r[L[2]]) + b).toFixed(1); }
         });
       }
       for (var i = 0; i < LV.length; i++) if (isFinite(num(r[11 + i])) && num(r[11 + i]) > num(r[3 + i])) r[11 + i] = r[3 + i];
@@ -194,7 +194,7 @@ function main() {
   fs.writeFileSync(path.join(dir, 'anom_hist.json'), JSON.stringify(hist));
   console.log('Nowcast for ' + fmt(now) + ': ' + used.length + ' stations (mean ' + res.sfc.T + '° temp, ' + res.sfc.D + '° dew point against the models, usual differences taken off), '
     + up.length + ' balloons, ' + out.length + ' index rows, ' + changes.length + ' big CAPE changes.');
-  up.forEach(function (u) { console.log('  ' + u.name + ' (' + u.flight + '): 850 ' + u.T850 + '°/' + u.D850 + '° dew, 700 ' + u.T700 + '°/' + u.D700 + '°, 500 ' + u.T500 + '°'); });
+  res.up.forEach(function (u) { console.log('  ' + u.name + ' (' + u.flight + '): 850 hPa ' + u.T850 + '° temp, ' + u.D850 + '° dew; 700 hPa ' + u.T700 + '°, ' + u.D700 + '° dew; 500 hPa ' + u.T500 + '°'); });
   changes.slice(0, 8).forEach(function (c) { console.log('  ' + c.m + ' ' + c.lat + ',' + c.lng + ' ' + c.t + ': CAPE ' + c.from + ' -> ' + c.to + ' (surface ' + c.dT + '°, dew ' + c.dD + '°)'); });
 }
 
