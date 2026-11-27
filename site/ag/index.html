@@ -7,7 +7,6 @@
 <script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');parent.postMessage({wwxwPath:location.pathname},'*');}}catch(e){}</script>
 <style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="robots" content="noindex">
   <meta name="theme-color" content="#FFFFFF">
   <title>Farm forecast — West WX Watchers</title>
   <meta name="description" content="Spraying conditions, Delta T, wind and evapotranspiration forecasts for WA, hour by hour for the week ahead.">
@@ -117,6 +116,7 @@
     <a href="/rivers/">River Levels</a>
     <a href="/ripper/">Ripper Weather</a>
     <a href="/tc/">Cyclones</a>
+    <a href="/ag/" class="on" aria-current="page">Farm</a>
   </nav>
 
   <div class="top">
