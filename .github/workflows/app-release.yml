@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       track:
-        description: 'Google Play track (alpha = closed testing, beta = open testing)'
+        description: 'Google Play track (Testers = our closed test, the default until production access)'
         type: choice
-        options: [alpha, internal, beta, production]
-        default: alpha
+        options: [Testers, internal, alpha, beta, production]
+        default: Testers
       notes:
         description: "What's new (shown on the Play Store)"
         default: 'Improvements and fixes.'
