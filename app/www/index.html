@@ -76,9 +76,10 @@ label.ck small{display:block;color:var(--muted);font-size:12.5px;}
 .gauge .gn small{display:block;color:var(--muted);font-size:12px;}
 .gauge input[type=number]{width:96px;}
 .two{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px;}
-.actions{display:flex;gap:6px;flex-wrap:nowrap;margin:12px 0 10px;position:sticky;bottom:0;background:var(--bg);padding:6px 0 calc(6px + env(safe-area-inset-bottom,0));}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 10px;position:sticky;bottom:0;background:var(--bg);padding:6px 0 calc(6px + env(safe-area-inset-bottom,0));}
 .actions button{min-height:36px;padding:6px 12px;font-size:13px;white-space:nowrap;}
 .actions .main{flex:1;min-height:38px;font-size:14px;border-radius:999px;}
+.acthint{flex-basis:100%;margin:0 2px 2px;font-size:12px;line-height:1.35;color:var(--muted);}
 .note{color:var(--muted);font-size:12.5px;}
 .note a{color:var(--accent);}
 #iosHint ol{margin:6px 0 0 20px;font-size:14px;}
@@ -157,8 +158,9 @@ body.full .tabs,body.full .top{display:none;}   /* a map's full-screen button: t
   <div id="kinds"></div>
 
   <div class="actions">
+    <p class="acthint" id="actHint">Pick your places and alerts, then tap Turn on alerts.</p>
     <button id="onBtn" class="main" onclick="turnOn()">Turn on alerts</button>
-    <button id="testBtn" onclick="sendTest()" disabled>Send a test</button>
+    <button id="testBtn" onclick="sendTest()" disabled>Send test</button>
     <button id="offBtn" onclick="turnOff()" disabled>Turn off</button>
   </div>
 
@@ -422,7 +424,9 @@ function loadLists() {
 
 // ---------------------------------------------------------------- turning alerts on, testing, off
 function setOn(on) {
-  $('onBtn').textContent = on ? 'Save changes' : 'Turn on alerts';
+  $('onBtn').textContent = on ? 'Save my alerts' : 'Turn on alerts';
+  $('actHint').textContent = on ? 'Changed something? Tap Save my alerts. Once saved, tap Send test to check one arrives on this phone.'
+    : 'Pick your places and alerts, then tap Turn on alerts.';
   $('testBtn').disabled = !on; $('offBtn').disabled = !on;
 }
 function supported() { return !!PN && window.PUSH_READY === true; }
@@ -504,7 +508,7 @@ function turnOn() {
     if (!r.ok) throw new Error(r.msg);
     if (r.places) places = r.places;
     if (r.prefs) P = norm(r.prefs);
-    store(); drawPlaces(); drawKinds(); setOn(true); say(r.msg + ' Tap "Send a test" to check.', 'ok');
+    store(); drawPlaces(); drawKinds(); setOn(true); say(r.msg + ' Tap "Send test" to check one arrives.', 'ok');
   }).catch(function (e) { say(String(e.message || e), 'bad'); })
     .then(function () { $('onBtn').disabled = false; });
 }
