@@ -56,7 +56,7 @@ function parcel(prof) {   // prof: [[p, T, Td]...] surface first, pressure falli
     if (tp > te && p < pL) { lfc = true; cape += b; } else if (!lfc) cin += Math.min(0, b);
     if (p <= 500 && !isFinite(li)) li = te - tp;
   }
-  return { cape: cape, cin: cin, li: li };
+  return { cape: cape, cin: lfc ? cin : 0, li: li };   // no free convection: no CIN to speak of
 }
 
 // ---------------------------------------------------------------- model values in space and time
