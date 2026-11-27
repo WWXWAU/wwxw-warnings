@@ -1,0 +1,58 @@
+name: Outlook nowcast
+# Every hour from 8 am to 7 pm WST: the 1-degree outlook's model profiles (grid1-data branch) corrected with Live Obs
+# (temperature and dew point at every BoM and DPIRD station) and this morning's weather balloons (University of
+# Wyoming archive of the Bureau's flights), then the outlook's own index maths again (grid1/nowcast.js).
+# Published to the nowcast-data branch (replaced each time): nowcast_1deg.json.gz, sondes.json, anom_hist.json.
+# A shadow test for now: the outlook scores it against lightning next to the plain outlook before it's used.
+on:
+  schedule:
+    - cron: '20 0-11 * * *'
+    - cron: '50 23 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: nowcast
+  cancel-in-progress: false
+
+jobs:
+  nowcast:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Bring in the models, Live Obs and the last run's files
+        run: |
+          mkdir -p nc
+          git fetch -q --depth 1 origin grid1-data pages
+          for m in ECMWF GFS AIFS GEFS ECENS; do git show origin/grid1-data:raw_$m.json.gz > nc/raw_$m.json.gz 2>/dev/null || rm -f nc/raw_$m.json.gz; done
+          git show origin/pages:obs-live.json > nc/obs-live.json
+          if git fetch -q --depth 1 origin nowcast-data 2>/dev/null; then
+            git show origin/nowcast-data:anom_hist.json > nc/anom_hist.json 2>/dev/null || true
+            git show origin/nowcast-data:sondes.json > nc/sondes.json 2>/dev/null || true
+          fi
+          ls -la nc
+      - name: Weather balloons (when new ones are due)
+        run: |
+          H=$(date -u +%H)
+          # morning flights (23/00 UTC) come in by about 01-03 UTC; evening ones (11/12 UTC) by 13-14 UTC
+          if [ ! -s nc/sondes.json ] || [ "$H" = "00" ] || [ "$H" = "01" ] || [ "$H" = "02" ] || [ "$H" = "03" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            python grid1/sondes.py nc/sondes.json || echo "Balloons not read this time"
+          else echo "Keeping this morning's balloons"; fi
+      - name: Nowcast
+        run: node grid1/nowcast.js nc
+      - name: Publish to the nowcast-data branch
+        run: |
+          mkdir pub && cp nc/nowcast_1deg.json.gz nc/anom_hist.json pub/ && { cp nc/sondes.json pub/ 2>/dev/null || true; }
+          printf '{"made":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%MZ)" > pub/status.json
+          cd pub && git init -q -b nowcast-data && git add -A
+          git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Nowcast"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" nowcast-data
