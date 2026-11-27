@@ -1,0 +1,84 @@
+name: iPhone app
+# Run by hand (Actions tab > iPhone app > Run workflow). Builds the iPhone version of the WWXW app on Apple's Mac
+# build machines. With the App Store Connect secrets set (ASC_ISSUER_ID, ASC_KEY_ID, ASC_KEY_P8) it signs the app
+# and sends it to TestFlight; without them it does a test build only (checks everything compiles).
+# Alerts on iPhone need IOS_GOOGLE_PLIST (Firebase's GoogleService-Info.plist) and the Apple push key in Firebase.
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ios:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Capacitor (with iOS)
+        run: npm install --no-audit --no-fund && npm install --no-audit --no-fund --no-save @capacitor/ios@7
+      - name: Secrets present?
+        env:
+          ASC: ${{ secrets.ASC_KEY_P8 }}
+          PL: ${{ secrets.IOS_GOOGLE_PLIST }}
+        run: |
+          echo "SIGN=$([ -n "$ASC" ] && echo yes || echo no)" >> $GITHUB_ENV
+          if [ -n "$PL" ]; then echo "window.PUSH_READY = true;" > www/build.js; echo "Firebase: yes"; else echo "window.PUSH_READY = false;" > www/build.js; echo "Firebase: not set (alerts can't be turned on in this build)"; fi
+      - name: iOS project
+        env:
+          PL: ${{ secrets.IOS_GOOGLE_PLIST }}
+        run: |
+          npx cap add ios
+          A=ios/App/App
+          # app icon (one 1024 px image; Xcode makes the rest)
+          cp res/ios-icon-1024.png $A/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+          # what the app asks permission for, and alerts in the background
+          P=$A/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSLocationWhenInUseUsageDescription string 'Your location finds the weather, warnings and alerts near you. It stays on your phone.'" $P
+          /usr/libexec/PlistBuddy -c "Add :UIBackgroundModes array" -c "Add :UIBackgroundModes:0 string remote-notification" $P
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" $P
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName WWXW" $P
+          # version: 1.0.<run>, build <run>
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.0.${GITHUB_RUN_NUMBER}" $P
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" $P
+          # push entitlement (TestFlight and the App Store use the production push service)
+          printf '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict><key>aps-environment</key><string>production</string></dict></plist>\n' > $A/App.entitlements
+          # Firebase Cloud Messaging: the same alert system as Android
+          if [ -n "$PL" ]; then printf '%s' "$PL" > $A/GoogleService-Info.plist; fi
+          perl -0pi -e "s/^target 'App' do\n/target 'App' do\n  pod 'FirebaseMessaging'\n/m" ios/App/Podfile
+          grep -n "FirebaseMessaging" ios/App/Podfile
+          python3 ios-patch/AppDelegate-firebase.py
+          gem list xcodeproj -i >/dev/null || sudo gem install xcodeproj --no-document
+          ruby ios-patch/add-files.rb
+          npx cap sync ios
+          grep -n "KeepRunning" $A/config.xml || true
+      - name: Test build (no signing)
+        if: env.SIGN != 'yes'
+        run: |
+          cd ios/App
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO -quiet build
+          echo "::notice::Test build OK. Add the App Store Connect secrets to send builds to TestFlight."
+      - name: Sign and send to TestFlight
+        if: env.SIGN == 'yes'
+        env:
+          KID: ${{ secrets.ASC_KEY_ID }}
+          ISS: ${{ secrets.ASC_ISSUER_ID }}
+          P8: ${{ secrets.ASC_KEY_P8 }}
+        run: |
+          mkdir -p ~/.appstoreconnect/private_keys && printf '%s' "$P8" > ~/.appstoreconnect/private_keys/AuthKey_$KID.p8
+          K=~/.appstoreconnect/private_keys/AuthKey_$KID.p8
+          cd ios/App
+          AUTH="-allowProvisioningUpdates -authenticationKeyPath $K -authenticationKeyID $KID -authenticationKeyIssuerID $ISS"
+          TEAM=$(curl -s -H "Authorization: Bearer $(python3 ../../ios-patch/asc-jwt.py "$K" "$KID" "$ISS")" https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]=com.westweatherwatchers.app | python3 -c "import json,sys;d=json.load(sys.stdin)['data'];print(d[0]['attributes'].get('seedId','') if d else '')")
+          [ -n "$TEAM" ] || { echo "::error::Couldn't find the bundle ID com.westweatherwatchers.app in the Apple account (create it in Certificates, IDs & Profiles)"; exit 1; }
+          echo "Team: $TEAM"
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -destination 'generic/platform=iOS' -archivePath /tmp/WWXW.xcarchive \
+            DEVELOPMENT_TEAM=$TEAM CODE_SIGN_STYLE=Automatic $AUTH -quiet archive
+          printf '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n<plist version="1.0"><dict><key>method</key><string>app-store-connect</string><key>destination</key><string>upload</string><key>teamID</key><string>%s</string><key>signingStyle</key><string>automatic</string></dict></plist>\n' "$TEAM" > /tmp/export.plist
+          xcodebuild -exportArchive -archivePath /tmp/WWXW.xcarchive -exportOptionsPlist /tmp/export.plist -exportPath /tmp/out $AUTH
+          rm -f $K
+          echo "::notice::Sent to App Store Connect: build ${GITHUB_RUN_NUMBER}. It appears in TestFlight after Apple's processing (10-30 minutes)."
