@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<script>/* In the WWXW app (opened with ?app=1) the app's own tab bar replaces this menu */try{if(/[?&]app=1\b/.test(location.search))sessionStorage.setItem('wwxwApp','1');if(sessionStorage.getItem('wwxwApp')==='1'){document.documentElement.classList.add('in-app');parent.postMessage({wwxwPath:location.pathname},'*');}}catch(e){}</script>
+<style>.in-app nav.tabs[aria-label="West WX Watchers"],.in-app .legal{display:none!important}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFFFFF">
+  <title>WWXW Plus — West WX Watchers</title>
+  <meta name="description" content="WWXW Plus: storm alerts for your places, road closure alerts and the full farm forecast. Sign in or check your membership.">
+  <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
+  <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700&display=swap">
+  <script>
+  (function () { var t = null; try { t = localStorage.getItem('wwxw-theme'); } catch (e) {}
+    if (t !== 'light' && t !== 'dark') t = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t); })();
+  </script>
+  <style>
+    :root { --bg: #EEF4F5; --surface: #FFFFFF; --text: #0E2A33; --muted: #4A6470; --line: #C9D8DC; --accent: #0E7C86; --onAccent: #FFFFFF; color-scheme: light; }
+    [data-theme=dark] { --bg: #10232A; --surface: #16303A; --text: #E2EEF0; --muted: #9DB6BD; --line: #28434D; --accent: #3FC1C9; --onAccent: #08181D; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 "Lexend", "Segoe UI", system-ui, Arial, sans-serif; }
+    a { color: var(--accent); }
+    .tabs { display: flex; align-items: center; gap: 4px; height: 40px; padding: 0 10px; background: var(--surface); border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; }
+    .tabs::-webkit-scrollbar { display: none; }
+    .tabs .brand { display: flex; align-items: center; margin-right: 6px; flex-shrink: 0; }
+    .tabs .brand img { width: 26px; height: 26px; border-radius: 6px; }
+    .tabs a:not(.brand) { color: var(--muted); text-decoration: none; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 5px 13px; border-radius: 999px; flex-shrink: 0; }
+    .tabs a:not(.brand):hover { color: var(--text); background: var(--bg); }
+    [data-theme=dark] .tabs .brand img { background: #f8faf9; padding: 2px; }
+    main { max-width: 760px; margin: 0 auto; padding: 28px 20px 40px; }
+    h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; }
+    .when { color: var(--muted); font-size: 14px; margin: 0 0 22px; }
+    .key { background: var(--surface); border: 1px solid var(--line); border-left: 6px solid #D32F2F; border-radius: 14px; padding: 16px 18px; margin: 0 0 26px; }
+    .key p { margin: 0; font-weight: 600; }
+    .key p + p { margin-top: 8px; font-weight: 400; }
+    h2 { font-size: 19px; margin: 28px 0 8px; }
+    p, li { color: var(--text); }
+    li { margin: 4px 0; }
+    .small { color: var(--muted); font-size: 13.5px; }
+    @media (max-width: 600px) { .tabs { height: 30px; padding: 0 5px; gap: 2px; } .tabs .brand img { width: 18px; height: 18px; } .tabs a:not(.brand) { font-size: 11px; padding: 3px 8px; } h1 { font-size: 23px; } }
+  </style>
+</head>
+<body>
+  <nav class="tabs" aria-label="West WX Watchers">
+    <a class="brand" href="/" aria-label="West WX Watchers home"><img src="../brand/wwxw-icon-64.png" alt=""></a>
+    <a href="/">Home</a>
+    <a href="/rainfall/">Rainfall</a>
+    <a href="/obs/">Live Obs</a>
+    <a href="/rivers/">River Levels</a>
+    <a href="/ripper/">Ripper Weather</a>
+    <a href="/tc/">Cyclones</a>
+    <a href="/ag/">Farm</a>
+    <a class="kofi-nav" data-kofi href="https://ko-fi.com/westweatherwatchers" target="_blank" rel="noopener" title="Support West WX Watchers on Ko-fi">☕ Support</a>
+  </nav>
+
+  <main>
+    <h1>WWXW Plus</h1>
+    <p class="when">Storm alerts for your places, road closure alerts and the full farm forecast.</p>
+    <div class="card" id="box"><p class="mut">Checking…</p></div>
+    <div class="card">
+      <h2 style="margin-top:0">What's in Plus</h2>
+      <ul>
+        <li><b>Storm alerts for tomorrow</b> at your places: possible, likely or possibly severe, when, and which way they're coming from.</li>
+        <li><b>Road closure alerts</b> near your places, in your regions or statewide, and again when the road reopens.</li>
+        <li><b>The full farm forecast</b>: 7 days of spraying, Delta T, wind, ET, soil temperature, frost and fog, with frost, spraying and ET alerts.</li>
+        <li><b>More places</b> for your alerts.</li>
+      </ul>
+      <p class="mut">Bureau warnings, heavy rain, wind, lightning, rivers and Ripper Weather alerts stay free for everyone.</p>
+    </div>
+    <p class="mut">Founding testers: sign in with the email you joined the test group with, and Plus is yours free for life.</p>
+  </main>
+  <script src="/plus.js"></script>
+  <script>
+  (function () {
+    var box = document.getElementById('box'), email = '';
+    function esc(s) { return String(s || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+    function plan(s) {
+      if (!s.plus) return '';
+      var w = { founder: 'Founding tester', free: 'Complimentary', paid: 'Paid' }[s.plan] || 'Member';
+      return w + (s.until ? ', until ' + new Date(s.until + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' }) : ', for life');
+    }
+    function signedIn(s) {
+      box.innerHTML = s.plus
+        ? '<p class="big">&#10003; Plus is on</p><p>' + esc(plan(s)) + '</p><p class="mut">Signed in as ' + esc(s.email) + '.</p><button class="sec" id="out">Sign out</button>'
+        : '<p class="big">Signed in</p><p class="mut">' + esc(s.email) + ' isn\'t a Plus member yet. Plus opens soon: monthly or yearly, with a 7-day free trial.</p><button class="sec" id="out">Sign out</button>';
+      document.getElementById('out').onclick = function () { WWXWPlus.signOut(); ask(); };
+    }
+    function ask(msg) {
+      box.innerHTML = '<h2 style="margin-top:0">Sign in</h2><p class="mut">We\'ll email you a 6-digit code. No password needed.</p>'
+        + '<label for="em">Email</label><input id="em" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com" value="' + esc(email) + '">'
+        + '<button id="go">Email me a code</button><p class="msg" id="msg">' + esc(msg || '') + '</p>';
+      var go = document.getElementById('go');
+      go.onclick = function () {
+        email = document.getElementById('em').value.trim(); go.disabled = true; go.textContent = 'Sending…';
+        WWXWPlus.code(email, function (r) { go.disabled = false; go.textContent = 'Email me a code'; if (r.ok) code(r.msg); else document.getElementById('msg').textContent = r.msg; });
+      };
+    }
+    function code(msg) {
+      box.innerHTML = '<h2 style="margin-top:0">Check your email</h2><p class="mut">' + esc(msg) + '</p>'
+        + '<label for="cd">6-digit code</label><input id="cd" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="123456">'
+        + '<button id="ok">Sign in</button> <button class="sec" id="back">Use a different email</button><p class="msg" id="msg"></p>';
+      var ok = document.getElementById('ok');
+      document.getElementById('back').onclick = function () { ask(); };
+      ok.onclick = function () {
+        ok.disabled = true;
+        WWXWPlus.verify(email, document.getElementById('cd').value, function (r) {
+          ok.disabled = false;
+          if (r.ok) signedIn({ plus: r.plus, plan: r.plan, until: r.until, email: r.email }); else document.getElementById('msg').textContent = r.msg;
+        });
+      };
+    }
+    WWXWPlus.status(function (s) { if (s.signedIn) signedIn(s); else ask(); }, true);
+  })();
+  </script>
+  <style>
+    .card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; margin: 0 0 16px; }
+    .mut { color: var(--muted); font-size: 14.5px; }
+    .big { font-size: 22px; font-weight: 700; margin: 0 0 4px; color: var(--accent); }
+    label { display: block; font-weight: 600; margin: 10px 0 6px; }
+    input { width: 100%; font: inherit; font-size: 17px; padding: 11px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); color: var(--text); }
+    button { margin-top: 12px; font: inherit; font-weight: 600; border: 0; border-radius: 999px; padding: 11px 20px; background: var(--accent); color: var(--onAccent); cursor: pointer; }
+    button.sec { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+    button:disabled { opacity: .6; }
+    .msg { color: #C8372B; font-size: 14px; min-height: 1em; }
+  </style>
+</body>
+</html>

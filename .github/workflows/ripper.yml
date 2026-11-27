@@ -23,6 +23,10 @@ jobs:
           mkdir -p out
           git fetch -q --depth 1 origin site-data 2>/dev/null && git show origin/site-data:ripper-history.json > out/ripper-history.json 2>/dev/null || rm -f out/ripper-history.json
       - run: python ripper/ripper.py out/ripper.json
+      - name: WWXW Plus (the full farm forecast kept for members; public copy trimmed once Plus is on)
+        env:
+          PLUS_UPLOAD_KEY: ${{ secrets.PLUS_UPLOAD_KEY }}
+        run: python tools/plus_upload.py out
       - name: Publish to the site-data branch
         run: |
           git fetch -q --depth 1 origin site-data 2>/dev/null || true

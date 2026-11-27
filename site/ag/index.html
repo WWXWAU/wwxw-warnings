@@ -12,6 +12,7 @@
   <meta name="description" content="Spraying conditions, Delta T, wind and evapotranspiration forecasts for WA, hour by hour for the week ahead.">
   <link rel="icon" type="image/png" href="../brand/wwxw-icon-64.png">
   <link rel="apple-touch-icon" href="../brand/wwxw-icon-192.png">
+  <script src="/plus.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&display=swap">
   <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
@@ -45,6 +46,16 @@
     .pills button { flex: none; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 5px 13px; font-size: 13px; font-weight: 500; cursor: pointer; }
     .pills button[aria-pressed=true] { background: var(--accent); border-color: var(--accent); color: var(--onAccent); }
     .layers { margin-left: auto; }
+    .pills button.lk { opacity: .55; }
+    .plusblur { position: relative; }
+    .plusblur > table, .plusblur > .etbars, .plusblur > #etsub { filter: blur(5px); pointer-events: none; user-select: none; }
+    .plusblur::after { content: "All 7 days with WWXW Plus"; position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%); background: var(--accent); color: var(--onAccent); font-weight: 700; font-size: 13px; padding: 7px 14px; border-radius: 999px; white-space: nowrap; }
+    .plusask { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 18px; }
+    .plusask .pa { background: var(--surface); color: var(--text); border-radius: 18px; padding: 20px; max-width: 380px; box-shadow: 0 10px 30px rgba(0,0,0,.3); }
+    .plusask p { color: var(--muted); font-size: 14px; }
+    .plusask .pbtn { display: inline-block; background: var(--accent); color: var(--onAccent); border-radius: 999px; padding: 9px 16px; font-weight: 600; text-decoration: none; }
+    .plusask .pclose { border: 1px solid var(--line); background: transparent; color: var(--text); border-radius: 999px; padding: 8px 14px; font: inherit; cursor: pointer; }
+    .plusask[hidden] { display: none; }
     .layersel { display: none; font-weight: 600; max-width: none; }   /* phones: a dropdown instead of the row of buttons */
     .themebtn { flex: none; width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
     .themebtn svg { width: 16px; height: 16px; }
@@ -333,11 +344,30 @@
       document.getElementById('stamp').textContent = layer === 'frost' || layer === 'fog' ? 'Overnight to ' + dayLong(d) + ' morning'
         : dayLong(d) + (DAILY[layer] ? ', whole day' : ', ' + hourLabel(A.hours[hourI]));
     }
-    function buttons() {
+    // WWXW Plus (plus.js): once Plus is switched on, people outside it see today only; the other days ask them to join
+    var LOCKED = false;
+    function plusPrompt() {
+      var o = document.getElementById('plusAsk'); if (o) { o.hidden = false; return; }
+      o = document.createElement('div'); o.id = 'plusAsk'; o.className = 'plusask';
+      o.innerHTML = '<div class="pa"><b>All 7 days are in WWXW Plus</b><p>Today\'s farm forecast is free. Plus members get the full week of spraying, Delta T, wind, ET, soil, frost and fog, with farm alerts.</p>'
+        + '<a class="pbtn" href="/plus/">Sign in or join Plus</a> <button type="button" class="pclose">Not now</button></div>';
+      o.querySelector('.pclose').onclick = function () { o.hidden = true; };
+      o.addEventListener('click', function (e) { if (e.target === o) o.hidden = true; });
+      document.body.appendChild(o);
+    }
+    function dayButtons() {
       var el = document.getElementById('days');
-      el.innerHTML = A.days.map(function (d, i) { return '<button type="button" data-i="' + i + '" aria-pressed="' + (i === dayI) + '">' + dayLabel(d.date, i) + '</button>'; }).join('');
+      if (LOCKED && dayI > 0) dayI = 0;
+      el.innerHTML = A.days.map(function (d, i) { var lk = LOCKED && i > 0;
+        return '<button type="button" data-i="' + i + '" aria-pressed="' + (i === dayI) + '"' + (lk ? ' class="lk"' : '') + '>' + dayLabel(d.date, i) + (lk ? ' <span aria-label="Plus">&#128274;</span>' : '') + '</button>'; }).join('');
       el.querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () {
+        if (b.classList.contains('lk')) { plusPrompt(); return; }
         dayI = +b.getAttribute('data-i'); el.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); draw(); }); });
+      ['nightcard', 'etcard'].forEach(function (id) { var c = document.getElementById(id); if (c) c.classList.toggle('plusblur', LOCKED); });
+    }
+    if (window.WWXWPlus) WWXWPlus.locked(function (lk) { LOCKED = lk; if (A) { dayButtons(); draw(); } });
+    function buttons() {
+      dayButtons();
       document.querySelectorAll('#layers button').forEach(function (b) { b.addEventListener('click', function () {
         layer = b.getAttribute('data-l'); document.querySelectorAll('#layers button').forEach(function (x) { x.setAttribute('aria-pressed', x === b); });
         document.getElementById('hourBox').hidden = !!DAILY[layer]; draw(); }); });
@@ -511,8 +541,22 @@
 
     // ---- start
     var bust = '?t=' + Math.floor(Date.now() / 600000);
-    Promise.all([fetch(DATA + 'ag.json' + bust).then(function (r) { return r.json(); }), fetch(DATA + 'ripper-geo.json' + bust).then(function (r) { return r.json(); }),
-                 fetch(DATA + 'ag-fine.json' + bust).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })])
+    // Plus members: the full week from the Plus server (Plus.gs); everyone else: the public copy (today only once Plus is on)
+    var PLUS_API = 'https://script.google.com/macros/s/AKfycbyoxJApPxqA86gVVXen0USujHH7OAz3_nEwonfV-8j1G4pWAyKU7aIBRCRxsYZ5DcdJ/exec';
+    function agFetch(f, must) {
+      var pub = fetch(DATA + f + '.json' + bust).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+      if (!must) pub = pub.catch(function () { return null; });
+      var tk = window.WWXWPlus && WWXWPlus.token();
+      if (!tk) return pub;
+      var mem = fetch(PLUS_API + '?page=plusdata&f=' + f + '&t=' + encodeURIComponent(tk)).then(function (r) { return r.json(); }).catch(function () { return null; });
+      return Promise.all([pub, mem]).then(function (x) {
+        var a = x[0], b = x[1] && x[1].days ? x[1] : null;
+        if (!b) return a;
+        if (!a || b.days.length > a.days.length || (b.made || '') >= (a.made || '')) return b;
+        return a;
+      });
+    }
+    Promise.all([agFetch('ag', true), fetch(DATA + 'ripper-geo.json' + bust).then(function (r) { return r.json(); }), agFetch('ag-fine', false)])
       .then(function (res) {
         A = res[0]; GEO = res[1]; A2 = res[2];
         var nowH = +new Date().toLocaleString('en-AU', { hour: 'numeric', hour12: false, timeZone: 'Australia/Perth' });
