@@ -120,15 +120,15 @@
     h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
     /* The four pages: one compact tile each (two across on phones) */
-    .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+    .tiles { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
     .tile { display: flex; flex-direction: column; gap: 4px; text-decoration: none; background: var(--panel);
             border: 1px solid var(--line); border-top: 3px solid var(--tc, var(--accent)); border-radius: 12px; padding: 11px 12px 12px; }
     .tile:hover { border-color: var(--tc, var(--accent)); }
     .tile .th { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 15.5px; color: var(--text); }
     .tile svg { width: 20px; height: 20px; flex: none; stroke: var(--tc, var(--accent)); }
     .tile p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
-    .t-rain { --tc: #2f7fc1; } .t-obs { --tc: #0E7C86; } .t-riv { --tc: #3a6fd8; } .t-rip { --tc: #c99700; } .t-tc { --tc: #8E24AA; } .t-ag { --tc: #3c8d2f; }
-    [data-theme=dark] .t-rain { --tc: #4fc3f7; } [data-theme=dark] .t-obs { --tc: #3FC1C9; } [data-theme=dark] .t-riv { --tc: #82a8ff; } [data-theme=dark] .t-rip { --tc: #F2C230; } [data-theme=dark] .t-tc { --tc: #CE93D8; } [data-theme=dark] .t-ag { --tc: #8bd17c; }
+    .t-rain { --tc: #2f7fc1; } .t-obs { --tc: #0E7C86; } .t-riv { --tc: #3a6fd8; } .t-rip { --tc: #c99700; } .t-tc { --tc: #8E24AA; } .t-ag { --tc: #3c8d2f; } .t-sk { --tc: #D8342B; }
+    [data-theme=dark] .t-rain { --tc: #4fc3f7; } [data-theme=dark] .t-obs { --tc: #3FC1C9; } [data-theme=dark] .t-riv { --tc: #82a8ff; } [data-theme=dark] .t-rip { --tc: #F2C230; } [data-theme=dark] .t-tc { --tc: #CE93D8; } [data-theme=dark] .t-ag { --tc: #8bd17c; } [data-theme=dark] .t-sk { --tc: #FF8A80; }
     /* Ko-fi: a coffee to support the site */
     .support { display: none; align-items: center; gap: 10px; flex-wrap: wrap; margin: 12px 2px 0; }
     .in-app .support { display: flex; }   /* on the website the Support button is in the top menu */
@@ -164,7 +164,7 @@
       color: var(--muted); font-size: 12px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px;
     }
 
-    @media (max-width: 900px) and (min-width: 601px) { .tiles { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px) and (min-width: 601px) { .tiles { grid-template-columns: repeat(3, 1fr); } .tiles .t-sk { grid-column: 1 / -1; } }
     @media (max-width: 600px) {
       .hero { min-height: 78px; padding: 10px 12px; }
       .banner { padding-top: calc(env(safe-area-inset-top, 0px) + 6px); padding-bottom: 4px; }
@@ -172,6 +172,7 @@
       .hero p { display: none; }
       .in-app .hero { display: none; }
       .tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .tiles .t-sk { grid-column: 1 / -1; }
       .tiles .tile:last-child:nth-child(odd) { grid-column: 1 / -1; }   /* the fifth tile: the full width */
       .tile { padding: 9px 10px 10px; }
       .tile .th { font-size: 14.5px; }
@@ -293,6 +294,10 @@
       <a class="tile t-ag" href="/ag/">
         <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"/><path d="M12 13c-3 0-5-2-5-5 3 0 5 2 5 5z"/><path d="M12 10c3 0 5-2 5-5-3 0-5 2-5 5z"/><path d="M12 17c-3 0-5-2-5-5 3 0 5 2 5 5z"/><path d="M12 14c3 0 5-2 5-5-3 0-5 2-5 5z"/></svg>Farm</span>
         <p>Spraying, Delta T, ET, frost and fog for 7 days.</p>
+      </a>
+      <a class="tile t-sk" href="/soundings/">
+        <span class="th"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7.5" r="5.5"/><path d="M12 13v5"/><rect x="10" y="18" width="4" height="3.5" rx=".6"/></svg>Balloons</span>
+        <p>Weather balloon soundings: Skew-T, CAPE, shear and hail risk.</p>
       </a>
     </nav>
     <div class="support">
