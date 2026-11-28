@@ -41,6 +41,7 @@ jobs:
           if git fetch -q --depth 1 origin nowcast-data 2>/dev/null; then
             git show origin/nowcast-data:anom_hist.json > nc/anom_hist.json 2>/dev/null || true
             git show origin/nowcast-data:sondes.json > nc/sondes.json 2>/dev/null || true
+            git show origin/nowcast-data:nowcast_1pm.json.gz > nc/prev_1pm.json.gz 2>/dev/null || true
           fi
           ls -la nc
       - name: Weather balloons (when new ones are due)
@@ -69,6 +70,11 @@ jobs:
       - name: Publish to the nowcast-data branch
         run: |
           mkdir pub && cp nc/nowcast_1deg.json.gz nc/anom_hist.json pub/ && { cp nc/sondes.json pub/ 2>/dev/null || true; }
+          # the 1 pm nowcast is the one scored: keep a copy all day (the outlook saves it any time 1-5 pm)
+          NOW=$(gunzip -c nc/nowcast_1deg.json.gz | python -c "import json,sys;print(json.load(sys.stdin).get('now',''))")
+          echo "Nowcast for $NOW"
+          if [ "${NOW:11:2}" = "13" ]; then cp nc/nowcast_1deg.json.gz pub/nowcast_1pm.json.gz
+          elif [ -s nc/prev_1pm.json.gz ]; then cp nc/prev_1pm.json.gz pub/nowcast_1pm.json.gz; fi
           printf '{"made":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%MZ)" > pub/status.json
           cd pub && git init -q -b nowcast-data && git add -A
           git -c user.name=wwxw-bot -c user.email=actions@users.noreply.github.com commit -qm "Nowcast"
