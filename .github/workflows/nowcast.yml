@@ -4,6 +4,7 @@ name: Outlook nowcast
 # Wyoming archive of the Bureau's flights), then the outlook's own index maths again (grid1/nowcast.js).
 # Published to the nowcast-data branch (replaced each time): nowcast_1deg.json.gz, sondes.json, anom_hist.json.
 # A shadow test for now: the outlook scores it against lightning next to the plain outlook before it's used.
+# The schedule only starts once GitHub has registered it; a manual run fills any gap.
 # Every balloon flight is also kept in the library on the sondes-archive branch (grid1/sondes_archive.py).
 on:
   schedule:

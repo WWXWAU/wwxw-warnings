@@ -166,7 +166,8 @@ function main() {
       if (up.length) {
         [[850, 5, 13], [700, 6, 14], [500, 7, null]].forEach(function (L) {
           var a = spread(up, lat, lng, UP_R, 0.5, 'T' + L[0]) * wu; if (isFinite(a)) r[L[1]] = +(num(r[L[1]]) + a).toFixed(1);
-          if (L[2]) { var b = spread(up, lat, lng, UP_R, 0.5, 'D' + L[0]) * wu * 0.5;   // dew points aloft vary a lot in dry layers: half weight if (isFinite(b) && isFinite(num(r[L[2]]))) r[L[2]] = +(num(r[L[2]]) + b).toFixed(1); }
+          if (L[2]) { var b = spread(up, lat, lng, UP_R, 0.5, 'D' + L[0]) * wu * 0.5;   // dew points aloft vary a lot in dry layers: half weight
+            if (isFinite(b) && isFinite(num(r[L[2]]))) r[L[2]] = +(num(r[L[2]]) + b).toFixed(1); }
         });
       }
       for (var i = 0; i < LV.length; i++) if (isFinite(num(r[11 + i])) && num(r[11 + i]) > num(r[3 + i])) r[11 + i] = r[3 + i];
