@@ -1,0 +1,21 @@
+{
+ "daily": {
+  "keys": {
+   "summaries.soilTemperature": 120
+  },
+  "example": "{\"min\":19.6,\"minTime\":\"2026-11-24T22:10:00Z\",\"max\":34,\"maxTime\":\"2026-11-25T07:20:00Z\",\"avg\":25.2}",
+  "top": "stationCode,stationName,summaries"
+ },
+ "latest": {
+  "keys": {
+   "soilTemperature": 127
+  },
+  "example": "37",
+  "top": "stationCode,stationName,dateTime,airTemperature,airTemperatureMinLast24Hrs,airTemperatureMaxLast24Hrs,airTemperatureLow6PMto9AM,airTemperatureHigh6AMto9PM,apparentTemperature,barometricPressure,relativeHumidity,soilTemperature,dewPoint,deltaT,wetBulb,sprayingConditions,solarExposure,solarIrradiance,wind,etoShortCrop,etoTallCrop,etoShortCropTo3PM,etoTallCropTo3PM,rainfallSince9AM,rainfallTo9AM,rainfallTo3PM,panEvaporation,panEvaporation12AM,panEvaporationTo3PM,erosionConditionSince12AM,frostConditionSince9AM,heatConditionSince12AM,batteryVoltage,errors,links"
+ },
+ "hourly": {
+  "keys": {},
+  "example": null,
+  "top": ""
+ }
+}
