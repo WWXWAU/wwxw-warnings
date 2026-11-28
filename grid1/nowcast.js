@@ -125,6 +125,7 @@ function main() {
     var past = h.filter(function (x) { return x[0] < now - 6 * 3600e3; });   // earlier days only
     var bT = past.length >= 3 ? med(past.map(function (x) { return x[1]; })) : 0, bD = past.length >= 3 ? med(past.map(function (x) { return x[2]; })) : 0;
     var conf = past.length >= 3 ? 1 : 0.5;   // until a station's usual difference is known, half weight
+    for (var j = h.length - 1; j >= 0; j--) if (h[j][0] === now) h.splice(j, 1);   // a re-run in the same hour replaces its entry
     h.push([now, Math.round(aT * 10) / 10, Math.round(aD * 10) / 10]); while (h.length > 10) h.shift();
     used.push({ name: p.name, lat: p.lat, lng: p.lng, T: Math.max(-6, Math.min(6, (aT - bT) * conf)), D: Math.max(-8, Math.min(8, (aD - bD) * conf)), raw: [aT, aD] });
   });
