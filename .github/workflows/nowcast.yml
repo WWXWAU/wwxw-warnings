@@ -11,7 +11,12 @@ on:
     - cron: '20 0-11 * * *'
     - cron: '50 23 * * *'
     - cron: '20 13 * * *'   # 9:20 pm: the evening balloons
-  workflow_dispatch:
+  workflow_dispatch:   # also started hourly by the rainfall project (Push.gs ncKick_), as GitHub's schedule skips runs
+    inputs:
+      balloons:
+        description: 'Read the weather balloons now'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -48,7 +53,7 @@ jobs:
         run: |
           H=$(date -u +%H)
           # morning flights (23/00 UTC) come in by about 01-03 UTC; evening ones (11/12 UTC) by 13-14 UTC
-          if [ ! -s nc/sondes.json ] || [ "$H" = "00" ] || [ "$H" = "01" ] || [ "$H" = "02" ] || [ "$H" = "03" ] || [ "$H" = "13" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          if [ ! -s nc/sondes.json ] || [ "$H" = "00" ] || [ "$H" = "01" ] || [ "$H" = "02" ] || [ "$H" = "03" ] || [ "$H" = "13" ] || [ "${{ inputs.balloons }}" = "true" ]; then
             python grid1/sondes.py nc/sondes.json || echo "Balloons not read this time"
           else echo "Keeping this morning's balloons"; fi
       - name: Keep new flights in the balloon library (sondes-archive branch)
